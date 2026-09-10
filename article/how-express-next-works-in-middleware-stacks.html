@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Express next Works in Middleware Stacks - javascript</title>
+    <meta name="description" content="In Express.js, the middleware stack is an array of functions executed sequentially during an incoming HTTP request's lifecycle, and the next function acts as the internal trigger that passes execution from one layer to the next. This article explains the">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-express-next-works-in-middleware-stacks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Express next Works in Middleware Stacks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-express-next-works-in-middleware-stacks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Express.js, the middleware stack is an array of functions executed sequentially during an incoming HTTP request's lifecycle, and the next function acts as the internal trigger that passes execution from one layer to the next. This article explains the" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-express-next-works-in-middleware-stacks">How Express next
+Works in Middleware Stacks</h1>
+<p>In Express.js, the middleware stack is an array of functions executed
+sequentially during an incoming HTTP request's lifecycle, and the
+<code>next</code> function acts as the internal trigger that passes
+execution from one layer to the next. This article explains the
+mechanics of how Express orchestrates these middleware functions, how
+calling <code>next()</code> navigates the execution chain, how error
+arguments alter this flow, and how to avoid common control flow
+bugs.</p>
+<h2 id="the-architecture-of-express-middleware">The Architecture of
+Express Middleware</h2>
+<p>Middleware functions are JavaScript functions that have access to the
+request object (<code>req</code>), the response object
+(<code>res</code>), and the next middleware function in the
+application’s request-response cycle, traditionally named
+<code>next</code>.</p>
+<p>Every time an application registers a middleware via
+<code>app.use()</code>, <code>app.get()</code>, or similar routing
+methods, Express pushes that function into an internal routing stack.
+The basic signature looks like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">myMiddleware</span>(req<span class="op">,</span> res<span class="op">,</span> next) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Logic goes here</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">next</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="how-the-next-function-passes-control">How the <code>next</code>
+Function Passes Control</h2>
+<p>When a client sends an HTTP request, Express enters the top of its
+middleware array. It invokes the first matching function, providing
+<code>req</code>, <code>res</code>, and a bound reference to its
+internal dispatch pointer—the <code>next</code> function.</p>
+<ol type="1">
+<li><strong>Invocation:</strong> The current middleware executes its
+logic.</li>
+<li><strong>Delegation:</strong> When <code>next()</code> is called,
+Express advances its internal array index by one.</li>
+<li><strong>Execution:</strong> Express finds the next middleware in
+line whose path and HTTP method match the incoming request and executes
+it with the same <code>req</code> and <code>res</code> objects.</li>
+</ol>
+<p>If a middleware does not call <code>next()</code> and does not
+finalize the response (using methods like <code>res.send()</code>,
+<code>res.json()</code>, or <code>res.end()</code>), the client request
+is left hanging, eventually timing out.</p>
+<h2 id="passing-control-vs-terminating-the-cycle">Passing Control vs.
+Terminating the Cycle</h2>
+<p>A middleware must perform one of two actions to ensure proper
+lifecycle management:</p>
+<ul>
+<li><strong>Pass control downstream:</strong> Call <code>next()</code>
+to allow subsequent middleware or route handlers to process the request
+(e.g., logging, parsing request bodies, verifying authentication
+tokens).</li>
+<li><strong>Terminate the cycle:</strong> Send an HTTP response
+directly. Once a response is finalized, calling <code>next()</code> is
+generally unnecessary and can lead to unexpected behavior if downstream
+middleware attempts to modify headers that have already been sent.</li>
+</ul>
+<p>Because <code>next()</code> does not halt the execution of the
+current function, subsequent code inside the middleware will still run
+unless explicitly returned:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">use</span>((req<span class="op">,</span> res<span class="op">,</span> next) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>req<span class="op">.</span><span class="at">headers</span><span class="op">.</span><span class="at">authorization</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> res<span class="op">.</span><span class="fu">status</span>(<span class="dv">401</span>)<span class="op">.</span><span class="fu">send</span>(<span class="st">&quot;Unauthorized&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">next</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="error-handling-with-nexterr">Error Handling with
+<code>next(err)</code></h2>
+<p>The <code>next</code> function also controls Express's error-handling
+mechanism. When any value (except the strings <code>'route'</code> or
+<code>'router'</code>) is passed as an argument to <code>next()</code>,
+Express interprets this as an error state.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">use</span>((req<span class="op">,</span> res<span class="op">,</span> next) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">performRiskyOperation</span>()<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">next</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (err) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">next</span>(err)<span class="op">;</span> <span class="co">// Signals an error to Express</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When invoked with an argument, such as
+<code>next(new Error("Database failure"))</code>, Express immediately
+bypasses all remaining standard middleware in the stack and jumps
+directly to the nearest error-handling middleware. Error-handling
+middleware is identified specifically by having four parameters:
+<code>(err, req, res, next)</code>.</p>
+<h2 id="specialized-flow-control-nextroute-and-nextrouter">Specialized
+Flow Control: <code>next('route')</code> and
+<code>next('router')</code></h2>
+<p>Express provides special string arguments for <code>next</code> to
+bypass subsets of the middleware chain:</p>
+<ul>
+<li><code>next('route')</code>: Works exclusively inside route handlers
+assigned via <code>app.METHOD()</code> or <code>router.METHOD()</code>.
+It skips the remaining middleware callbacks attached to the current
+route stack and passes control to the next matching route.</li>
+<li><code>next('router')</code>: Skips all middleware attached to the
+current router instance and passes control back to the parent router
+stack.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

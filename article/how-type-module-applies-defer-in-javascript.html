@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How type="module" Applies Defer in JavaScript - javascript</title>
+    <meta name="description" content="When you include a script using the type="module" attribute, modern browsers automatically treat that script as deferred by default. This article explains how the HTML specification implements this behavior, why JavaScript modules require non-blocking lo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-type-module-applies-defer-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How type="module" Applies Defer in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-type-module-applies-defer-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When you include a script using the type="module" attribute, modern browsers automatically treat that script as deferred by default. This article explains how the HTML specification implements this behavior, why JavaScript modules require non-blocking lo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-typemodule-applies-defer-in-javascript">How type="module"
+Applies Defer in JavaScript</h1>
+<p>When you include a script using the <code>type="module"</code>
+attribute, modern browsers automatically treat that script as deferred
+by default. This article explains how the HTML specification implements
+this behavior, why JavaScript modules require non-blocking loading, and
+how module execution integrates with the Document Object Model (DOM)
+parsing cycle.</p>
+<h3 id="the-default-behavior-of-standard-vs-module-scripts">The Default
+Behavior of Standard vs. Module Scripts</h3>
+<p>By default, standard JavaScript scripts
+(<code>&lt;script src="..."&gt;</code>) are parser-blocking. When the
+HTML parser encounters a classic script tag, it pauses parsing the HTML
+document, downloads the script file, executes it immediately, and only
+then resumes building the DOM.</p>
+<p>Adding <code>type="module"</code> to a <code>&lt;script&gt;</code>
+tag fundamentally alters this loading lifecycle. The browser
+automatically applies the <code>defer</code> semantic without requiring
+the explicit <code>defer</code> attribute. The browser initiates the
+download of the module file in parallel with HTML parsing and waits to
+execute the code until the entire HTML document has been fully
+parsed.</p>
+<h3 id="why-modules-are-deferred-by-design">Why Modules Are Deferred by
+Design</h3>
+<p>JavaScript modules rely on the ECMAScript module (ESM) system, which
+allows files to import dependencies using <code>import</code>
+statements.</p>
+<ol type="1">
+<li><strong>Dependency Resolution</strong>: A single module file often
+imports other modules, which may in turn import further dependencies.
+The browser must fetch, parse, and instantiate this entire dependency
+graph before any code can run.</li>
+<li><strong>Performance Protection</strong>: If module scripts blocked
+the HTML parser synchronously while resolving their entire dependency
+tree over the network, page rendering performance would degrade
+significantly.</li>
+<li><strong>DOM Availability</strong>: Modules frequently interact with
+the fully constructed DOM. Deferring execution guarantees that elements
+are available in the document without requiring wrappers like
+<code>DOMContentLoaded</code> event listeners.</li>
+</ol>
+<h3 id="execution-order-and-the-dom-lifecycle">Execution Order and the
+DOM Lifecycle</h3>
+<p>Module scripts behave identically to classic scripts that have the
+<code>defer</code> attribute enabled:</p>
+<ul>
+<li><strong>Non-Blocking Fetching</strong>: External module files and
+all nested static <code>import</code> declarations are downloaded in
+parallel in the background.</li>
+<li><strong>Order Preservation</strong>: Even if smaller dependency
+files finish downloading first, multiple deferred module scripts execute
+in the exact order they appear in the HTML source document.</li>
+<li><strong>Timing</strong>: Execution occurs after the document has
+finished parsing, immediately before the browser fires the
+<code>DOMContentLoaded</code> event.</li>
+</ul>
+<h3 id="overriding-defer-with-the-async-attribute">Overriding Defer with
+the Async Attribute</h3>
+<p>While deferred execution is the default, it is possible to override
+this behavior by adding the <code>async</code> attribute to a module
+script:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> type=</span><span class="st">&quot;module&quot;</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;analytics.js&quot;</span><span class="ot"> async</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>When <code>async</code> is added, the module and its dependency tree
+still download in the background without blocking the parser. However,
+the script will execute immediately once all required files in the
+dependency graph are fetched, regardless of whether the HTML parser has
+finished or what order the script appears in the source code.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

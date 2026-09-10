@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why HTML5 AppCache Was Deprecated for Service Workers - javascript</title>
+    <meta name="description" content="HTML5 Application Cache (AppCache) was introduced to allow web applications to run offline, but critical architectural flaws and unpredictable behaviors quickly made it notoriously difficult to work with. Due to its rigid, declarative model and severe ca">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/why-html5-appcache-was-deprecated-for-service-workers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why HTML5 AppCache Was Deprecated for Service Workers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/why-html5-appcache-was-deprecated-for-service-workers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="HTML5 Application Cache (AppCache) was introduced to allow web applications to run offline, but critical architectural flaws and unpredictable behaviors quickly made it notoriously difficult to work with. Due to its rigid, declarative model and severe ca" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="why-html5-appcache-was-deprecated-for-service-workers">Why HTML5
+AppCache Was Deprecated for Service Workers</h1>
+<p>HTML5 Application Cache (AppCache) was introduced to allow web
+applications to run offline, but critical architectural flaws and
+unpredictable behaviors quickly made it notoriously difficult to work
+with. Due to its rigid, declarative model and severe caching bugs, the
+web standards community formally deprecated AppCache and replaced it
+with JavaScript Service Workers. Service Workers provide a fully
+programmable, event-driven network proxy that grants developers precise
+control over caching, network requests, and offline functionality.</p>
+<h3 id="the-fundamental-flaws-of-appcache">The Fundamental Flaws of
+AppCache</h3>
+<p>AppCache relied on a static text manifest file listing files to be
+cached. While simple in theory, this declarative approach had several
+major issues:</p>
+<ul>
+<li><strong>The All-or-Nothing Update Model:</strong> AppCache only
+updated resources if the manifest file itself changed by at least one
+byte. Even then, changes only took effect on the <em>subsequent</em>
+visit. Users were consistently served stale content on their first
+reload after an update, requiring a second reload to see new
+changes.</li>
+<li><strong>The "Master Entry" Trap:</strong> Any HTML page that
+referenced the cache manifest was automatically cached itself,
+regardless of whether it was listed in the manifest. This made it nearly
+impossible to implement dynamic, user-specific, or authenticated pages,
+as private or frequently updated pages would be permanently stored on
+the client.</li>
+<li><strong>Brittle Failure Modes:</strong> If a single file referenced
+in the manifest failed to download (e.g., due to a 404 error or a
+temporary network drop), the entire update failed, and the browser
+discarded the update while keeping the old cache intact.</li>
+<li><strong>No Programmatic Logic:</strong> Developers had no way to
+inspect requests, create conditional fallbacks, or choose between
+strategies like "Network First" or "Cache First" based on network
+health.</li>
+</ul>
+<h3 id="why-service-workers-succeeded">Why Service Workers
+Succeeded</h3>
+<p>Service Workers addressed these shortcomings by replacing the static
+manifest with a scriptable, background worker that acts as a client-side
+programmable proxy.</p>
+<ul>
+<li><strong>Imperative Request Interception:</strong> Service Workers
+listen to <code>fetch</code> events, giving developers full programmatic
+control over how every single HTTP request is handled. Responses can be
+served from the Cache API, fetched from the network, generated
+dynamically, or mixed according to custom logic.</li>
+<li><strong>Clear, Deterministic Lifecycle:</strong> The lifecycle of a
+Service Worker (<code>install</code>, <code>activate</code>,
+<code>fetch</code>) is explicit. Developers can precache assets during
+the <code>install</code> phase, purge old caches during the
+<code>activate</code> phase, and immediately claim clients without
+confusing reload loops.</li>
+<li><strong>Custom Caching Strategies:</strong> Developers are not
+locked into a single caching behavior. Service Workers make it
+straightforward to implement established patterns such as
+Stale-While-Revalidate, Cache-First with Network Fallback, or
+Network-Only for dynamic endpoints.</li>
+<li><strong>Extensibility Beyond Caching:</strong> Unlike AppCache,
+which was solely a storage mechanism, Service Workers provide a platform
+for modern Progressive Web App (PWA) capabilities, including Web Push
+notifications and Background Synchronization.</li>
+</ul>
+<p>Because of these capabilities, major browser vendors officially
+removed AppCache support, establishing Service Workers as the standard
+foundation for offline web development.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

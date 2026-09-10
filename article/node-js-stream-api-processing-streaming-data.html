@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js Stream API: Processing Streaming Data - javascript</title>
+    <meta name="description" content="The Node.js Stream API allows applications to handle large volumes of data sequentially by reading and writing it piece by piece, rather than loading entire datasets into memory all at once. This article explains the fundamental mechanics of streams in N">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/node-js-stream-api-processing-streaming-data">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Node.js Stream API: Processing Streaming Data - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/node-js-stream-api-processing-streaming-data" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Node.js Stream API allows applications to handle large volumes of data sequentially by reading and writing it piece by piece, rather than loading entire datasets into memory all at once. This article explains the fundamental mechanics of streams in N" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="nodejs-stream-api-processing-streaming-data">Node.js Stream API:
+Processing Streaming Data</h1>
+<p>The Node.js Stream API allows applications to handle large volumes of
+data sequentially by reading and writing it piece by piece, rather than
+loading entire datasets into memory all at once. This article explains
+the fundamental mechanics of streams in Node.js, detailing the core
+types of streams, how internal buffers and chunking work, the concept of
+backpressure, and how developers can utilize the pipeline mechanism to
+build efficient, scalable JavaScript applications.</p>
+<h2 id="what-are-streams-in-nodejs">What Are Streams in Node.js?</h2>
+<p>Streams are instances of EventEmitter in Node.js used for handling
+streaming data. Instead of loading an entire file, HTTP payload, or
+database response into RAM, a stream splits the data into smaller
+segments called chunks. These chunks are processed continuously over
+time, drastically reducing memory consumption and lowering latency since
+processing can start before the entire payload is received.</p>
+<h2 id="the-four-fundamental-stream-types">The Four Fundamental Stream
+Types</h2>
+<p>Node.js provides four primary types of streams in the native
+<code>stream</code> module:</p>
+<ol type="1">
+<li><strong>Readable Streams:</strong> Abstractions for sources of data
+from which you can read (e.g., <code>fs.createReadStream</code>,
+<code>http.IncomingMessage</code>).</li>
+<li><strong>Writable Streams:</strong> Abstractions for destinations to
+which you can write data (e.g., <code>fs.createWriteStream</code>,
+<code>http.ServerResponse</code>).</li>
+<li><strong>Duplex Streams:</strong> Streams that implement both
+Readable and Writable interfaces independently (e.g., a TCP socket via
+<code>net.Socket</code>).</li>
+<li><strong>Transform Streams:</strong> A type of Duplex stream where
+the output is computed based on the input (e.g.,
+<code>zlib.createGzip</code> for compression or
+<code>crypto.createCipher</code> for encryption).</li>
+</ol>
+<h2 id="how-data-processing-works">How Data Processing Works</h2>
+<p>The Stream API processes data through a combination of internal
+buffers, event emissions, and chunk management.</p>
+<h3 id="1-chunking-and-internal-buffering">1. Chunking and Internal
+Buffering</h3>
+<p>When a Readable stream reads data, it fetches it in chunks determined
+by an internal configuration parameter called <code>highWaterMark</code>
+(defaulting to 64KB for normal streams or 16 objects for object-mode
+streams). Data is placed in an internal buffer until consumer code reads
+it.</p>
+<h3 id="2-reading-modes">2. Reading Modes</h3>
+<p>Readable streams operate in one of two modes:</p>
+<ul>
+<li><strong>Flowing Mode:</strong> Data is read from the underlying
+system automatically and provided to an application as quickly as
+possible using EventEmitter events such as <code>data</code>.</li>
+<li><strong>Paused Mode:</strong> The stream pauses data generation. The
+consumer must explicitly call <code>stream.read()</code> to fetch chunks
+from the buffer.</li>
+</ul>
+<p>A stream can switch from paused to flowing mode by adding a
+<code>data</code> event listener or by invoking the <code>pipe()</code>
+method.</p>
+<h3 id="3-writing-and-the-drain-event">3. Writing and the Drain
+Event</h3>
+<p>When sending data to a Writable stream using
+<code>writable.write(chunk)</code>, the method returns a boolean:</p>
+<ul>
+<li><code>true</code>: The chunk was written directly or stored within
+the limit of <code>highWaterMark</code>.</li>
+<li><code>false</code>: The internal buffer is full. The producer should
+stop sending data until the stream emits the <code>drain</code> event,
+signaling that the buffer has cleared.</li>
+</ul>
+<h2 id="managing-backpressure">Managing Backpressure</h2>
+<p>Backpressure occurs when data is read faster than it can be written.
+If the producer continues to push data while the consumer is
+overwhelmed, memory usage spikes, leading to potential process
+crashes.</p>
+<p>Node.js manages backpressure by pausing reads when a downstream write
+buffer fills up. When the write buffer clears, reading resumes.</p>
+<h2 id="piping-and-pipelines">Piping and Pipelines</h2>
+<p>The Stream API simplifies data flow and backpressure management
+through piping methods.</p>
+<h3 id="using-pipe">Using <code>pipe()</code></h3>
+<p>The <code>readable.pipe(writable)</code> method connects the output
+of a readable stream directly to the input of a writable or transform
+stream, automatically handling backpressure, pausing, and resuming.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fs <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;fs&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> readStream <span class="op">=</span> fs<span class="op">.</span><span class="fu">createReadStream</span>(<span class="st">&#39;source.txt&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> writeStream <span class="op">=</span> fs<span class="op">.</span><span class="fu">createWriteStream</span>(<span class="st">&#39;destination.txt&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>readStream<span class="op">.</span><span class="fu">pipe</span>(writeStream)<span class="op">;</span></span></code></pre></div>
+<h3 id="using-streampipeline">Using <code>stream.pipeline()</code></h3>
+<p>While <code>pipe()</code> manages flow, it does not automatically
+clean up properly on error. The modern <code>pipeline()</code> method
+(and its promise-based variant <code>stream/promises</code>) connects
+multiple streams, properly propagates errors, and destroys all streams
+safely when the operation finishes or fails:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { pipeline } <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;stream/promises&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fs <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;fs&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> zlib <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;zlib&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">run</span>() {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">pipeline</span>(</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    fs<span class="op">.</span><span class="fu">createReadStream</span>(<span class="st">&#39;input.txt&#39;</span>)<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    zlib<span class="op">.</span><span class="fu">createGzip</span>()<span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    fs<span class="op">.</span><span class="fu">createWriteStream</span>(<span class="st">&#39;input.txt.gz&#39;</span>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">run</span>()<span class="op">.</span><span class="fu">catch</span>(<span class="bu">console</span><span class="op">.</span><span class="fu">error</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="summary">Summary</h2>
+<p>The Node.js Stream API processes data by slicing payloads into
+manageable chunks, streaming them through internal buffers, and
+providing built-in backpressure handling to ensure memory stability. By
+utilizing readable, writable, duplex, and transform streams alongside
+pipeline utilities, JavaScript applications can efficiently process
+high-throughput data streams in real time.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

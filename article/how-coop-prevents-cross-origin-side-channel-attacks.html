@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How COOP Prevents Cross-Origin Side-Channel Attacks - javascript</title>
+    <meta name="description" content="The Cross-Origin Opener Policy (COOP) is a critical security header that protects sensitive JavaScript memory by isolating a web application in its own browsing context group. By instructing the browser to decouple a top-level document from other cross-o">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-coop-prevents-cross-origin-side-channel-attacks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How COOP Prevents Cross-Origin Side-Channel Attacks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-coop-prevents-cross-origin-side-channel-attacks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Cross-Origin Opener Policy (COOP) is a critical security header that protects sensitive JavaScript memory by isolating a web application in its own browsing context group. By instructing the browser to decouple a top-level document from other cross-o" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-coop-prevents-cross-origin-side-channel-attacks">How COOP
+Prevents Cross-Origin Side-Channel Attacks</h1>
+<p>The Cross-Origin Opener Policy (COOP) is a critical security header
+that protects sensitive JavaScript memory by isolating a web application
+in its own browsing context group. By instructing the browser to
+decouple a top-level document from other cross-origin windows, COOP
+severs direct window references and enables operating-system-level
+process isolation. This architectural separation prevents malicious
+origins from using microarchitectural side-channel vulnerabilities, such
+as Spectre, to read sensitive data residing in the JavaScript heap or
+memory space of another origin.</p>
+<h3 id="the-threat-cross-origin-side-channel-attacks">The Threat:
+Cross-Origin Side-Channel Attacks</h3>
+<p>Side-channel attacks, notably hardware vulnerabilities like Spectre,
+exploit speculative execution in modern processors. In a web
+environment, if a malicious website and a target website share the same
+operating system process or execution thread, the attacker can use
+carefully crafted JavaScript and high-resolution timers to measure CPU
+cache timing differences.</p>
+<p>By analyzing these microscopic timing variances, an attacker can
+infer the values of private data residing in memory—such as
+authentication tokens, personal identifiable information (PII), or
+confidential state—even if the browser's standard Same-Origin Policy
+(SOP) forbids direct access.</p>
+<h3 id="how-coop-enforces-memory-isolation">How COOP Enforces Memory
+Isolation</h3>
+<p>When a server sends the
+<code>Cross-Origin-Opener-Policy: same-origin</code> HTTP response
+header, the browser enforces strict boundaries through several
+mechanisms:</p>
+<ol type="1">
+<li><p><strong>Browsing Context Group Separation:</strong> Standard
+browser behavior allows cross-origin windows opened via
+<code>window.open()</code> or hyperlinks with
+<code>target="_blank"</code> to retain a relationship. COOP forces the
+browser to create a brand-new browsing context group for the document,
+ensuring it does not share an execution environment with the
+opener.</p></li>
+<li><p><strong>Severing the <code>window.opener</code>
+Reference:</strong> COOP automatically clears the
+<code>window.opener</code> property, setting it to <code>null</code>.
+Without this reference, the opening and opened windows cannot
+synchronously interact or maintain any scripting context hooks.</p></li>
+<li><p><strong>Operating System Process Isolation:</strong> By isolating
+the browsing context group, COOP allows modern browsers (such as Chrome
+via Site Isolation) to safely place the document into a completely
+distinct operating system process. Because modern OS memory management
+strictly isolates memory spaces between different processes, speculative
+execution side-channel attacks cannot reach across the process boundary
+to read the JavaScript memory of the protected site.</p></li>
+</ol>
+<h3 id="enabling-cross-origin-isolation">Enabling Cross-Origin
+Isolation</h3>
+<p>Beyond passive protection, COOP is a foundational requirement for
+"Cross-Origin Isolation." When combined with the Cross-Origin Embedder
+Policy (<code>COEP: require-corp</code>), a document enters a fully
+isolated state.</p>
+<p>This state guarantees that no cross-origin resources (like images,
+scripts, or iframes) can be loaded without explicit permission, and no
+cross-origin windows can share memory. In return, the browser safely
+re-enables powerful, high-precision features that were previously
+restricted due to side-channel risks, such as
+<code>SharedArrayBuffer</code> and high-resolution performance timers
+(<code>performance.now()</code>).</p>
+<h3 id="summary">Summary</h3>
+<p>Cross-Origin Opener Policy mitigates side-channel risks by moving
+beyond logical access controls to physical memory separation. By
+ensuring that sensitive applications run in dedicated processes without
+accessible DOM references from external sites, COOP renders cross-origin
+memory inspection mathematically and architecturally infeasible.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

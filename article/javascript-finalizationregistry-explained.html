@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript FinalizationRegistry Explained - javascript</title>
+    <meta name="description" content="The FinalizationRegistry object in JavaScript provides a mechanism to request a callback function when a specific object is reclaimed by the garbage collector. This article covers the purpose of FinalizationRegistry, how to implement it with practical co">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-finalizationregistry-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript FinalizationRegistry Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-finalizationregistry-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The FinalizationRegistry object in JavaScript provides a mechanism to request a callback function when a specific object is reclaimed by the garbage collector. This article covers the purpose of FinalizationRegistry, how to implement it with practical co" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-finalizationregistry-explained">JavaScript
+FinalizationRegistry Explained</h1>
+<p>The <code>FinalizationRegistry</code> object in JavaScript provides a
+mechanism to request a callback function when a specific object is
+reclaimed by the garbage collector. This article covers the purpose of
+<code>FinalizationRegistry</code>, how to implement it with practical
+code examples, its main use cases, and the critical caveats and best
+practices you need to consider when managing memory cleanup.</p>
+<h2 id="what-is-finalizationregistry">What is FinalizationRegistry?</h2>
+<p>Introduced in ECMAScript 2021 (ES12),
+<code>FinalizationRegistry</code> allows developers to register objects
+and assign a cleanup callback that executes after those objects have
+been garbage-collected.</p>
+<p>JavaScript automatically manages memory via garbage collection,
+meaning developers do not manually allocate and free memory. However,
+when working with external resources—such as WebAssembly modules, native
+C++ bindings, canvas contexts, or file system handles—JavaScript’s
+engine cannot automatically free the associated non-JavaScript memory.
+<code>FinalizationRegistry</code> bridges this gap by notifying your
+code when the wrapper object is discarded.</p>
+<h2 id="how-finalizationregistry-works">How FinalizationRegistry
+Works</h2>
+<p>To use <code>FinalizationRegistry</code>, you create an instance
+passing a cleanup callback, and then register target objects alongside
+metadata (referred to as the "held value") needed to perform the
+cleanup.</p>
+<h3 id="basic-syntax-and-example">Basic Syntax and Example</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Create a registry with a cleanup callback</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> registry <span class="op">=</span> <span class="kw">new</span> <span class="bu">FinalizationRegistry</span>((heldValue) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Object associated with &#39;</span><span class="sc">${</span>heldValue<span class="sc">}</span><span class="vs">&#39; has been garbage collected.`</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Perform cleanup logic here (e.g., release external resources)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Define an object</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> userSession <span class="op">=</span> { <span class="dt">id</span><span class="op">:</span> <span class="st">&quot;session_123&quot;</span><span class="op">,</span> <span class="dt">active</span><span class="op">:</span> <span class="kw">true</span> }<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Register the object with the registry</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Arguments: target object, held value, [optional unregister token]</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>registry<span class="op">.</span><span class="fu">register</span>(userSession<span class="op">,</span> userSession<span class="op">.</span><span class="at">id</span>)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">// 4. Remove the reference to allow garbage collection</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>userSession <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span></code></pre></div>
+<h3 id="unregistering-objects">Unregistering Objects</h3>
+<p>You can unregister an object before it is garbage collected by
+passing an unregister token (often the object itself or another distinct
+object) during registration:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unregisterToken <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Register with a token</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>registry<span class="op">.</span><span class="fu">register</span>(targetObject<span class="op">,</span> <span class="st">&quot;metadata&quot;</span><span class="op">,</span> unregisterToken)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Unregister before collection occurs</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>registry<span class="op">.</span><span class="fu">unregister</span>(unregisterToken)<span class="op">;</span></span></code></pre></div>
+<h2 id="primary-use-cases">Primary Use Cases</h2>
+<ol type="1">
+<li><strong>Managing External and Native Resources:</strong> Releasing
+memory buffers allocated in WebAssembly or native desktop add-ons when
+their JavaScript wrapper object is collected.</li>
+<li><strong>Monitoring and Diagnostics:</strong> Detecting memory leaks
+or tracking object lifecycles in development and performance profiling
+environments.</li>
+<li><strong>Third-Party Resource Teardown:</strong> Cleaning up
+references in complex architectures where explicit teardown methods
+(<code>destroy()</code>, <code>close()</code>) might be accidentally
+omitted.</li>
+</ol>
+<h2 id="important-caveats-and-limitations">Important Caveats and
+Limitations</h2>
+<ul>
+<li><strong>Non-Deterministic Timing:</strong> Garbage collection timing
+is non-deterministic and controlled entirely by the JavaScript engine.
+Cleanup callbacks may execute long after an object is dereferenced, or
+never at all if the application exits first.</li>
+<li><strong>Not for Critical Logic:</strong>
+<code>FinalizationRegistry</code> should never be relied upon for
+critical business logic or essential state management.</li>
+<li><strong>Held Value References:</strong> The <code>heldValue</code>
+passed to <code>register()</code> must not hold a strong reference to
+the target object. If it does, the target object will never be garbage
+collected, preventing the finalizer from ever running.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

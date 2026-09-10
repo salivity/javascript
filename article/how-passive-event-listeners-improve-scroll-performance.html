@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Passive Event Listeners Improve Scroll Performance - javascript</title>
+    <meta name="description" content="This article explains what passive event listeners are, the scrolling bottleneck they resolve in JavaScript, and how to implement them to enhance web application responsiveness. You will learn how modern browsers process user interactions, why traditiona">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-passive-event-listeners-improve-scroll-performance">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Passive Event Listeners Improve Scroll Performance - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-passive-event-listeners-improve-scroll-performance" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains what passive event listeners are, the scrolling bottleneck they resolve in JavaScript, and how to implement them to enhance web application responsiveness. You will learn how modern browsers process user interactions, why traditiona" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-passive-event-listeners-improve-scroll-performance">How
+Passive Event Listeners Improve Scroll Performance</h1>
+<p>This article explains what passive event listeners are, the scrolling
+bottleneck they resolve in JavaScript, and how to implement them to
+enhance web application responsiveness. You will learn how modern
+browsers process user interactions, why traditional event listeners
+cause input lag during scrolling, and how enabling passive listeners
+allows the browser to deliver smooth, jank-free scrolling on touch and
+wheel events.</p>
+<h2 id="the-problem-scrolling-janky-and-thread-blocking">The Problem:
+Scrolling Janky and Thread Blocking</h2>
+<p>When a user scrolls via a touch screen or a mouse wheel, the browser
+must decide whether to perform the default action (scrolling the page)
+or prevent it. The browser does this by executing any JavaScript
+callbacks bound to events like <code>touchstart</code>,
+<code>touchmove</code>, <code>wheel</code>, or
+<code>mousewheel</code>.</p>
+<p>In standard event listeners, the callback function has the ability to
+call <code>event.preventDefault()</code>, which cancels the scroll.
+Because the browser cannot predict whether the callback will execute
+<code>preventDefault()</code>, it is forced to wait until the JavaScript
+code on the main thread finishes running before it can scroll the
+viewport.</p>
+<p>If the main thread is busy with complex computations, DOM updates, or
+heavy JavaScript execution, this delay leads to noticeable latency,
+stuttering, and dropped frames—a phenomenon commonly referred to as
+"scroll jank."</p>
+<h2 id="what-are-passive-event-listeners">What Are Passive Event
+Listeners?</h2>
+<p>A passive event listener is an event listener configured with a
+specific flag that informs the browser in advance: <em>this listener
+will never call <code>preventDefault()</code>.</em></p>
+<p>By guaranteeing that the default behavior will not be blocked,
+passive event listeners allow the browser's compositor thread to scroll
+the page immediately upon user input, completely independent of whatever
+work is happening on the JavaScript main thread.</p>
+<p>If <code>event.preventDefault()</code> is accidentally called inside
+a passive event handler, the browser ignores the call and generates a
+console warning.</p>
+<h2 id="how-to-implement-passive-event-listeners">How to Implement
+Passive Event Listeners</h2>
+<p>To mark an event listener as passive, pass an options object
+containing <code>passive: true</code> as the third parameter to
+<code>addEventListener</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Standard syntax</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>element<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;touchstart&#39;</span><span class="op">,</span> handleTouch<span class="op">,</span> { <span class="dt">passive</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>element<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;wheel&#39;</span><span class="op">,</span> handleScroll<span class="op">,</span> { <span class="dt">passive</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span></code></pre></div>
+<h3 id="browser-defaults">Browser Defaults</h3>
+<p>Modern browsers automatically treat <code>touchstart</code> and
+<code>touchmove</code> listeners on the <code>window</code>,
+<code>document</code>, and <code>body</code> as passive by default to
+ensure baseline scrolling performance. However, custom scroll
+containers, specific DOM nodes, and <code>wheel</code> listeners
+elsewhere may still default to non-passive unless explicitly
+specified.</p>
+<h2 id="when-to-use-passive-event-listeners">When to Use Passive Event
+Listeners</h2>
+<p>Use passive event listeners whenever you need to monitor user
+gestures or scrolling without altering the default scrolling behavior.
+Common use cases include:</p>
+<ul>
+<li><strong>Scroll Tracking and Analytics:</strong> Recording scroll
+depth or user activity without blocking page movement.</li>
+<li><strong>Scroll-Triggered Animations:</strong> Measuring positions to
+trigger CSS transitions or lazy loading elements.</li>
+<li><strong>Custom Gestures with Unrestricted Panning:</strong>
+Listening to swipe directions where native page scrolling should still
+occur smoothly.</li>
+</ul>
+<h2 id="when-not-to-use-them">When Not to Use Them</h2>
+<p>Do not set <code>passive: true</code> if your application must
+intercept and cancel native scrolling or zooming. Examples include:</p>
+<ul>
+<li>Custom drawing canvases where touch events must not scroll the
+page.</li>
+<li>Custom modal dialogs implementing scroll-locking.</li>
+<li>Drag-and-drop interfaces that rely on
+<code>event.preventDefault()</code> to override standard page
+interactions.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

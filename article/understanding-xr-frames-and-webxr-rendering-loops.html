@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding XR Frames and WebXR Rendering Loops - javascript</title>
+    <meta name="description" content="This article provides an overview of XR frames and explains how JavaScript coordinates rendering loops for virtual reality (VR) using the WebXR Device API. You will learn what an XRFrame represents, how the VR rendering loop differs from traditional scre">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-xr-frames-and-webxr-rendering-loops">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding XR Frames and WebXR Rendering Loops - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-xr-frames-and-webxr-rendering-loops" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of XR frames and explains how JavaScript coordinates rendering loops for virtual reality (VR) using the WebXR Device API. You will learn what an XRFrame represents, how the VR rendering loop differs from traditional scre" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="understanding-xr-frames-and-webxr-rendering-loops">Understanding
+XR Frames and WebXR Rendering Loops</h1>
+<p>This article provides an overview of XR frames and explains how
+JavaScript coordinates rendering loops for virtual reality (VR) using
+the WebXR Device API. You will learn what an <code>XRFrame</code>
+represents, how the VR rendering loop differs from traditional
+screen-based rendering, and the mechanisms JavaScript uses to
+synchronize frame updates with high-refresh VR headsets to eliminate
+latency and motion sickness.</p>
+<h2 id="what-is-an-xr-frame">What is an XR Frame?</h2>
+<p>In the WebXR Device API, an <code>XRFrame</code> represents a
+snapshot of the tracking and presentation state for an immersive session
+at a single moment in time. Rather than representing an actual image or
+pixel buffer, the <code>XRFrame</code> provides access to positional
+data, device orientations, and spatial tracking metrics.</p>
+<p>Each <code>XRFrame</code> is transient and only valid during the
+execution of the frame callback function. It serves as the primary
+gateway to query:</p>
+<ul>
+<li><strong>Viewer Poses:</strong> The current position and orientation
+of the user's head (<code>XRViewerPose</code>).</li>
+<li><strong>Input Sources:</strong> Hand controller positions,
+rotations, and button states.</li>
+<li><strong>Reference Spaces:</strong> Coordinate systems used to place
+virtual objects relative to the real world or the user.</li>
+</ul>
+<h2 id="the-webxr-rendering-loop">The WebXR Rendering Loop</h2>
+<p>Traditional web animations rely on
+<code>window.requestAnimationFrame()</code> to update visual elements at
+the standard monitor refresh rate (typically 60Hz). Virtual reality
+requires much higher and more consistent frame rates (usually 72Hz,
+90Hz, or 120Hz) to prevent visual stutter and motion sickness.</p>
+<p>To handle these hardware demands, WebXR introduces
+<code>XRSession.prototype.requestAnimationFrame()</code>. This method
+synchronizes JavaScript execution directly with the VR headset's native
+display compositor rather than the desktop browser's refresh rate.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">onXRFrame</span>(time<span class="op">,</span> frame) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> session <span class="op">=</span> frame<span class="op">.</span><span class="at">session</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Schedule the next frame</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  session<span class="op">.</span><span class="fu">requestAnimationFrame</span>(onXRFrame)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Retrieve pose and render scene</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> pose <span class="op">=</span> frame<span class="op">.</span><span class="fu">getViewerPose</span>(referenceSpace)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (pose) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Render the scene for each eye</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="how-javascript-synchronizes-vr-rendering">How JavaScript
+Synchronizes VR Rendering</h2>
+<p>Synchronizing the render loop with VR hardware involves several
+coordinated steps between JavaScript, WebGL, the browser engine, and the
+underlying VR runtime (such as OpenXR).</p>
+<h3 id="1-timing-and-callbacks">1. Timing and Callbacks</h3>
+<p>When an immersive session begins, JavaScript registers an animation
+callback using <code>session.requestAnimationFrame</code>. The browser
+coordinates with the XR compositor to invoke this callback at the exact
+moment the hardware requires a new frame. The callback receives a
+high-precision timestamp and the current <code>XRFrame</code>.</p>
+<h3 id="2-pose-prediction-and-querying">2. Pose Prediction and
+Querying</h3>
+<p>To account for the latency between CPU calculation and display
+illumination, the XR runtime predicts where the user's head will be when
+the photons actually hit the display. Within the render loop, calling
+<code>frame.getViewerPose(referenceSpace)</code> provides this predicted
+pose.</p>
+<h3 id="3-multi-view-rendering">3. Multi-View Rendering</h3>
+<p>A typical VR headset contains two displays or splits a single display
+into two views (one for each eye). Inside the loop, the
+<code>XRViewerPose.views</code> array contains an <code>XRView</code>
+for each eye:</p>
+<ul>
+<li>JavaScript binds the WebGL framebuffer provided by the session's
+<code>XRWebGLLayer</code>.</li>
+<li>For each view, the developer adjusts the WebGL viewport to match the
+eye's assigned region on the framebuffer.</li>
+<li>The projection matrix and view matrix are applied to render the 3D
+scene from the perspective of each eye.</li>
+</ul>
+<h3 id="4-frame-submission-and-reprojection">4. Frame Submission and
+Reprojection</h3>
+<p>Once JavaScript finishes drawing the scene and the frame callback
+completes, the browser automatically submits the WebGL canvas to the XR
+compositor.</p>
+<p>If a JavaScript execution spike causes the frame to miss the hardware
+refresh deadline, the XR runtime applies techniques like Asynchronous
+Timewarp (ATW) or reprojection. These techniques take the previous frame
+and warp it based on the latest head movement, maintaining visual
+stability until the next JavaScript frame arrives.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

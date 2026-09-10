@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Sanitizer API Explained - javascript</title>
+    <meta name="description" content="This article provides an overview of the native browser Sanitizer API, examining how it prevents Cross-Site Scripting (XSS) attacks by neutralizing harmful content in arbitrary HTML strings. It covers why traditional sanitization approaches introduce vul">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-sanitizer-api-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Sanitizer API Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-sanitizer-api-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the native browser Sanitizer API, examining how it prevents Cross-Site Scripting (XSS) attacks by neutralizing harmful content in arbitrary HTML strings. It covers why traditional sanitization approaches introduce vul" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-sanitizer-api-explained">JavaScript Sanitizer API
+Explained</h1>
+<p>This article provides an overview of the native browser Sanitizer
+API, examining how it prevents Cross-Site Scripting (XSS) attacks by
+neutralizing harmful content in arbitrary HTML strings. It covers why
+traditional sanitization approaches introduce vulnerabilities, how the
+Sanitizer API operates out of the box with secure defaults, and how
+developers can configure custom parsing rules to safely render
+user-generated content in modern JavaScript applications.</p>
+<h2 id="the-problem-with-traditional-html-sanitization">The Problem with
+Traditional HTML Sanitization</h2>
+<p>Rendering user-controlled HTML has historically been one of the
+primary vectors for DOM-based Cross-Site Scripting (XSS) attacks.
+Standard methods like assigning raw strings to
+<code>element.innerHTML</code> bypass DOM validation and execute
+embedded malicious scripts, such as <code>&lt;script&gt;</code> tags or
+event handlers like <code>onload</code> and <code>onerror</code>.</p>
+<p>To avoid vulnerabilities, developers traditionally relied on heavy
+third-party libraries like DOMPurify or attempted custom regular
+expressions. While third-party libraries are effective, they add bundle
+size, require continuous maintenance, and can occasionally suffer from
+parser-mismatch vulnerabilities—where the sanitizer interprets HTML
+differently than the browser's native parser.</p>
+<h2 id="what-is-the-sanitizer-api">What Is the Sanitizer API?</h2>
+<p>The Sanitizer API is a native browser specification designed to
+handle HTML sanitization directly within the rendering engine. Because
+it is built into the platform, the browser uses its own HTML parser to
+inspect and clean input strings before inserting them into the live
+Document Object Model (DOM).</p>
+<p>By default, the Sanitizer API strips executable elements and
+attributes that present security risks, including:</p>
+<ul>
+<li>Scripting elements (e.g., <code>&lt;script&gt;</code>,
+<code>&lt;object&gt;</code>, <code>&lt;embed&gt;</code>)</li>
+<li>Inline event handlers (e.g., <code>onclick</code>,
+<code>onload</code>, <code>onerror</code>)</li>
+<li>Dangerous URL schemes (e.g., <code>javascript:</code>)</li>
+</ul>
+<h2 id="how-the-sanitizer-api-works">How the Sanitizer API Works</h2>
+<p>The API operates by creating a sanitization context that inspects an
+untrusted string or a DocumentFragment and returns a safe DOM node or
+applies it directly to an element.</p>
+<h3 id="basic-usage-with-sethtml">Basic Usage with
+<code>setHTML()</code></h3>
+<p>The most straightforward implementation is through the
+<code>setHTML()</code> method, which replaces <code>innerHTML</code> for
+injecting dynamic content:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> untrustedInput <span class="op">=</span> <span class="vs">`&lt;p&gt;Hello world! &lt;script&gt;alert(&#39;XSS&#39;)&lt;/script&gt;&lt;img src=&quot;x&quot; onerror=&quot;alert(1)&quot;&gt;&lt;/p&gt;`</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> targetElement <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&quot;content&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a default sanitizer instance</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sanitizer <span class="op">=</span> <span class="kw">new</span> <span class="fu">Sanitizer</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Safely sanitize and insert the HTML</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>targetElement<span class="op">.</span><span class="fu">setHTML</span>(untrustedInput<span class="op">,</span> { sanitizer })<span class="op">;</span></span></code></pre></div>
+<p>In this example, the browser parses the markup, completely removes
+the <code>&lt;script&gt;</code> element, strips the <code>onerror</code>
+attribute from the <code>&lt;img&gt;</code> tag, and safely renders the
+remaining text and valid HTML elements.</p>
+<h3 id="custom-sanitization-configurations">Custom Sanitization
+Configurations</h3>
+<p>While the default configuration blocks standard XSS vectors, you can
+customize the allowed and forbidden elements or attributes depending on
+your application's requirements.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Define custom rules</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> customSanitizer <span class="op">=</span> <span class="kw">new</span> <span class="fu">Sanitizer</span>({</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">allowElements</span><span class="op">:</span> [<span class="st">&quot;b&quot;</span><span class="op">,</span> <span class="st">&quot;i&quot;</span><span class="op">,</span> <span class="st">&quot;em&quot;</span><span class="op">,</span> <span class="st">&quot;strong&quot;</span><span class="op">,</span> <span class="st">&quot;a&quot;</span>]<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">allowAttributes</span><span class="op">:</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;href&quot;</span><span class="op">:</span> [<span class="st">&quot;a&quot;</span>]</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">dropAttributes</span><span class="op">:</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;style&quot;</span><span class="op">:</span> [<span class="st">&quot;*&quot;</span>]</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userComment <span class="op">=</span> <span class="vs">`&lt;a href=&quot;https://example.com&quot; style=&quot;color: red;&quot;&gt;Visit&lt;/a&gt; &lt;script&gt;hack()&lt;/script&gt;`</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>targetElement<span class="op">.</span><span class="fu">setHTML</span>(userComment<span class="op">,</span> { <span class="dt">sanitizer</span><span class="op">:</span> customSanitizer })<span class="op">;</span></span></code></pre></div>
+<p>In this configuration:</p>
+<ul>
+<li>Only specified formatting tags (<code>&lt;b&gt;</code>,
+<code>&lt;i&gt;</code>, <code>&lt;em&gt;</code>,
+<code>&lt;strong&gt;</code>, <code>&lt;a&gt;</code>) are allowed.</li>
+<li>The <code>href</code> attribute is preserved exclusively on
+<code>&lt;a&gt;</code> tags.</li>
+<li>The <code>style</code> attribute is stripped from all elements.</li>
+<li>All non-permitted tags, including <code>&lt;script&gt;</code>, are
+eliminated.</li>
+</ul>
+<h2 id="key-benefits-of-native-sanitization">Key Benefits of Native
+Sanitization</h2>
+<ol type="1">
+<li><strong>Performance:</strong> Native C++ browser implementations
+clean strings significantly faster than JavaScript-based parser
+libraries.</li>
+<li><strong>Parser Consistency:</strong> Because the sanitizer uses the
+browser's own parsing engine, there is no risk of parser-differential
+exploits.</li>
+<li><strong>Zero Dependencies:</strong> Eliminates the need to install,
+bundle, and regularly update third-party sanitization packages.</li>
+<li><strong>Secure by Default:</strong> Developers do not need to
+maintain extensive blocklists of dangerous tags; the baseline
+implementation restricts known script-execution avenues
+automatically.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

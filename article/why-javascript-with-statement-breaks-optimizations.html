@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why JavaScript with Statement Breaks Optimizations - javascript</title>
+    <meta name="description" content="The with statement in JavaScript dynamically alters the runtime scope chain, preventing modern JavaScript engines from performing critical compile-time optimizations. By injecting an arbitrary object directly into the lexical environment, with makes vari">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/why-javascript-with-statement-breaks-optimizations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why JavaScript with Statement Breaks Optimizations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/why-javascript-with-statement-breaks-optimizations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The with statement in JavaScript dynamically alters the runtime scope chain, preventing modern JavaScript engines from performing critical compile-time optimizations. By injecting an arbitrary object directly into the lexical environment, with makes vari" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="why-javascript-with-statement-breaks-optimizations">Why
+JavaScript with Statement Breaks Optimizations</h1>
+<p>The <code>with</code> statement in JavaScript dynamically alters the
+runtime scope chain, preventing modern JavaScript engines from
+performing critical compile-time optimizations. By injecting an
+arbitrary object directly into the lexical environment,
+<code>with</code> makes variable resolution unpredictable until
+execution. This article explains the technical reasons why the
+<code>with</code> statement forces engines to fall back to unoptimized
+execution paths, disables Just-In-Time (JIT) optimizations, and harms
+runtime performance.</p>
+<h2 id="disruption-of-static-lexical-scoping">Disruption of Static
+Lexical Scoping</h2>
+<p>JavaScript relies primarily on lexical scoping, which allows
+compilers like V8, SpiderMonkey, and JavaScriptCore to determine the
+exact location and binding of every variable at parse and compile time.
+When a compiler knows where a variable lives (e.g., in a local stack
+frame or a specific closure context), it assigns it a fixed memory
+offset or register, bypassing expensive dictionary lookups.</p>
+<p>The <code>with</code> statement breaks this model by extending the
+scope chain dynamically at runtime:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculate</span>(obj) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> (obj) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x <span class="op">+</span> y<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>At compile time, the engine cannot determine whether <code>x</code>
+and <code>y</code> are properties of <code>obj</code> or variables from
+an outer scope. If <code>obj</code> has a property <code>x</code>, it
+evaluates to <code>obj.x</code>; if it does not, it resolves to an outer
+variable <code>x</code>. This ambiguity forces the engine to abandon
+static scope resolution inside and around the block.</p>
+<h2 id="degradation-of-variable-lookups">Degradation of Variable
+Lookups</h2>
+<p>Without the <code>with</code> statement, local variable lookups
+compile directly to fast index-based reads from the execution context.
+When <code>with</code> is introduced, every identifier reference inside
+the block must be treated as a dynamic property access.</p>
+<p>For every identifier evaluation inside a <code>with</code> block, the
+engine must:</p>
+<ol type="1">
+<li>Check if the property exists on the target object.</li>
+<li>Traverse the object’s prototype chain if the property is not found
+directly on the instance.</li>
+<li>Fall back to the lexical scope chain only after the prototype chain
+traversal yields no result.</li>
+</ol>
+<p>This process introduces substantial overhead for every variable read
+or write.</p>
+<h2 id="failure-of-inline-caching-and-shape-assumptions">Failure of
+Inline Caching and Shape Assumptions</h2>
+<p>Modern JIT compilers generate optimized machine code based on shapes
+(also known as hidden classes) and Inline Caches (ICs). ICs remember the
+shape of objects passed into operations and generate fast paths assuming
+the structure remains consistent.</p>
+<p>Because any object can be passed to <code>with</code>, and its
+properties can be mutated or dynamically added/removed via
+<code>Object.defineProperty</code> or prototype modifications, JIT
+compilers cannot maintain stable assumptions. Monomorphic operations
+become megamorphic, forcing the engine to de-optimize the surrounding
+function and route lookups through generic, slow runtime routines.</p>
+<h2 id="inhibition-of-compiler-optimizations">Inhibition of Compiler
+Optimizations</h2>
+<p>The uncertainty introduced by <code>with</code> extends beyond
+identifier resolution, inhibiting standard compiler optimization passes
+such as:</p>
+<ul>
+<li><strong>Constant Folding and Propagation:</strong> The compiler
+cannot treat outer constants as immutable within the block because the
+target object might shadow them.</li>
+<li><strong>Dead Code Elimination:</strong> The compiler cannot reliably
+eliminate unused variables or unreachable branches if property lookups
+could trigger side effects via getters or <code>Proxy</code> traps.</li>
+<li><strong>Register Allocation:</strong> Variables that would normally
+be stored in CPU registers must be synchronized with memory structures
+to accommodate dynamic scope inspections.</li>
+</ul>
+<h2 id="deprecation-in-strict-mode">Deprecation in Strict Mode</h2>
+<p>Due to these severe performance implications and the ambiguity it
+introduces into codebases, the <code>with</code> statement is completely
+forbidden in ECMAScript strict mode (<code>"use strict"</code>). Modern
+JavaScript engines optimize heavily for strict mode code, where the
+absence of <code>with</code> guarantees predictable, fully static scope
+chains.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

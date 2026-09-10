@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handling Race Conditions with Redux Saga - javascript</title>
+    <meta name="description" content="Managing complex race conditions in modern JavaScript applications requires precise control over asynchronous execution and timing. Redux Saga addresses these challenges by leveraging ES6 generator functions, providing an intuitive, declarative framework">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/handling-race-conditions-with-redux-saga">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Handling Race Conditions with Redux Saga - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/handling-race-conditions-with-redux-saga" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Managing complex race conditions in modern JavaScript applications requires precise control over asynchronous execution and timing. Redux Saga addresses these challenges by leveraging ES6 generator functions, providing an intuitive, declarative framework" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="handling-race-conditions-with-redux-saga">Handling Race
+Conditions with Redux Saga</h1>
+<p>Managing complex race conditions in modern JavaScript applications
+requires precise control over asynchronous execution and timing. Redux
+Saga addresses these challenges by leveraging ES6 generator functions,
+providing an intuitive, declarative framework to orchestrate complex
+side effects. By treating asynchronous flows as synchronous-looking code
+that pauses and resumes, Redux Saga enables developers to resolve
+competing network requests, handle immediate task cancellations, enforce
+strict timeouts, and ensure that only the most relevant application
+state updates are applied.</p>
+<h3 id="the-problem-of-asynchronous-race-conditions">The Problem of
+Asynchronous Race Conditions</h3>
+<p>Race conditions typically occur when multiple asynchronous
+operations—such as API fetch requests—compete against one another
+without guaranteed completion order. In standard
+<code>async/await</code> and Promise-based patterns, once a Promise is
+initiated, it cannot easily be canceled natively from the outside. If a
+user triggers consecutive search queries, a slower first request might
+resolve after a faster second request, overwriting valid state with
+stale data.</p>
+<h3 id="how-generators-transform-side-effect-control">How Generators
+Transform Side Effect Control</h3>
+<p>ES6 generator functions (<code>function*</code>) fundamentally alter
+this paradigm. Unlike standard functions, generators can yield control
+back to the caller (<code>yield</code>) and pause their execution
+context.</p>
+<p>In Redux Saga, generator functions do not execute asynchronous tasks
+directly. Instead, they <code>yield</code> plain JavaScript objects
+known as "Effects" (instructions like <code>call</code>,
+<code>put</code>, <code>take</code>, or <code>race</code>) to the Redux
+Saga middleware. Because the middleware manages execution and resumption
+via <code>.next()</code>, it retains absolute control over when, how, or
+whether to resume a paused generator. This inversion of control makes
+race resolution and task cancellation straightforward.</p>
+<h3 id="built-in-race-condition-patterns">Built-In Race Condition
+Patterns</h3>
+<p>Redux Saga provides several high-level effect combinators and helper
+sagas tailored specifically for handling competing tasks.</p>
+<h4 id="1-automatic-prior-task-cancellation-with-takelatest">1.
+Automatic Prior Task Cancellation with <code>takeLatest</code></h4>
+<p>The <code>takeLatest</code> helper prevents outdated API requests
+from modifying state. If an action is dispatched while a previous
+instance of the task is still running, <code>takeLatest</code>
+automatically cancels the pending task and starts a new one.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { takeLatest<span class="op">,</span> call<span class="op">,</span> put } <span class="im">from</span> <span class="st">&#39;redux-saga/effects&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span><span class="op">*</span> <span class="fu">fetchSearchResults</span>(action) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> data <span class="op">=</span> <span class="kw">yield</span> <span class="fu">call</span>(api<span class="op">.</span><span class="at">search</span><span class="op">,</span> action<span class="op">.</span><span class="at">payload</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> <span class="fu">put</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;SEARCH_SUCCESS&#39;</span><span class="op">,</span> <span class="dt">payload</span><span class="op">:</span> data })<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (error) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> <span class="fu">put</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;SEARCH_FAILURE&#39;</span><span class="op">,</span> error })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">function</span><span class="op">*</span> <span class="fu">watchSearch</span>() {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">yield</span> <span class="fu">takeLatest</span>(<span class="st">&#39;SEARCH_REQUESTED&#39;</span><span class="op">,</span> fetchSearchResults)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If a user types sequentially into an input, five actions may fire,
+but only the final API call's result will update the store. The previous
+four executions are cleanly terminated mid-flight.</p>
+<h4 id="2-competing-asynchronous-paths-with-the-race-effect">2.
+Competing Asynchronous Paths with the <code>race</code> Effect</h4>
+<p>The <code>race</code> effect combinator mirrors
+<code>Promise.race</code>, but with an essential enhancement: when one
+effect wins the race, Redux Saga automatically cancels all losing
+competitors.</p>
+<p>This is ideal for scenarios like user-triggered cancellations or
+explicit request timeouts:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { race<span class="op">,</span> take<span class="op">,</span> put<span class="op">,</span> call } <span class="im">from</span> <span class="st">&#39;redux-saga/effects&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span><span class="op">*</span> <span class="fu">syncUserData</span>() {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { response<span class="op">,</span> timeout<span class="op">,</span> cancel } <span class="op">=</span> <span class="kw">yield</span> <span class="fu">race</span>({</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">response</span><span class="op">:</span> <span class="fu">call</span>(api<span class="op">.</span><span class="at">fetchLargeDataset</span>)<span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">cancel</span><span class="op">:</span> <span class="fu">take</span>(<span class="st">&#39;CANCEL_SYNC&#39;</span>)<span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timeout</span><span class="op">:</span> <span class="fu">call</span>(delay<span class="op">,</span> <span class="dv">5000</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (response) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> <span class="fu">put</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;SYNC_SUCCESS&#39;</span><span class="op">,</span> <span class="dt">payload</span><span class="op">:</span> response })<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (cancel) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> <span class="fu">put</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;SYNC_CANCELLED_BY_USER&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (timeout) {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> <span class="fu">put</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;SYNC_TIMED_OUT&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If the user dispatches <code>CANCEL_SYNC</code> or the five-second
+delay elapses, <code>fetchLargeDataset</code> is instantly aborted,
+preventing redundant resource consumption and unnecessary state
+mutations.</p>
+<h4 id="3-granular-control-with-fork-and-cancel">3. Granular Control
+with <code>fork</code> and <code>cancel</code></h4>
+<p>For dynamic or distributed race conditions across different lifecycle
+events, Redux Saga provides low-level task control using
+<code>fork</code> (non-blocking call) and <code>cancel</code>.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { take<span class="op">,</span> fork<span class="op">,</span> cancel<span class="op">,</span> put<span class="op">,</span> call } <span class="im">from</span> <span class="st">&#39;redux-saga/effects&#39;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span><span class="op">*</span> <span class="fu">backgroundSync</span>() {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (<span class="kw">true</span>) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">yield</span> <span class="fu">call</span>(api<span class="op">.</span><span class="at">sync</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">yield</span> <span class="fu">call</span>(delay<span class="op">,</span> <span class="dv">10000</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">finally</span> {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">yield</span> <span class="fu">cancelled</span>()) {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="kw">yield</span> <span class="fu">put</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;CLEANUP_RESOURCES&#39;</span> })<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">function</span><span class="op">*</span> <span class="fu">watchSession</span>() {</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (<span class="kw">yield</span> <span class="fu">take</span>(<span class="st">&#39;LOGIN&#39;</span>)) {</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> syncTask <span class="op">=</span> <span class="kw">yield</span> <span class="fu">fork</span>(backgroundSync)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> <span class="fu">take</span>(<span class="st">&#39;LOGOUT&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> <span class="fu">cancel</span>(syncTask)<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Using the <code>finally</code> block alongside the
+<code>cancelled()</code> effect allows generators to perform cleanup
+logic whenever they are terminated preemptively.</p>
+<h3 id="conclusion">Conclusion</h3>
+<p>Redux Saga solves complex race conditions by abstracting asynchronous
+operations into cancellable, declarative effects powered by generator
+functions. By leveraging tools like <code>takeLatest</code>,
+<code>race</code>, and manual cancellation routines, JavaScript
+applications maintain predictable and synchronized application state
+even under heavy concurrent user interactions.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

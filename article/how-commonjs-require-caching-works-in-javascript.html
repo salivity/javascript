@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How CommonJS Require Caching Works in JavaScript - javascript</title>
+    <meta name="description" content="In JavaScript's CommonJS module system, invoking require() loads and evaluates a module only once, subsequently caching its exported value in memory. When require() is called multiple times for the same module within an application, Node.js skips re-read">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-commonjs-require-caching-works-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How CommonJS Require Caching Works in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-commonjs-require-caching-works-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript's CommonJS module system, invoking require() loads and evaluates a module only once, subsequently caching its exported value in memory. When require() is called multiple times for the same module within an application, Node.js skips re-read" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-commonjs-require-caching-works-in-javascript">How CommonJS
+Require Caching Works in JavaScript</h1>
+<p>In JavaScript's CommonJS module system, invoking
+<code>require()</code> loads and evaluates a module only once,
+subsequently caching its exported value in memory. When
+<code>require()</code> is called multiple times for the same module
+within an application, Node.js skips re-reading and re-executing the
+file, returning the stored reference from the internal cache instead.
+This mechanism optimizes performance, maintains consistent module state,
+and resolves potential issues with circular dependencies.</p>
+<h2 id="the-requirecache-registry">The <code>require.cache</code>
+Registry</h2>
+<p>At the core of CommonJS caching is <code>require.cache</code>, an
+internal JavaScript object exposed by the runtime. Every loaded module
+is stored as a property on this object, using its fully resolved
+absolute file path as the key.</p>
+<p>When you execute <code>require('./myModule')</code>, Node.js follows
+this step-by-step resolution process:</p>
+<ol type="1">
+<li><strong>Path Resolution:</strong> It resolves the relative path to
+an absolute path (e.g., <code>/app/src/myModule.js</code>).</li>
+<li><strong>Cache Lookup:</strong> It checks if
+<code>require.cache[resolvedPath]</code> exists.</li>
+<li><strong>Execution (Cache Miss):</strong> If the key does not exist,
+the file is read from the disk, wrapped in a module function, and
+executed. The resulting <code>module.exports</code> object is attached
+to <code>require.cache[resolvedPath]</code>.</li>
+<li><strong>Return (Cache Hit):</strong> If the key already exists,
+Node.js bypasses file reading and execution entirely, returning
+<code>require.cache[resolvedPath].exports</code>.</li>
+</ol>
+<h2 id="implications-of-commonjs-caching">Implications of CommonJS
+Caching</h2>
+<h3 id="1-modules-act-as-singletons">1. Modules Act as Singletons</h3>
+<p>Because the cached object is returned by reference, all files
+importing the same module share the exact same instance. Any mutations
+made to exported objects or variables will persist and be visible across
+all other parts of the application that import that module.</p>
+<h3 id="2-side-effects-run-only-once">2. Side Effects Run Only Once</h3>
+<p>If a module contains top-level code (such as
+<code>console.log()</code> statements, database connection
+initializations, or timer setups), that code runs exclusively on the
+first <code>require()</code> call. Subsequent <code>require()</code>
+statements in other files will not re-trigger those side effects.</p>
+<h3 id="3-handling-circular-dependencies">3. Handling Circular
+Dependencies</h3>
+<p>Caching prevents infinite loops when two modules require each other.
+If Module A requires Module B, and Module B requires Module A, Module B
+receives the current (possibly incomplete) copy of Module A's
+<code>exports</code> from <code>require.cache</code> rather than causing
+an endless loading cycle.</p>
+<h2 id="cache-invalidation-and-clearing">Cache Invalidation and
+Clearing</h2>
+<p>While caching is automatic, you can manually bust or invalidate the
+cache by deleting the entry from <code>require.cache</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> modulePath <span class="op">=</span> require<span class="op">.</span><span class="fu">resolve</span>(<span class="st">&#39;./myModule&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">delete</span> require<span class="op">.</span><span class="at">cache</span>[modulePath]<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// The module will now be read and executed again</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> freshInstance <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;./myModule&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<p>Manually clearing the cache forces the runtime to re-evaluate the
+file on the next <code>require()</code> call. However, previously loaded
+modules that already hold a reference to the old export will continue
+using the old object reference unless explicitly updated.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

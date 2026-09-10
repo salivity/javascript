@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Loop Starvation in JavaScript Servers Explained - javascript</title>
+    <meta name="description" content="JavaScript server runtimes like Node.js rely on a single-threaded event loop to handle thousands of concurrent connections efficiently through non-blocking I/O. However, because execution on the main thread is strictly synchronous and sequential, long-ru">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/event-loop-starvation-in-javascript-servers-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Event Loop Starvation in JavaScript Servers Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/event-loop-starvation-in-javascript-servers-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript server runtimes like Node.js rely on a single-threaded event loop to handle thousands of concurrent connections efficiently through non-blocking I/O. However, because execution on the main thread is strictly synchronous and sequential, long-ru" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="event-loop-starvation-in-javascript-servers-explained">Event
+Loop Starvation in JavaScript Servers Explained</h1>
+<p>JavaScript server runtimes like Node.js rely on a single-threaded
+event loop to handle thousands of concurrent connections efficiently
+through non-blocking I/O. However, because execution on the main thread
+is strictly synchronous and sequential, long-running computational tasks
+can monopolize the call stack and block the event loop entirely. This
+article explains the architectural mechanics behind event loop
+starvation, how synchronous execution halts server throughput, the
+operational impact on production systems, and how to properly isolate
+CPU-heavy workloads to keep servers responsive.</p>
+<h3 id="the-javascript-concurrency-model-and-the-event-loop">The
+JavaScript Concurrency Model and the Event Loop</h3>
+<p>JavaScript uses a single execution thread with a call stack, a heap,
+and an event loop backed by task queues. In runtimes such as Node.js
+(powered by V8 and libuv), non-blocking tasks—such as network requests,
+file system interactions, and database queries—are delegated to the
+operating system kernel or a background thread pool. Once these
+operations finish, their corresponding callbacks are pushed into queues
+(microtask queues, timer queues, I/O queues, and check queues).</p>
+<p>The event loop's primary responsibility is to continuously monitor
+the call stack and dispatch these queued callbacks. However, the event
+loop can only advance to its next phase and process queued tasks when
+the call stack is completely empty.</p>
+<h3 id="the-run-to-completion-mechanism">The Run-to-Completion
+Mechanism</h3>
+<p>JavaScript adheres to a strict "run-to-completion" paradigm. Once a
+function enters the call stack, it must finish executing and be popped
+off the stack before any other code can run.</p>
+<p>When code is strictly synchronous, it executes directly on the main
+thread without yielding control. If an operation takes 500 milliseconds
+to complete, the thread remains fully occupied for that entire duration.
+The event loop cannot pause, preempt, or context-switch away from
+synchronous JavaScript code.</p>
+<p>Common culprits of high synchronous execution time include:</p>
+<ul>
+<li>Complex mathematical calculations or large data transformations</li>
+<li>Parsing or stringifying massive JSON payloads
+(<code>JSON.parse</code>, <code>JSON.stringify</code>)</li>
+<li>Evaluating inefficient regular expressions vulnerable to
+catastrophic backtracking (ReDoS)</li>
+<li>Synchronous cryptographic algorithms or compression functions</li>
+<li>Legacy blocking file system operations (e.g.,
+<code>fs.readFileSync</code>)</li>
+</ul>
+<h3 id="how-event-loop-starvation-occurs">How Event Loop Starvation
+Occurs</h3>
+<p>Event loop starvation occurs when the arrival rate of tasks remains
+normal, but the event loop is physically prevented from executing them
+because the call stack never clears.</p>
+<pre><code>[ Incoming Requests / I/O Completion ] 
+                 │
+                 ▼
+       ┌──────────────────┐
+       │   Task Queues    │  &lt;-- Callbacks accumulate and wait indefinitely
+       └──────────────────┘
+                 │
+                 ▼ (BLOCKED)
+       ┌──────────────────┐
+       │    Event Loop    │  &lt;-- Cannot advance phases
+       └──────────────────┘
+                 │
+                 ▼ (STARVED)
+       ┌──────────────────┐
+       │    Call Stack    │  &lt;-- Occupied by long-running synchronous code
+       └──────────────────┘</code></pre>
+<ol type="1">
+<li><strong>Stack Monopolization:</strong> A heavy synchronous task
+begins execution on the call stack.</li>
+<li><strong>Phase Freezing:</strong> The event loop freezes in its
+current phase (e.g., the poll phase) and cannot cycle through timers
+(<code>setTimeout</code>), I/O callbacks, or immediate tasks
+(<code>setImmediate</code>).</li>
+<li><strong>Queue Accumulation:</strong> Incoming network packets and
+completed I/O events continue to arrive at the operating system level,
+but their handlers accumulate in the event loop queues without being
+processed.</li>
+<li><strong>Latency Spike:</strong> The time difference between when a
+task is scheduled and when it actually executes—known as event loop
+lag—spikes from fractions of a millisecond to seconds.</li>
+</ol>
+<h3 id="server-level-consequences">Server-Level Consequences</h3>
+<p>In an asynchronous web server, a single blocked thread affects all
+users, not just the user who triggered the heavy calculation.</p>
+<ul>
+<li><strong>Connection Timeouts:</strong> Incoming HTTP requests wait in
+kernel-level socket backlogs. If the event loop does not process the
+socket handshake before the client or reverse proxy (such as NGINX)
+reaches its timeout threshold, connections are dropped with 504 Gateway
+Timeout errors.</li>
+<li><strong>Failed Health Checks:</strong> Cloud orchestrators (such as
+Kubernetes or AWS ECS) rely on periodic HTTP health probes to monitor
+service availability. If a starved event loop fails to respond to a
+<code>/healthz</code> endpoint in time, the orchestrator flags the
+container as dead and restarts it, causing cascading outages.</li>
+<li><strong>Resource Exhaustion:</strong> Queued requests consume
+memory. Prolonged starvation under sustained traffic causes memory
+pressure to spike, potentially triggering an Out-of-Memory (OOM)
+crash.</li>
+</ul>
+<h3 id="mitigating-event-loop-starvation">Mitigating Event Loop
+Starvation</h3>
+<p>To prevent starvation, long-running computational work must be
+removed from the main execution thread or broken into smaller
+segments.</p>
+<h4 id="1-worker-threads">1. Worker Threads</h4>
+<p>For CPU-bound tasks, the <code>worker_threads</code> module enables
+running JavaScript operations in parallel on separate operating system
+threads, each with its own V8 instance and event loop:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { <span class="bu">Worker</span> } <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;worker_threads&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">runHeavyTask</span>(data) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve<span class="op">,</span> reject) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="st">&#39;./worker.js&#39;</span><span class="op">,</span> { <span class="dt">workerData</span><span class="op">:</span> data })<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    worker<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;message&#39;</span><span class="op">,</span> resolve)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    worker<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;error&#39;</span><span class="op">,</span> reject)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="2-chunking-with-setimmediate">2. Chunking with
+<code>setImmediate</code></h4>
+<p>If a task involves processing an array of millions of items, the work
+can be segmented. By scheduling the next chunk of work using
+<code>setImmediate()</code>, the call stack empties between iterations,
+allowing the event loop to service pending I/O and network requests:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">processChunk</span>(items<span class="op">,</span> index <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> chunkSize <span class="op">=</span> <span class="dv">1000</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> limit <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(index <span class="op">+</span> chunkSize<span class="op">,</span> items<span class="op">.</span><span class="at">length</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> index<span class="op">;</span> i <span class="op">&lt;</span> limit<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Process item</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (limit <span class="op">&lt;</span> items<span class="op">.</span><span class="at">length</span>) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">setImmediate</span>(() <span class="kw">=&gt;</span> <span class="fu">processChunk</span>(items<span class="op">,</span> limit))<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="3-offloading-to-external-services">3. Offloading to External
+Services</h4>
+<p>Heavy computation such as video processing, PDF generation, or
+machine learning inference should generally be offloaded to dedicated
+background worker queues (such as BullMQ with Redis) or specialized
+microservices, keeping the API gateway thread focused entirely on
+request routing and asynchronous I/O orchestration.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

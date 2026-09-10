@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear-Site-Data: Wipe Cookies and Storage Remotely - javascript</title>
+    <meta name="description" content="The Clear-Site-Data HTTP response header allows web servers to remotely instruct a client's browser to purge stored browsing data associated with the hosting origin. By returning this header in an HTTP response—typically during user logout, permission">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/clear-site-data-wipe-cookies-and-storage-remotely">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Clear-Site-Data: Wipe Cookies and Storage Remotely - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/clear-site-data-wipe-cookies-and-storage-remotely" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Clear-Site-Data HTTP response header allows web servers to remotely instruct a client's browser to purge stored browsing data associated with the hosting origin. By returning this header in an HTTP response—typically during user logout, permission" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="clear-site-data-wipe-cookies-and-storage-remotely">Clear-Site-Data:
+Wipe Cookies and Storage Remotely</h1>
+<p>The <code>Clear-Site-Data</code> HTTP response header allows web
+servers to remotely instruct a client's browser to purge stored browsing
+data associated with the hosting origin. By returning this header in an
+HTTP response—typically during user logout, permission changes, or
+security incident remediations—a web application can systematically
+remove cookies, DOM storage (such as <code>localStorage</code> and
+<code>sessionStorage</code>), IndexedDB databases, service workers, and
+network caches without relying on complex client-side JavaScript cleanup
+scripts.</p>
+<h3 id="how-the-header-works">How the Header Works</h3>
+<p>When a browser makes an HTTP request over a secure connection
+(HTTPS), the server can include the <code>Clear-Site-Data</code> header
+in its response. Upon receiving and parsing this header, the browser
+intercepts the instruction and executes a localized cleanup routine
+across its internal storage systems for the requesting origin (the
+combination of protocol, domain, and port).</p>
+<p>Because the deletion happens at the browser engine level, it bypasses
+many of the limitations that client-side JavaScript faces, such as the
+inability of JavaScript to delete <code>HttpOnly</code> cookies or
+cleanly terminate running service workers.</p>
+<h3 id="syntax-and-supported-directives">Syntax and Supported
+Directives</h3>
+<p>The <code>Clear-Site-Data</code> header accepts one or more quoted
+string directives separated by commas, allowing granular control over
+which storage layers are cleared:</p>
+<pre class="http"><code>Clear-Site-Data: &quot;cookies&quot;, &quot;storage&quot;, &quot;cache&quot;</code></pre>
+<p>The available directives include:</p>
+<ul>
+<li><strong><code>"cookies"</code></strong>: Wipes all cookies
+associated with the current origin, including <code>HttpOnly</code> and
+<code>Secure</code> cookies.</li>
+<li><strong><code>"storage"</code></strong>: Wipes all client-side Web
+Storage mechanisms, including <code>localStorage</code>,
+<code>sessionStorage</code>, IndexedDB databases, WebSQL, and
+unregistered Service Worker cache data.</li>
+<li><strong><code>"cache"</code></strong>: Flushes the browser's network
+cache and any locally cached assets (stylesheets, scripts, images)
+belonging to the origin.</li>
+<li><strong><code>"executionContexts"</code></strong>: Forces the
+browser to reload the page or terminate active JavaScript execution
+contexts to clear in-memory state.</li>
+<li><strong><code>"*"</code></strong>: A wildcard directive that targets
+all available data types.</li>
+</ul>
+<h3 id="wiping-client-side-storage-vs-cookies">Wiping Client-Side
+Storage vs. Cookies</h3>
+<h4 id="1-cookies">1. Cookies</h4>
+<p>Traditionally, a server clears cookies by sending multiple
+<code>Set-Cookie</code> headers with past expiration dates for each
+individual cookie. This approach is prone to failure if cookie paths or
+domains are mismatched. The <code>"cookies"</code> directive in
+<code>Clear-Site-Data</code> replaces this process by instructing the
+browser to instantly drop all cookies tied to the exact origin,
+regardless of their path, flags, or creation method.</p>
+<h4 id="2-javascript-storage-localstorage-sessionstorage-indexeddb">2.
+JavaScript Storage (<code>localStorage</code>,
+<code>sessionStorage</code>, <code>IndexedDB</code>)</h4>
+<p>Client-side storage mechanisms are normally managed directly by
+scripts using APIs like <code>localStorage.clear()</code> or
+<code>indexedDB.deleteDatabase()</code>. However, if an application
+needs to enforce a logout from the server side, JavaScript might not
+execute if the page has already redirected. The <code>"storage"</code>
+directive forces the browser engine to clear all storage APIs tied to
+the origin before rendering the new response or processing subsequent
+requests.</p>
+<h3 id="practical-implementation-example">Practical Implementation
+Example</h3>
+<p>A common scenario is a user logout endpoint (e.g.,
+<code>POST /api/logout</code>). When processing the logout, the backend
+invalidates the session server-side and sends the cleanup header:</p>
+<pre class="http"><code>HTTP/1.1 200 OK
+Content-Type: application/json
+Clear-Site-Data: &quot;cookies&quot;, &quot;storage&quot;
+
+{&quot;status&quot;: &quot;logged_out&quot;}</code></pre>
+<p>Once the browser reads this response, all session identifiers, local
+tokens, cached application state, and IndexedDB records tied to that
+website are removed from the client machine.</p>
+<h3 id="key-considerations-and-limitations">Key Considerations and
+Limitations</h3>
+<ul>
+<li><strong>HTTPS Requirement</strong>: Browsers ignore the
+<code>Clear-Site-Data</code> header if it is delivered over an insecure
+connection (HTTP).</li>
+<li><strong>Origin Boundaries</strong>: The cleanup strictly respects
+the Same-Origin Policy. Issuing the header on
+<code>app.example.com</code> will wipe data for
+<code>app.example.com</code>, but it will not clear storage on
+<code>auth.example.com</code> or root-domain cookies scoped to
+<code>.example.com</code> unless configured across those specific
+endpoints.</li>
+<li><strong>Irreversible Action</strong>: Once cleared, client-side data
+cannot be recovered, making it critical to avoid sending the header on
+regular navigational requests.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

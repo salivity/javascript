@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporal.ZonedDateTime and Daylight Saving in JavaScript - javascript</title>
+    <meta name="description" content="This article provides an overview of the modern Temporal.ZonedDateTime object in JavaScript, focusing on how it manages timezone-aware timestamps and reliably resolves the challenges posed by Daylight Saving Time (DST). You will learn how Temporal.ZonedD">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/temporal-zoneddatetime-and-daylight-saving-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Temporal.ZonedDateTime and Daylight Saving in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/temporal-zoneddatetime-and-daylight-saving-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the modern Temporal.ZonedDateTime object in JavaScript, focusing on how it manages timezone-aware timestamps and reliably resolves the challenges posed by Daylight Saving Time (DST). You will learn how Temporal.ZonedD" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="temporalzoneddatetime-and-daylight-saving-in-javascript">Temporal.ZonedDateTime
+and Daylight Saving in JavaScript</h1>
+<p>This article provides an overview of the modern
+<code>Temporal.ZonedDateTime</code> object in JavaScript, focusing on
+how it manages timezone-aware timestamps and reliably resolves the
+challenges posed by Daylight Saving Time (DST). You will learn how
+<code>Temporal.ZonedDateTime</code> differs from the legacy
+<code>Date</code> object, how it manages clock jumps and overlaps during
+DST shifts, and how developers can utilize built-in disambiguation
+strategies to handle invalid or ambiguous local wall-clock times
+predictably.</p>
+<h2 id="what-is-temporalzoneddatetime">What is
+Temporal.ZonedDateTime?</h2>
+<p><code>Temporal.ZonedDateTime</code> is a timezone-aware date and time
+representation introduced in the ECMAScript Temporal API. Unlike the
+legacy JavaScript <code>Date</code> object—which internally stores only
+a Unix timestamp in UTC and relies on the execution environment's local
+runtime timezone for display—<code>Temporal.ZonedDateTime</code>
+combines an exact instant in time with a specific calendar system and an
+IANA time zone identifier (such as <code>"America/New_York"</code> or
+<code>"Europe/London"</code>).</p>
+<p>This design guarantees that conversions between absolute UTC instants
+and local wall-clock times are always explicit, deterministic, and
+independent of host environment settings.</p>
+<h2 id="the-problem-with-daylight-saving-time">The Problem with Daylight
+Saving Time</h2>
+<p>Daylight Saving Time creates two primary scheduling anomalies on
+local clocks:</p>
+<ol type="1">
+<li><strong>Gaps ("Spring Forward"):</strong> Clocks skip forward
+(typically from 02:00 to 03:00). As a result, local times between
+02:00:00 and 02:59:59 do not exist.</li>
+<li><strong>Overlaps ("Fall Back"):</strong> Clocks are set backward
+(typically from 02:00 back to 01:00). As a result, local times between
+01:00:00 and 01:59:59 occur twice.</li>
+</ol>
+<p>Historically, JavaScript's <code>Date</code> handled these
+transitions inconsistently across different browsers and runtimes,
+frequently causing silent data corruption and unexpected offsets.</p>
+<h2 id="how-temporalzoneddatetime-handles-transitions">How
+Temporal.ZonedDateTime Handles Transitions</h2>
+<p>When instantiating or modifying a <code>Temporal.ZonedDateTime</code>
+using local clock fields, the Temporal API automatically detects whether
+the requested time falls within a gap or an overlap. To resolve this, it
+provides a configurable <code>disambiguation</code> parameter with four
+strategies:</p>
+<ul>
+<li><strong><code>compatible</code> (Default):</strong> Mirrors the
+behavior users naturally expect. During a gap, the wall-clock time is
+shifted forward by the length of the gap (e.g., 02:30 shifts to 03:30).
+During an overlap, it selects the earlier of the two possible
+instants.</li>
+<li><strong><code>earlier</code>:</strong> During a gap, it adjusts
+backward to the instant immediately before the transition. During an
+overlap, it selects the first occurrence of that wall-clock time.</li>
+<li><strong><code>later</code>:</strong> During a gap, it adjusts
+forward past the transition gap. During an overlap, it selects the
+second occurrence of that wall-clock time.</li>
+<li><strong><code>reject</code>:</strong> Throws a
+<code>RangeError</code> whenever an ambiguous or non-existent local time
+is supplied, preventing silent adjustments.</li>
+</ul>
+<h3 id="handling-gaps">Handling Gaps</h3>
+<p>When setting a non-existent wall-clock time during a spring
+transition:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Clocks in New York skip from 02:00 to 03:00 on March 10, 2024</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> zdt <span class="op">=</span> Temporal<span class="op">.</span><span class="at">ZonedDateTime</span><span class="op">.</span><span class="fu">from</span>({</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">year</span><span class="op">:</span> <span class="dv">2024</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">month</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">day</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">hour</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">minute</span><span class="op">:</span> <span class="dv">30</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timeZone</span><span class="op">:</span> <span class="st">&#39;America/New_York&#39;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> { <span class="dt">disambiguation</span><span class="op">:</span> <span class="st">&#39;compatible&#39;</span> })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Results in 2024-03-10T03:30:00-04:00[America/New_York]</span></span></code></pre></div>
+<p>Under the <code>'compatible'</code> option, the time is pushed
+forward to 03:30. If <code>'reject'</code> were specified instead, the
+engine would throw an exception.</p>
+<h3 id="handling-overlaps">Handling Overlaps</h3>
+<p>When creating a time that occurs twice during an autumn
+transition:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Clocks repeat 01:00 to 02:00 on November 3, 2024</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> earlier <span class="op">=</span> Temporal<span class="op">.</span><span class="at">ZonedDateTime</span><span class="op">.</span><span class="fu">from</span>({</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">year</span><span class="op">:</span> <span class="dv">2024</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">month</span><span class="op">:</span> <span class="dv">11</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">day</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">hour</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">minute</span><span class="op">:</span> <span class="dv">30</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timeZone</span><span class="op">:</span> <span class="st">&#39;America/New_York&#39;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> { <span class="dt">disambiguation</span><span class="op">:</span> <span class="st">&#39;earlier&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> later <span class="op">=</span> Temporal<span class="op">.</span><span class="at">ZonedDateTime</span><span class="op">.</span><span class="fu">from</span>({</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">year</span><span class="op">:</span> <span class="dv">2024</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">month</span><span class="op">:</span> <span class="dv">11</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">day</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">hour</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="dt">minute</span><span class="op">:</span> <span class="dv">30</span><span class="op">,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timeZone</span><span class="op">:</span> <span class="st">&#39;America/New_York&#39;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> { <span class="dt">disambiguation</span><span class="op">:</span> <span class="st">&#39;later&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">// earlier.offset is &#39;-04:00&#39; (EDT)</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co">// later.offset is &#39;-05:00&#39; (EST)</span></span></code></pre></div>
+<p>By explicitly specifying <code>'earlier'</code> or
+<code>'later'</code>, applications can unambiguously target the first or
+second iteration of a repeated hour.</p>
+<h2 id="dst-aware-arithmetic">DST-Aware Arithmetic</h2>
+<p><code>Temporal.ZonedDateTime</code> also differentiates between
+calendar-based math and absolute duration math:</p>
+<ul>
+<li><strong>Adding Days:</strong> Adding one day
+(<code>zdt.add({ days: 1 })</code>) preserves the wall-clock time if
+possible, meaning the underlying elapsed duration may be 23, 24, or 25
+real-world hours depending on whether a DST change occurred.</li>
+<li><strong>Adding Hours:</strong> Adding 24 hours
+(<code>zdt.add({ hours: 24 })</code>) advances the absolute timeline by
+exactly 24 hours, which may result in a different local wall-clock time
+if a DST transition occurred within that interval.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

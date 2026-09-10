@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Difference Between fireEvent and userEvent - javascript</title>
+    <meta name="description" content="When writing tests with DOM Testing Library or React Testing Library, choosing between fireEvent and userEvent is a fundamental decision. While both utilities trigger interactions on DOM elements, they operate at fundamentally different levels of abstrac">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/difference-between-fireevent-and-userevent">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Difference Between fireEvent and userEvent - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/difference-between-fireevent-and-userevent" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When writing tests with DOM Testing Library or React Testing Library, choosing between fireEvent and userEvent is a fundamental decision. While both utilities trigger interactions on DOM elements, they operate at fundamentally different levels of abstrac" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="difference-between-fireevent-and-userevent">Difference Between
+fireEvent and userEvent</h1>
+<p>When writing tests with DOM Testing Library or React Testing Library,
+choosing between <code>fireEvent</code> and <code>userEvent</code> is a
+fundamental decision. While both utilities trigger interactions on DOM
+elements, they operate at fundamentally different levels of abstraction.
+<code>fireEvent</code> directly dispatches raw DOM events synchronously,
+whereas <code>userEvent</code> simulates realistic, multi-step browser
+interactions asynchronously. Understanding this difference is essential
+for writing robust tests that closely mirror real user behavior.</p>
+<h3 id="what-is-fireevent">What is fireEvent?</h3>
+<p><code>fireEvent</code> is a built-in utility within
+<code>@testing-library/dom</code>. It functions as a lightweight wrapper
+around the browser's native <code>dispatchEvent</code> API.</p>
+<p>When you invoke a method like <code>fireEvent.click(button)</code>,
+it dispatches only the targeted <code>click</code> event directly onto
+that specific element. It executes synchronously and does not trigger
+the sequence of complementary events that naturally occur in a real
+browser. For example, firing a click event with <code>fireEvent</code>
+will not trigger <code>pointerover</code>, <code>pointerdown</code>,
+<code>mousedown</code>, or <code>focus</code> events, nor does it check
+whether an element is disabled before executing.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { fireEvent<span class="op">,</span> <span class="bu">screen</span> } <span class="im">from</span> <span class="st">&#39;@testing-library/react&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Dispatches only a &#39;change&#39; event synchronously</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>fireEvent<span class="op">.</span><span class="fu">change</span>(<span class="bu">screen</span><span class="op">.</span><span class="fu">getByRole</span>(<span class="st">&#39;textbox&#39;</span>)<span class="op">,</span> { <span class="dt">target</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="st">&#39;Hello&#39;</span> } })<span class="op">;</span></span></code></pre></div>
+<h3 id="what-is-userevent">What is userEvent?</h3>
+<p><code>userEvent</code> is an official companion library
+(<code>@testing-library/user-event</code>) built on top of
+<code>fireEvent</code>. Instead of triggering isolated DOM events, it
+simulates realistic user interactions by firing the entire sequence of
+events a browser would produce during that action.</p>
+<p>When calling <code>await userEvent.click(button)</code>, the library
+performs multiple actions in order:</p>
+<ol type="1">
+<li>Moves the virtual pointer to the element.</li>
+<li>Checks if the element is visible and not disabled.</li>
+<li>Fires pointer events (<code>pointerdown</code>,
+<code>pointerup</code>).</li>
+<li>Fires mouse events (<code>mousedown</code>,
+<code>mouseup</code>).</li>
+<li>Shifts focus to the element (firing <code>focus</code>).</li>
+<li>Fires the actual <code>click</code> event.</li>
+</ol>
+<p>Because real browser interactions take time and involve microtasks,
+<code>userEvent</code> methods are asynchronous and must be awaited.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> userEvent <span class="im">from</span> <span class="st">&#39;@testing-library/user-event&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { <span class="bu">screen</span> } <span class="im">from</span> <span class="st">&#39;@testing-library/react&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Sets up the user instance and simulates typing with keydown, keypress, input, and keyup</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> userEvent<span class="op">.</span><span class="fu">setup</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> user<span class="op">.</span><span class="fu">type</span>(<span class="bu">screen</span><span class="op">.</span><span class="fu">getByRole</span>(<span class="st">&#39;textbox&#39;</span>)<span class="op">,</span> <span class="st">&#39;Hello&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="key-differences">Key Differences</h3>
+<ul>
+<li><strong>Realism and Fidelity:</strong> <code>fireEvent</code>
+triggers single, isolated events out of context. <code>userEvent</code>
+executes the entire chain of events that a browser generates for any
+given action.</li>
+<li><strong>Execution Flow (Sync vs. Async):</strong>
+<code>fireEvent</code> runs synchronously. In modern versions (v14+),
+<code>userEvent</code> runs asynchronously and requires
+<code>await</code> syntax.</li>
+<li><strong>Component State and Validation:</strong>
+<code>userEvent</code> respects element states. If a button is marked as
+<code>disabled</code>, <code>userEvent.click()</code> will not trigger
+the click handler, whereas <code>fireEvent.click()</code> will still
+force the event to dispatch.</li>
+<li><strong>Typing Behavior:</strong> <code>fireEvent.change()</code>
+replaces an input's entire value at once without triggering keyboard
+events. <code>userEvent.type()</code> presses each key individually,
+updating the value character by character while firing
+<code>keydown</code>, <code>keyup</code>, and input validation
+cycles.</li>
+</ul>
+<h3 id="when-to-use-each">When to Use Each</h3>
+<p>The Testing Library team recommends using <code>userEvent</code> for
+almost all testing scenarios because it tests components the way users
+actually interact with them, preventing false positives in your test
+suite.</p>
+<p><code>fireEvent</code> should generally be reserved for edge cases
+where <code>userEvent</code> does not yet support a specific event (such
+as <code>window</code> resize or scroll events) or when you need to test
+a specific event listener in isolation without simulating full browser
+mechanics.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Script Streaming in Modern Browsers - javascript</title>
+    <meta name="description" content="Script streaming is a performance optimization that allows modern web browsers to parse JavaScript code on a background thread while it is still downloading over the network. Traditionally, browsers had to wait for an entire script to download before par">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-script-streaming-in-modern-browsers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Script Streaming in Modern Browsers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-script-streaming-in-modern-browsers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Script streaming is a performance optimization that allows modern web browsers to parse JavaScript code on a background thread while it is still downloading over the network. Traditionally, browsers had to wait for an entire script to download before par" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-script-streaming-in-modern-browsers">JavaScript
+Script Streaming in Modern Browsers</h1>
+<p>Script streaming is a performance optimization that allows modern web
+browsers to parse JavaScript code on a background thread while it is
+still downloading over the network. Traditionally, browsers had to wait
+for an entire script to download before parsing and compiling it, which
+blocked the main thread and delayed page interactivity. By overlapping
+the network transfer with syntax analysis, script streaming reduces
+total loading time and significantly improves the Time to Interactive
+(TTI) metric for modern web applications.</p>
+<h2 id="the-traditional-execution-bottleneck">The Traditional Execution
+Bottleneck</h2>
+<p>In older browser architectures, JavaScript processing followed a
+strictly sequential pipeline:</p>
+<ol type="1">
+<li><strong>Download:</strong> The browser requests the <code>.js</code>
+file and waits for the entire payload to transfer over the network.</li>
+<li><strong>Parse:</strong> The JavaScript engine reads the entire
+source text on the main execution thread, converting it into tokens and
+an Abstract Syntax Tree (AST).</li>
+<li><strong>Compile:</strong> The engine translates the AST into
+bytecode or machine code.</li>
+<li><strong>Execute:</strong> The main thread runs the compiled
+code.</li>
+</ol>
+<p>Under this model, large JavaScript bundles leave CPU cores idle
+during network transfer and heavily occupy the main thread once the
+download finishes, causing visible UI freezes and slow page
+responsiveness.</p>
+<h2 id="how-script-streaming-works">How Script Streaming Works</h2>
+<p>Modern JavaScript engines, such as Google's V8 (used in Chrome and
+Node.js) and Mozilla's SpiderMonkey (used in Firefox), decouple parsing
+from network completion through multithreading.</p>
+<h3 id="1-chunked-network-delivery">1. Chunked Network Delivery</h3>
+<p>When the browser initiates an HTTP request for an external script,
+data arrives from the network in sequential data chunks (buffers) via
+TCP/IP or HTTP/2 streams rather than all at once.</p>
+<h3 id="2-off-thread-parsing">2. Off-Thread Parsing</h3>
+<p>As soon as the first chunk of data arrives, the browser passes it to
+a dedicated background streaming parser thread. The parser begins
+tokenizing and parsing the partial script immediately, without waiting
+for the remaining data or interrupting the main execution thread.</p>
+<h3 id="3-incremental-abstract-syntax-tree-ast-construction">3.
+Incremental Abstract Syntax Tree (AST) Construction</h3>
+<p>The streaming parser constructs the AST incrementally as new data
+chunks stream in. Because parsing represents a large percentage of total
+JavaScript startup time, performing this work concurrently with network
+transmission effectively hides the cost of parsing behind the network
+latency.</p>
+<h3 id="4-final-compilation-and-execution">4. Final Compilation and
+Execution</h3>
+<p>Once the final chunk downloads and background parsing finishes, the
+pre-built AST is delivered to the main thread. The engine performs any
+remaining byte-code generation and immediately executes the script.
+Since the heavy syntactic analysis has already occurred, execution
+starts almost instantaneously.</p>
+<h2 id="requirements-for-script-streaming">Requirements for Script
+Streaming</h2>
+<p>Browsers apply specific heuristics to determine whether a script
+qualifies for streaming:</p>
+<ul>
+<li><strong>File Size Thresholds:</strong> Engines typically apply
+streaming only to scripts larger than a specific threshold (for example,
+scripts larger than 30 KB in V8), as the overhead of managing a
+background thread outweighs the benefits for tiny scripts.</li>
+<li><strong>External Resources:</strong> Inline scripts inside
+<code>&lt;script&gt;</code> tags generally cannot be streamed because
+they are already present in the HTML document and are parsed directly by
+the HTML parser.</li>
+<li><strong>Text Encoding:</strong> Modern streaming parsers operate
+most efficiently on UTF-8 encoded files, as the engine does not need to
+pause to handle complex character set conversions.</li>
+<li><strong>Resource Hints and Attributes:</strong> Using
+<code>&lt;script async&gt;</code> or <code>&lt;script defer&gt;</code>
+assists the browser in prioritizing background parsing without blocking
+DOM construction.</li>
+</ul>
+<h2 id="benefits-for-web-performance">Benefits for Web Performance</h2>
+<p>Script streaming directly reduces the execution delay that occurs
+after large bundles download. By the time the network request completes,
+up to 80% of the parsing work is already finished. This frees the main
+thread to handle user inputs, render frames, and execute application
+logic faster, resulting in a significantly smoother user experience.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

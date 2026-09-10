@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript String.raw Handles Escapes - javascript</title>
+    <meta name="description" content="The String.raw tagged template function in JavaScript allows developers to access the raw string content of template literals without processing escape sequences. Unlike standard strings where escape sequences like \n or \t are converted into control cha">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-string-raw-handles-escapes">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript String.raw Handles Escapes - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-string-raw-handles-escapes" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The String.raw tagged template function in JavaScript allows developers to access the raw string content of template literals without processing escape sequences. Unlike standard strings where escape sequences like \n or \t are converted into control cha" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-stringraw-handles-escapes">How JavaScript
+String.raw Handles Escapes</h1>
+<p>The <code>String.raw</code> tagged template function in JavaScript
+allows developers to access the raw string content of template literals
+without processing escape sequences. Unlike standard strings where
+escape sequences like <code>\n</code> or <code>\t</code> are converted
+into control characters, <code>String.raw</code> treats backslashes as
+literal string characters. This article explains the underlying
+mechanism of <code>String.raw</code>, demonstrates how it handles
+escaped characters versus standard template literals, and covers
+critical edge cases such as variable interpolation and trailing
+backslashes.</p>
+<h2 id="the-mechanism-of-stringraw">The Mechanism of String.raw</h2>
+<p>In standard JavaScript template literals, the engine interprets
+backslash sequences as escape characters:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Line 1</span><span class="sc">\n</span><span class="vs">Line 2`</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Output:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Line 1</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Line 2</span></span></code></pre></div>
+<p>When prefixed with the <code>String.raw</code> tag, JavaScript
+retrieves the strings from the <code>raw</code> property of the template
+call site object. The engine ignores the standard escape
+interpretations, outputting the exact characters typed:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`Line 1\nLine 2`</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Output:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Line 1\nLine 2</span></span></code></pre></div>
+<p>In the example above, the resulting string contains six characters:
+<code>L</code>, <code>i</code>, <code>n</code>, <code>e</code>,
+<code> </code>, <code>1</code>, <code>\</code>, <code>n</code>,
+<code>L</code>, <code>i</code>, <code>n</code>, <code>e</code>,
+<code> </code>, <code>2</code>. The backslash and the letter
+<code>n</code> remain two individual characters rather than a single
+newline byte.</p>
+<h2 id="handling-common-escape-sequences">Handling Common Escape
+Sequences</h2>
+<p><code>String.raw</code> applies this rule uniformly across all
+recognized JavaScript escape sequences:</p>
+<ul>
+<li><strong>Control Characters:</strong> <code>\n</code> (newline),
+<code>\t</code> (tab), <code>\r</code> (carriage return), and
+<code>\b</code> (backspace) are preserved as literal backslashes
+followed by the respective letter.</li>
+<li><strong>Unicode Escapes:</strong> <code>\u0041</code> is not
+converted to the character <code>A</code>; it remains the six-character
+string <code>\u0041</code>.</li>
+<li><strong>Hexadecimal Escapes:</strong> <code>\xA9</code> does not
+render the copyright symbol <code>©</code>; it remains
+<code>\xA9</code>.</li>
+<li><strong>Octal Escapes:</strong> Sequences like <code>\111</code>
+remain literal text.</li>
+</ul>
+<p>This behavior makes <code>String.raw</code> ideal for regular
+expressions, Windows file paths, and markup generation where backslashes
+are frequent:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// File paths without double backslashes</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> filePath <span class="op">=</span> <span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`C:\Development\new_project\bin`</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(filePath)<span class="op">;</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: C:\Development\new_project\bin</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Regex strings without double-escaping</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> regexPattern <span class="op">=</span> <span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`\d+\.\d+`</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> regex <span class="op">=</span> <span class="kw">new</span> <span class="bu">RegExp</span>(regexPattern)<span class="op">;</span></span></code></pre></div>
+<h2 id="behavior-with-expressions-and-substitutions">Behavior with
+Expressions and Substitutions</h2>
+<p><code>String.raw</code> only preserves the raw state of the
+<em>literal segments</em> of the template string. It does not alter the
+evaluation of expressions inside <code>${}</code> substitutions.</p>
+<p>If an interpolated variable contains processed escape characters,
+those characters remain processed:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> processed <span class="op">=</span> <span class="st">&quot;Hello</span><span class="sc">\n</span><span class="st">World&quot;</span><span class="op">;</span> <span class="co">// Evaluated as a newline</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`${processed}`</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Output:</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Hello</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">// World</span></span></code></pre></div>
+<p>Conversely, backslashes inside the literal portions adjacent to
+substitutions are fully preserved:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> name <span class="op">=</span> <span class="st">&quot;Alice&quot;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`C:\Users\${name}\Documents`</span>)<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: C:\Users\Alice\Documents</span></span></code></pre></div>
+<h2 id="the-trailing-backslash-parsing-limitation">The Trailing
+Backslash Parsing Limitation</h2>
+<p>Although <code>String.raw</code> preserves backslashes, it cannot
+bypass the JavaScript lexer's fundamental syntax rules. A template
+literal cannot end with a single unescaped backslash before the closing
+backtick:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// SyntaxError: Unterminated template literal</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> invalid <span class="op">=</span> <span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`C:\folder\`</span><span class="op">;</span></span></code></pre></div>
+<p>This error occurs because the lexer encounters <code>\</code> right
+before the final backtick (<code>`</code>) and interprets it as escaping
+the backtick itself, leaving the string literal open.</p>
+<p>To include a trailing backslash, escape the backslash or append it
+manually:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Valid workarounds:</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> valid1 <span class="op">=</span> <span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`C:\folder\\`</span><span class="op">.</span><span class="fu">slice</span>(<span class="dv">0</span><span class="op">,</span> <span class="op">-</span><span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> valid2 <span class="op">=</span> <span class="bu">String</span><span class="op">.</span><span class="fu">raw</span><span class="vs">`C:\folder`</span> <span class="op">+</span> <span class="st">&#39;</span><span class="sc">\\</span><span class="st">&#39;</span><span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

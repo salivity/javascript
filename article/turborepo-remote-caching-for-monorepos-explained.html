@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turborepo Remote Caching for Monorepos Explained - javascript</title>
+    <meta name="description" content="This article explores Turborepo, a high-performance build system designed for JavaScript and TypeScript monorepos, and explains how its remote computation caching mechanism accelerates development workflows. You will learn the core architecture of Turbor">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/turborepo-remote-caching-for-monorepos-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Turborepo Remote Caching for Monorepos Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/turborepo-remote-caching-for-monorepos-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores Turborepo, a high-performance build system designed for JavaScript and TypeScript monorepos, and explains how its remote computation caching mechanism accelerates development workflows. You will learn the core architecture of Turbor" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="turborepo-remote-caching-for-monorepos-explained">Turborepo
+Remote Caching for Monorepos Explained</h1>
+<p>This article explores Turborepo, a high-performance build system
+designed for JavaScript and TypeScript monorepos, and explains how its
+remote computation caching mechanism accelerates development workflows.
+You will learn the core architecture of Turborepo, how local caching
+identifies redundant tasks, and how remote caching shares build
+artifacts across distributed teams and Continuous Integration (CI)
+pipelines to eliminate duplicate computational work.</p>
+<h2 id="what-is-turborepo">What is Turborepo?</h2>
+<p>Turborepo is an open-source build system built in Rust, optimized for
+managing JavaScript and TypeScript monorepos. Monorepos house multiple
+applications and shared packages within a single repository, which often
+leads to slow build, test, and lint times as the codebase scales.
+Turborepo addresses this bottleneck by executing tasks concurrently,
+scheduling tasks based on a dependency graph, and avoiding redundant
+execution through intelligent caching.</p>
+<h2 id="understanding-computation-caching">Understanding Computation
+Caching</h2>
+<p>At the core of Turborepo's performance is computation caching. When a
+task (such as <code>build</code>, <code>test</code>, or
+<code>lint</code>) is executed, Turborepo generates a cryptographic hash
+based on several task inputs:</p>
+<ul>
+<li>Source code files within the package.</li>
+<li>Internal and external dependencies.</li>
+<li>Environment variables configured for the task.</li>
+<li>Task configuration settings in <code>turbo.json</code>.</li>
+</ul>
+<p>If the calculated hash matches a previously recorded execution,
+Turborepo skips running the task entirely. Instead, it restores the
+output artifacts (such as generated <code>/dist</code> folders) and
+replays the original terminal logs from the cache instantly.</p>
+<h2 id="how-remote-computation-caching-works">How Remote Computation
+Caching Works</h2>
+<p>Local caching speeds up individual developer environments, but it
+does not prevent team members or CI servers from duplicating work that
+has already been completed elsewhere. Remote computation caching solves
+this by moving the cache store from a single local machine to a
+centralized cloud location.</p>
+<ol type="1">
+<li><strong>Hash Generation:</strong> When a developer or CI runner
+initiates a command, Turborepo calculates the input hash for each task
+in the pipeline.</li>
+<li><strong>Remote Cache Check:</strong> Turborepo queries the remote
+cache server using the generated hash.</li>
+<li><strong>Cache Hit:</strong> If the hash exists remotely, Turborepo
+downloads the cached build artifacts and outputs the logs directly to
+the terminal, completing the task in milliseconds.</li>
+<li><strong>Cache Miss:</strong> If the hash does not exist, Turborepo
+executes the task locally, packages the resulting artifacts and logs,
+and uploads them to the remote cache for subsequent runs.</li>
+</ol>
+<h2 id="benefits-for-development-teams-and-ci">Benefits for Development
+Teams and CI</h2>
+<ul>
+<li><strong>Faster CI/CD Pipelines:</strong> Pull requests only build
+and test code that has changed, drastically reducing pipeline duration
+and infrastructure costs.</li>
+<li><strong>Instant Local Builds:</strong> When developers pull updated
+code from the repository, their local environment fetches pre-built
+artifacts created by the CI system or other team members rather than
+building from scratch.</li>
+<li><strong>Deterministic Workflows:</strong> Because caching relies on
+explicit dependency declarations and strict input hashing, builds remain
+consistent and reproducible across all environments.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Dead Code Elimination Explained - javascript</title>
+    <meta name="description" content="Dead code elimination (DCE) is a compiler optimization technique that identifies and removes code that cannot be reached or executed during runtime, as well as code that executes without affecting program outcomes. In modern JavaScript environments, this">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-dead-code-elimination-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Dead Code Elimination Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-dead-code-elimination-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Dead code elimination (DCE) is a compiler optimization technique that identifies and removes code that cannot be reached or executed during runtime, as well as code that executes without affecting program outcomes. In modern JavaScript environments, this" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-dead-code-elimination-explained">JavaScript Dead Code
+Elimination Explained</h1>
+<p>Dead code elimination (DCE) is a compiler optimization technique that
+identifies and removes code that cannot be reached or executed during
+runtime, as well as code that executes without affecting program
+outcomes. In modern JavaScript environments, this process occurs during
+both ahead-of-time (AOT) bundling via tools like Webpack, Rollup, and
+esbuild, and just-in-time (JIT) compilation inside engines like V8. By
+pruning unreachable execution paths, compilers reduce bundle sizes,
+decrease memory consumption, and improve execution speed.</p>
+<h3 id="parsing-and-abstract-syntax-tree-ast-generation">Parsing and
+Abstract Syntax Tree (AST) Generation</h3>
+<p>The elimination process begins by parsing raw JavaScript source code
+into an Abstract Syntax Tree (AST). The AST represents the syntactic
+structure of the code, turning statements, expressions, and declarations
+into nested nodes. Compilers traverse this tree to understand the
+relationships between different functional blocks, variable assignments,
+and conditional branches.</p>
+<h3 id="control-flow-graph-cfg-construction">Control Flow Graph (CFG)
+Construction</h3>
+<p>Once the AST is built, the compiler constructs a Control Flow Graph
+(CFG). A CFG is a directed graph where nodes represent basic blocks
+(sequences of instructions with a single entry and exit point) and edges
+represent the flow of execution (jumps, loops, and conditional
+branching).</p>
+<p>By modeling execution flow as a graph, the compiler can track all
+possible paths from the entry point of the application to its exit.</p>
+<h3 id="constant-folding-and-constant-propagation">Constant Folding and
+Constant Propagation</h3>
+<p>To determine whether a branch can be executed, the compiler applies
+constant folding and constant propagation:</p>
+<ol type="1">
+<li><strong>Constant Folding:</strong> Replaces static expressions with
+their computed values at compile time (e.g., <code>1 + 2</code> becomes
+<code>3</code>).</li>
+<li><strong>Constant Propagation:</strong> Replaces variables with
+known, fixed values across their scopes (e.g.,
+<code>const debug = false; if (debug) { ... }</code> simplifies to
+<code>if (false) { ... }</code>).</li>
+</ol>
+<p>This step is crucial for modern build pipelines, where environment
+variables like <code>process.env.NODE_ENV === 'production'</code> are
+inlined as boolean literals, exposing conditional blocks as statically
+known truths or falsehoods.</p>
+<h3 id="reachability-analysis">Reachability Analysis</h3>
+<p>With evaluated static conditions in place, the compiler performs
+reachability analysis on the CFG:</p>
+<ul>
+<li><strong>Trivial Condition Elimination:</strong> When a conditional
+statement evaluates to a constant boolean (e.g.,
+<code>if (false)</code>), the edge leading to the alternate branch is
+marked as impossible.</li>
+<li><strong>Graph Traversal:</strong> The compiler executes graph
+traversal algorithms, such as Depth-First Search (DFS), starting from
+the application entry points. Nodes and edges that cannot be reached
+from any valid entry point are marked as dead or unreachable.</li>
+<li><strong>Early Terminations:</strong> Any code placed immediately
+after unconditional <code>return</code>, <code>throw</code>,
+<code>break</code>, or <code>continue</code> statements within the same
+scope is flagged as unreachable because no execution path leads to
+it.</li>
+</ul>
+<h3 id="ast-pruning-and-output-generation">AST Pruning and Output
+Generation</h3>
+<p>After flagging unreachable paths, the compiler mutates the AST:</p>
+<ol type="1">
+<li><strong>Node Removal:</strong> Dead nodes, such as the body of an
+<code>if (false)</code> statement or statements following a
+<code>return</code>, are pruned from the tree.</li>
+<li><strong>Structural Simplification:</strong> Tautological structures
+are simplified. For instance, <code>if (true) { doWork(); }</code> is
+unwrapped directly into <code>doWork();</code>.</li>
+<li><strong>Code Generation:</strong> The final step transforms the
+pruned AST back into JavaScript source code (in bundlers) or optimizes
+it directly into machine code/bytecode (in JIT engines like V8's
+TurboFan).</li>
+</ol>
+<h3 id="ahead-of-time-vs-just-in-time-elimination">Ahead-of-Time vs.
+Just-in-Time Elimination</h3>
+<ul>
+<li><strong>Bundlers and Minifiers (AOT):</strong> Tools like Terser,
+Rollup, and esbuild eliminate entire modules, functions, and unreachable
+branches before the code is shipped to the client, keeping payload sizes
+minimal.</li>
+<li><strong>Browser Engines (JIT):</strong> Engines like V8 monitor
+runtime types and execution patterns. If specific paths are never
+executed during runtime (speculative optimization), the engine
+deoptimizes or skips compiling those sections into machine code, saving
+CPU resources.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

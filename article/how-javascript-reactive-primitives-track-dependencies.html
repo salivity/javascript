@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Reactive Primitives Track Dependencies - javascript</title>
+    <meta name="description" content="Modern JavaScript frameworks and libraries utilize reactive primitives—commonly referred to as signals—to automatically synchronize state with the user interface and computed computations. This article explains the internal architecture behind automa">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-reactive-primitives-track-dependencies">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Reactive Primitives Track Dependencies - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-reactive-primitives-track-dependencies" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern JavaScript frameworks and libraries utilize reactive primitives—commonly referred to as signals—to automatically synchronize state with the user interface and computed computations. This article explains the internal architecture behind automa" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-reactive-primitives-track-dependencies">How
+JavaScript Reactive Primitives Track Dependencies</h1>
+<p>Modern JavaScript frameworks and libraries utilize reactive
+primitives—commonly referred to as signals—to automatically synchronize
+state with the user interface and computed computations. This article
+explains the internal architecture behind automatic dependency tracking,
+breaking down how a global execution context, getter interception,
+setter notifications, and dynamic cleanup allow JavaScript runtimes to
+map relationships between state and effects without explicit manual
+subscriptions.</p>
+<h2 id="the-foundation-a-shared-tracking-context">The Foundation: A
+Shared Tracking Context</h2>
+<p>Automatic dependency tracking relies on a global variable or
+execution stack often called <code>activeEffect</code> or
+<code>currentListener</code>. Because JavaScript executes synchronously
+within a single thread, the system can determine precisely which
+computation is running at any given moment.</p>
+<p>When a reactive effect or computation starts:</p>
+<ol type="1">
+<li>The framework sets <code>activeEffect</code> to reference the
+currently running function.</li>
+<li>The function executes.</li>
+<li>Once execution finishes, <code>activeEffect</code> is reset to
+<code>null</code> (or popped from the stack if effects are nested).</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> activeEffect <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createEffect</span>(fn) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> effect <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    activeEffect <span class="op">=</span> effect<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">fn</span>()<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">finally</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      activeEffect <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">effect</span>()<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="reading-state-interception-via-getters">Reading State:
+Interception via Getters</h2>
+<p>Reactive primitives encapsulate raw values behind getter and setter
+interfaces. When code reads a reactive variable inside an active effect,
+the getter executes and checks the global context.</p>
+<p>If <code>activeEffect</code> is present, the reactive primitive adds
+that function to its internal collection of subscribers (typically
+stored in a <code>Set</code> to prevent duplicate entries).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createSignal</span>(initialValue) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> value <span class="op">=</span> initialValue<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> subscribers <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span> <span class="fu">read</span>() {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (activeEffect) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      subscribers<span class="op">.</span><span class="fu">add</span>(activeEffect)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> value<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span> <span class="fu">write</span>(newValue) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (newValue <span class="op">!==</span> value) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      value <span class="op">=</span> newValue<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Notify phase</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">const</span> subscriber <span class="kw">of</span> [<span class="op">...</span>subscribers]) {</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="fu">subscriber</span>()<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> [read<span class="op">,</span> write]<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="writing-state-notification-and-propagation">Writing State:
+Notification and Propagation</h2>
+<p>When a signal’s value changes via its setter, it iterates through its
+internal <code>subscribers</code> set. Each registered effect function
+is executed directly or added to a batching queue to run on the next
+microtask.</p>
+<p>Because each primitive only retains references to the specific
+computations that read its getter, only the necessary downstream
+computations run. This provides fine-grained performance without
+requiring a top-down virtual DOM diffing process.</p>
+<h2 id="dynamic-dependencies-and-cleanup">Dynamic Dependencies and
+Cleanup</h2>
+<p>Applications often contain conditional logic where dependencies
+change during runtime:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> [toggle<span class="op">,</span> setToggle] <span class="op">=</span> <span class="fu">createSignal</span>(<span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> [name<span class="op">,</span> setName] <span class="op">=</span> <span class="fu">createSignal</span>(<span class="st">&quot;Alice&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">createEffect</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">toggle</span>()) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">name</span>())<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Hidden&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>In this scenario, if <code>toggle</code> becomes <code>false</code>,
+the effect no longer depends on <code>name</code>. If <code>name</code>
+updates later, the effect should not execute.</p>
+<p>To solve this, modern reactive engines manage a bidirectional link
+between effects and signals:</p>
+<ul>
+<li><strong>Before an effect re-runs:</strong> The effect removes itself
+from the subscriber sets of all signals it previously tracked.</li>
+<li><strong>During execution:</strong> The effect re-registers itself
+only to the signals accessed during that specific run.</li>
+</ul>
+<p>Alternatively, some systems use epoch-based versioning or linked
+lists to mark dependencies as stale and prune unused associations
+without full cleanup overhead.</p>
+<h2 id="summary">Summary</h2>
+<p>Automatic dependency tracking operates on four simple steps:</p>
+<ol type="1">
+<li>An effect sets itself as the active global context.</li>
+<li>Signal getters read during effect execution register the active
+context as a subscriber.</li>
+<li>Signal setters notify all registered subscribers when values
+change.</li>
+<li>Dependency sets are pruned and rebuilt on subsequent runs to support
+dynamic logic.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

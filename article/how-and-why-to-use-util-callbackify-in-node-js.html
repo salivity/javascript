@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How and Why to Use util.callbackify in Node.js - javascript</title>
+    <meta name="description" content="This article explains the purpose, mechanics, and practical applications of Node.js's built-in util.callbackify utility. You will learn why developers convert modern asynchronous, Promise-returning functions back into traditional callback-driven patterns">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-and-why-to-use-util-callbackify-in-node-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How and Why to Use util.callbackify in Node.js - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-and-why-to-use-util-callbackify-in-node-js" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the purpose, mechanics, and practical applications of Node.js's built-in util.callbackify utility. You will learn why developers convert modern asynchronous, Promise-returning functions back into traditional callback-driven patterns" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-and-why-to-use-utilcallbackify-in-nodejs">How and Why to Use
+util.callbackify in Node.js</h1>
+<p>This article explains the purpose, mechanics, and practical
+applications of Node.js's built-in <code>util.callbackify</code>
+utility. You will learn why developers convert modern asynchronous,
+Promise-returning functions back into traditional callback-driven
+patterns, how <code>util.callbackify</code> works under the hood, and
+the specific backward-compatibility challenges it solves in production
+environments.</p>
+<h2 id="the-core-purpose-of-utilcallbackify">The Core Purpose of
+util.callbackify</h2>
+<p>Introduced in Node.js v8.2.0, <code>util.callbackify</code> acts as
+the inverse of <code>util.promisify</code>. Its primary function is to
+wrap an asynchronous function—or any function that returns a Promise—and
+produce a new function that follows the traditional Node.js error-first
+callback pattern: <code>(err, value) =&gt; void</code>.</p>
+<p>While the JavaScript ecosystem has largely shifted to Promises and
+<code>async</code>/<code>await</code>, many legacy systems, APIs, and
+frameworks still strictly expect error-first callback interfaces.
+<code>util.callbackify</code> provides a clean, standardized bridge
+between modern async code and legacy systems without requiring manual
+Promise chaining and error handling boilerplate.</p>
+<h2 id="key-use-cases">Key Use Cases</h2>
+<h3 id="1-backward-compatibility-in-libraries">1. Backward Compatibility
+in Libraries</h3>
+<p>When maintaining a library consumed by third parties, breaking
+existing APIs can be costly. If a library maintainer decides to refactor
+internal implementations to use clean, readable
+<code>async</code>/<code>await</code> syntax, they can use
+<code>util.callbackify</code> to export the legacy callback interface
+alongside the new Promise-based interface. This avoids breaking changes
+for users who have not yet migrated to Promises.</p>
+<h3 id="2-working-with-callback-only-third-party-apis">2. Working with
+Callback-Only Third-Party APIs</h3>
+<p>Certain older libraries, test frameworks, or plugins mandate
+error-first callbacks for hooks, middleware, or configuration objects.
+For example, older workflow engines, streaming utilities, or legacy
+Express middleware may require a <code>done(err, result)</code>
+callback. <code>util.callbackify</code> allows developers to write the
+actual logic using modern <code>async</code> functions and convert them
+at the integration boundary.</p>
+<h3 id="3-incremental-codebase-modernization">3. Incremental Codebase
+Modernization</h3>
+<p>In large enterprise codebases, converting every layer from callbacks
+to Promises at once is often impossible. <code>util.callbackify</code>
+allows teams to write new modules or refactor existing modules to modern
+standards while still plugging them directly into older,
+callback-dependent application controllers.</p>
+<h2 id="how-utilcallbackify-works">How util.callbackify Works</h2>
+<p>When you pass an <code>async</code> function to
+<code>util.callbackify</code>, it returns a wrapper function that
+expects a callback as its final argument.</p>
+<ul>
+<li><strong>On Success:</strong> When the wrapped Promise resolves, the
+callback is invoked with <code>null</code> as the first argument
+(indicating no error) and the resolved value as the second argument:
+<code>callback(null, result)</code>.</li>
+<li><strong>On Failure:</strong> When the wrapped Promise rejects, the
+callback is invoked with the rejection reason as the first argument:
+<code>callback(error)</code>.</li>
+<li><strong>Falsy Errors Handling:</strong> If the underlying Promise
+rejects with a falsy value (such as <code>null</code>,
+<code>undefined</code>, or <code>false</code>),
+<code>util.callbackify</code> wraps the reason in an <code>Error</code>
+object with the <code>reason</code> property assigned to the original
+rejected value, ensuring the error-first convention is never
+broken.</li>
+</ul>
+<h2 id="basic-implementation-example">Basic Implementation Example</h2>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> util <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;util&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// A modern async function</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">getUserData</span>(userId) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>userId) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&#39;User ID is required&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> { <span class="dt">id</span><span class="op">:</span> userId<span class="op">,</span> <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;Alice&#39;</span> }<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Convert to an error-first callback function</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> getUserDataCallback <span class="op">=</span> util<span class="op">.</span><span class="fu">callbackify</span>(getUserData)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Consuming the callbackified function</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">getUserDataCallback</span>(<span class="dv">1</span><span class="op">,</span> (err<span class="op">,</span> user) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (err) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Failed to fetch user:&#39;</span><span class="op">,</span> err)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;User fetched successfully:&#39;</span><span class="op">,</span> user)<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>util.callbackify</code> ensures robust, standardized
+error translation, reducing boilerplate and preventing unhandled Promise
+rejections when interfacing with legacy JavaScript code.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

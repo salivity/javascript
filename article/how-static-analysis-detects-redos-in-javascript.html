@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Static Analysis Detects ReDoS in JavaScript - javascript</title>
+    <meta name="description" content="Regular Expression Denial of Service (ReDoS) occurs when a poorly constructed regular expression takes exponential or polynomial time to evaluate an input string, leading to thread-blocking behavior in single-threaded environments like Node.js. Static an">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-static-analysis-detects-redos-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Static Analysis Detects ReDoS in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-static-analysis-detects-redos-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Regular Expression Denial of Service (ReDoS) occurs when a poorly constructed regular expression takes exponential or polynomial time to evaluate an input string, leading to thread-blocking behavior in single-threaded environments like Node.js. Static an" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-static-analysis-detects-redos-in-javascript">How Static
+Analysis Detects ReDoS in JavaScript</h1>
+<p>Regular Expression Denial of Service (ReDoS) occurs when a poorly
+constructed regular expression takes exponential or polynomial time to
+evaluate an input string, leading to thread-blocking behavior in
+single-threaded environments like Node.js. Static analysis tools detect
+ReDoS vulnerabilities in JavaScript by parsing source code, translating
+regular expressions into theoretical automata, and analyzing those
+automata for catastrophic backtracking patterns without executing the
+code.</p>
+<h2 id="1-extracting-regex-via-abstract-syntax-trees-ast">1. Extracting
+Regex via Abstract Syntax Trees (AST)</h2>
+<p>The detection process begins with parsing JavaScript source code into
+an Abstract Syntax Tree (AST) using parsers like Babel, Acorn, or
+Espree. The static analysis tool traverses the AST to locate regular
+expressions defined in two forms:</p>
+<ul>
+<li><strong>Regex Literals:</strong> Expressions declared directly in
+code, such as <code>/^(a+)+$/</code>.</li>
+<li><strong>RegExp Constructors:</strong> Expressions created
+dynamically using <code>new RegExp("...")</code>.</li>
+</ul>
+<p>For <code>RegExp</code> constructors, the tool uses string analysis
+and constant folding to evaluate statically resolvable string arguments.
+If the regular expression is concatenated from dynamic variables, the
+tool may employ taint analysis to flag it as potentially vulnerable due
+to unpredictability.</p>
+<h2 id="2-converting-regex-into-finite-automata">2. Converting Regex
+into Finite Automata</h2>
+<p>Once an expression is isolated, the analyzer parses the pattern
+string itself into an internal regex AST. It then converts this
+structure into a Non-deterministic Finite Automaton (NFA) or a Directed
+Graph representing state transitions.</p>
+<p>Because JavaScript uses traditional NFA engines (specifically
+backtracking engines that support features like lookaheads and
+backreferences), evaluating matching paths involves backtracking when a
+match fails. The static analysis tool models this exact behavior
+mathematically by plotting states, transitions, and character
+classes.</p>
+<h2 id="3-detecting-ambiguity-and-catastrophic-backtracking">3.
+Detecting Ambiguity and Catastrophic Backtracking</h2>
+<p>The core of ReDoS static detection relies on determining the "degree
+of ambiguity" in the state graph. Catastrophic backtracking happens when
+the engine has multiple non-deterministic paths it can take to match the
+same sequence of characters. Static analyzers evaluate the automaton for
+specific conditions:</p>
+<ul>
+<li><strong>Exponential Ambiguity:</strong> The tool searches for nested
+quantifiers where repetition applies to a repeated group, such as
+<code>(a+)+</code> or <code>([a-zA-Z]+)*</code>. In automaton terms,
+this creates multiple nested loops that accept overlapping sets of
+characters, leading to <span class="math inline">\(O(2^n)\)</span> time
+complexity.</li>
+<li><strong>Polynomial Ambiguity:</strong> The tool checks for
+consecutive or overlapping repeated alternations, such as
+<code>(a|a)+</code> or <code>(a|ab)+</code>. While less severe than
+exponential patterns, these can still result in <span
+class="math inline">\(O(n^2)\)</span> or higher polynomial matching
+times.</li>
+</ul>
+<p>Tools calculate the product automaton (pairing the NFA with itself)
+to formally prove whether two distinct paths can process the exact same
+sequence of input characters. If an unbounded cycle exists within these
+overlapping paths, the expression is marked as vulnerable.</p>
+<h2 id="4-pattern-based-heuristics-and-linters">4. Pattern-Based
+Heuristics and Linters</h2>
+<p>Not all static tools construct full automata due to the computational
+cost during continuous integration (CI) workflows. Lighter-weight tools
+and linter plugins (such as ESLint rules like <code>clean-regex</code>
+or <code>no-unsafe-regex</code>) rely on heuristic pattern matching.</p>
+<p>These linters match regex AST nodes against known vulnerable
+anti-patterns, including:</p>
+<ul>
+<li>Repeated groups containing repetition: <code>(x+)+</code></li>
+<li>Alternations with overlapping prefixes followed by repetition:
+<code>(a|a+)+</code></li>
+<li>Overlapping tokens inside repeating groups:
+<code>(\d|\s)+</code></li>
+</ul>
+<p>While heuristic checks are significantly faster, they carry a higher
+rate of false positives and false negatives compared to formal automata
+analysis.</p>
+<h2 id="5-taint-tracking-and-contextual-reachability">5. Taint Tracking
+and Contextual Reachability</h2>
+<p>Advanced static application security testing (SAST) engines combine
+automata analysis with data-flow analysis. Identifying a vulnerable
+regex is only half the problem; the analyzer must determine if the regex
+actually processes untrusted user data.</p>
+<p>Taint tracking maps the flow of external inputs (such as HTTP request
+parameters, headers, or body payloads) to regex execution sinks like
+<code>.test()</code>, <code>.match()</code>, <code>.search()</code>, or
+<code>.replace()</code>. If an untrusted input can reach a regular
+expression proven to have super-linear time complexity, the scanner
+flags the finding as a high-priority ReDoS vulnerability.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

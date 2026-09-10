@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporal.Duration High-Precision Timing in JavaScript - javascript</title>
+    <meta name="description" content="This article provides an overview of how the modern JavaScript Temporal API, specifically Temporal.Duration, overcomes the limitations of the legacy Date object to deliver nanosecond-precision time difference calculations. You will learn how Temporal.Dur">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/temporal-duration-high-precision-timing-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Temporal.Duration High-Precision Timing in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/temporal-duration-high-precision-timing-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the modern JavaScript Temporal API, specifically Temporal.Duration, overcomes the limitations of the legacy Date object to deliver nanosecond-precision time difference calculations. You will learn how Temporal.Dur" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="temporalduration-high-precision-timing-in-javascript">Temporal.Duration
+High-Precision Timing in JavaScript</h1>
+<p>This article provides an overview of how the modern JavaScript
+<code>Temporal</code> API, specifically <code>Temporal.Duration</code>,
+overcomes the limitations of the legacy <code>Date</code> object to
+deliver nanosecond-precision time difference calculations. You will
+learn how <code>Temporal.Duration</code> models time spans, how it
+integrates with points in time via methods like <code>since()</code> and
+<code>until()</code>, and how built-in rounding, balancing, and unit
+conversion prevent precision loss and floating-point errors.</p>
+<h2 id="the-shift-to-nanosecond-precision">The Shift to Nanosecond
+Precision</h2>
+<p>The legacy JavaScript <code>Date</code> object relies internally on
+millisecond timestamps represented as standard floating-point numbers.
+In contrast, the <code>Temporal</code> specification introduces native
+nanosecond precision using integer-based arithmetic under the hood.</p>
+<p>A <code>Temporal.Duration</code> represents a distinct length of
+time. It holds separate integer fields for years, months, weeks, days,
+hours, minutes, seconds, milliseconds, microseconds, and
+nanoseconds:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> duration <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">hours</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">minutes</span><span class="op">:</span> <span class="dv">30</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">seconds</span><span class="op">:</span> <span class="dv">15</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">milliseconds</span><span class="op">:</span> <span class="dv">500</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">microseconds</span><span class="op">:</span> <span class="dv">250</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">nanoseconds</span><span class="op">:</span> <span class="dv">100</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Because individual units are tracked independently,
+<code>Temporal.Duration</code> avoids the floating-point inaccuracies
+that frequently occur when converting fractional milliseconds into
+smaller sub-millisecond units.</p>
+<h2 id="calculating-differences-between-time-points">Calculating
+Differences Between Time Points</h2>
+<p>To calculate the exact difference between two high-precision points
+in time, modern JavaScript uses <code>Temporal.Instant</code> or
+<code>Temporal.PlainDateTime</code> combined with the
+<code>.since()</code> or <code>.until()</code> methods. These methods
+compute the difference and return a <code>Temporal.Duration</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> start <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Instant</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&quot;2026-03-30T10:00:00.000000100Z&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> end <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Instant</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&quot;2026-03-30T10:00:05.000000950Z&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculate duration to the exact nanosecond</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> diff <span class="op">=</span> end<span class="op">.</span><span class="fu">since</span>(start)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(diff<span class="op">.</span><span class="at">seconds</span>)<span class="op">;</span>     <span class="co">// 5</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(diff<span class="op">.</span><span class="at">nanoseconds</span>)<span class="op">;</span> <span class="co">// 850</span></span></code></pre></div>
+<p>By default, differences computed between
+<code>Temporal.Instant</code> instances default to seconds and
+sub-second components, preventing unintended conversion errors across
+daylight saving boundaries.</p>
+<h2
+id="controlling-precision-with-largestunit-and-smallestunit">Controlling
+Precision with <code>largestUnit</code> and
+<code>smallestUnit</code></h2>
+<p><code>Temporal.Duration</code> calculations allow precise control
+over unit granularity without manual division or modulo operations. By
+configuring options in <code>.since()</code>, <code>.until()</code>, or
+<code>.round()</code>, you can designate the upper and lower precision
+limits:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> diffWithConfig <span class="op">=</span> end<span class="op">.</span><span class="fu">since</span>(start<span class="op">,</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">largestUnit</span><span class="op">:</span> <span class="st">&#39;millisecond&#39;</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">smallestUnit</span><span class="op">:</span> <span class="st">&#39;nanosecond&#39;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(diffWithConfig<span class="op">.</span><span class="at">milliseconds</span>)<span class="op">;</span> <span class="co">// 5000</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(diffWithConfig<span class="op">.</span><span class="at">nanoseconds</span>)<span class="op">;</span>  <span class="co">// 850</span></span></code></pre></div>
+<ul>
+<li><code>largestUnit</code> determines how high the values will balance
+before rolling over (e.g., aggregating seconds into total milliseconds
+or hours).</li>
+<li><code>smallestUnit</code> defines the truncation or rounding
+boundary.</li>
+</ul>
+<h2 id="exact-rounding-and-fractional-totals">Exact Rounding and
+Fractional Totals</h2>
+<p>High-precision calculation often requires rounding durations to
+human-readable units or converting entire durations into a fractional
+single unit. <code>Temporal.Duration</code> includes native
+<code>.round()</code> and <code>.total()</code> methods that execute
+these operations safely.</p>
+<h3 id="rounding-durations">Rounding Durations</h3>
+<p>Rounding a duration allows you to specify target increments and
+rounding modes (such as <code>halfExpand</code>, <code>trunc</code>,
+<code>ceil</code>, or <code>floor</code>):</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> preciseDuration <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">seconds</span><span class="op">:</span> <span class="dv">10</span><span class="op">,</span> <span class="dt">microseconds</span><span class="op">:</span> <span class="dv">650</span> })<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rounded <span class="op">=</span> preciseDuration<span class="op">.</span><span class="fu">round</span>({</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">smallestUnit</span><span class="op">:</span> <span class="st">&#39;millisecond&#39;</span><span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">roundingMode</span><span class="op">:</span> <span class="st">&#39;halfExpand&#39;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(rounded<span class="op">.</span><span class="at">seconds</span>)<span class="op">;</span>      <span class="co">// 10</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(rounded<span class="op">.</span><span class="at">milliseconds</span>)<span class="op">;</span> <span class="co">// 1</span></span></code></pre></div>
+<h3 id="computing-fractional-totals">Computing Fractional Totals</h3>
+<p>When calculating performance metrics or benchmarks, durations often
+need to be converted to a single floating-point number representing a
+specific unit. The <code>.total()</code> method performs this
+calculation relative to an exact target unit:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> totalMicroseconds <span class="op">=</span> preciseDuration<span class="op">.</span><span class="fu">total</span>({ <span class="dt">unit</span><span class="op">:</span> <span class="st">&#39;microsecond&#39;</span> })<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(totalMicroseconds)<span class="op">;</span> <span class="co">// 10000650</span></span></code></pre></div>
+<h2 id="summary">Summary</h2>
+<p><code>Temporal.Duration</code> transforms JavaScript timing
+operations by providing first-class support for sub-millisecond
+precision down to single nanoseconds. By decoupling duration values from
+system clock timestamps, utilizing integer-safe arithmetic, and offering
+native methods for rounding and unit balancing,
+<code>Temporal.Duration</code> eliminates the need for third-party date
+libraries for high-precision time calculations.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

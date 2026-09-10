@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Inline Caches Accelerate JavaScript Property Lookups - javascript</title>
+    <meta name="description" content="Inline caching (IC) is a critical optimization technique used by modern JavaScript engines like V8, SpiderMonkey, and JavaScriptCore to dramatically speed up object property access. Because JavaScript is dynamically typed, objects can change structure at">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-inline-caches-accelerate-javascript-property-lookups">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Inline Caches Accelerate JavaScript Property Lookups - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-inline-caches-accelerate-javascript-property-lookups" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Inline caching (IC) is a critical optimization technique used by modern JavaScript engines like V8, SpiderMonkey, and JavaScriptCore to dramatically speed up object property access. Because JavaScript is dynamically typed, objects can change structure at" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-inline-caches-accelerate-javascript-property-lookups">How
+Inline Caches Accelerate JavaScript Property Lookups</h1>
+<p>Inline caching (IC) is a critical optimization technique used by
+modern JavaScript engines like V8, SpiderMonkey, and JavaScriptCore to
+dramatically speed up object property access. Because JavaScript is
+dynamically typed, objects can change structure at runtime, normally
+requiring expensive dictionary lookups to find properties in memory.
+Inline caches solve this performance bottleneck by observing property
+access patterns at specific call sites, remembering the physical memory
+offsets of object properties, and bypassing repeated lookups.</p>
+<h2 id="the-problem-dynamic-typing-and-property-lookup-overhead">The
+Problem: Dynamic Typing and Property Lookup Overhead</h2>
+<p>In statically typed languages like C++ or Java, object layouts are
+fixed at compile time, allowing the compiler to access properties via
+hardcoded memory offsets. In contrast, JavaScript allows properties to
+be added, modified, or removed dynamically during execution.</p>
+<p>Without optimization, evaluating an expression like
+<code>point.x</code> requires the engine to perform a dynamic lookup,
+searching the object's internal dictionary, checking hidden class
+descriptors, and potentially traversing the prototype chain. Executing
+this process repeatedly inside loops or hot functions introduces massive
+performance overhead.</p>
+<h2 id="the-foundation-hidden-classes-and-shapes">The Foundation: Hidden
+Classes and Shapes</h2>
+<p>To make inline caching possible, JavaScript engines create internal
+data structures commonly known as <strong>Hidden Classes</strong>,
+<strong>Shapes</strong>, or <strong>Maps</strong>.</p>
+<p>When an object is created, the engine assigns it a shape that
+tracks:</p>
+<ul>
+<li>The names of its properties.</li>
+<li>The relative memory offset of each property.</li>
+<li>Transitions to other shapes when new properties are added.</li>
+</ul>
+<p>Objects created with the same properties in the same order share the
+identical hidden class, ensuring predictable memory layouts.</p>
+<h2 id="how-inline-caching-operates">How Inline Caching Operates</h2>
+<p>An inline cache is tied directly to a specific bytecode location
+(call site) where property access occurs, such as
+<code>user.name</code>.</p>
+<ol type="1">
+<li><strong>Uninitialized State:</strong> The first time the property
+access instruction runs, the engine performs a full lookup, retrieves
+the property, and identifies the object's hidden class and offset.</li>
+<li><strong>Caching:</strong> The engine writes this information
+directly into the call site's metadata. It records the expected hidden
+class and the exact memory offset of the property.</li>
+<li><strong>Fast Path Execution:</strong> On subsequent executions at
+that same location, the engine simply checks if the incoming object's
+hidden class matches the cached hidden class. If it matches, the engine
+reads the value directly from the cached offset without performing a
+lookup.</li>
+</ol>
+<h2 id="the-states-of-inline-caching">The States of Inline Caching</h2>
+<p>As execution continues, an inline cache adapts based on the variety
+of object shapes it encounters:</p>
+<ul>
+<li><strong>Monomorphic:</strong> The call site only ever sees objects
+of a single shape. This is the optimal state. The Just-In-Time (JIT)
+compiler can inline the property access completely, reducing the
+operation to a single pointer comparison and a memory load.</li>
+<li><strong>Polymorphic:</strong> The call site encounters a small,
+limited set of distinct shapes (typically between two and four). The
+cache stores a list of these shapes and their corresponding offsets,
+using a quick lookup table to resolve the offset.</li>
+<li><strong>Megamorphic:</strong> The call site encounters too many
+different shapes. The engine stops caching individual offsets and falls
+back to a generic lookup mechanism, which is significantly slower than
+monomorphic access.</li>
+</ul>
+<h2 id="jit-compilation-and-speculative-optimization">JIT Compilation
+and Speculative Optimization</h2>
+<p>Inline caches do more than speed up interpreter execution; they act
+as type-feedback profilers for the optimizing JIT compiler (such as V8's
+TurboFan).</p>
+<p>When the JIT compiler compiles hot code into native machine
+instructions, it relies on IC data to make optimistic assumptions. If an
+IC is monomorphic, the JIT compiler generates optimized assembly code
+tailored specifically to that single object layout. If an unexpected
+object shape arrives later, the engine deoptimizes the code and falls
+back to baseline execution.</p>
+<h2 id="writing-ic-friendly-javascript">Writing IC-Friendly
+JavaScript</h2>
+<p>To maximize the benefits of inline caches, developers should maintain
+predictable object structures:</p>
+<ul>
+<li><strong>Initialize all properties in constructors or factory
+functions:</strong> Avoid adding properties to objects conditionally
+after instantiation.</li>
+<li><strong>Maintain property initialization order:</strong>
+Initializing properties in different orders creates distinct hidden
+classes.</li>
+<li><strong>Avoid using <code>delete</code>:</strong> Deleting a
+property alters an object's structure and can force the engine into slow
+dictionary mode.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript DocumentFragment for Batch DOM Insertions - javascript</title>
+    <meta name="description" content="A DocumentFragment is a lightweight, invisible container in JavaScript designed to hold DOM nodes in memory before they are appended to the active document tree. Because direct modifications to the live DOM trigger costly layout recalculations and repain">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-documentfragment-for-batch-dom-insertions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript DocumentFragment for Batch DOM Insertions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-documentfragment-for-batch-dom-insertions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A DocumentFragment is a lightweight, invisible container in JavaScript designed to hold DOM nodes in memory before they are appended to the active document tree. Because direct modifications to the live DOM trigger costly layout recalculations and repain" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-documentfragment-for-batch-dom-insertions">JavaScript
+DocumentFragment for Batch DOM Insertions</h1>
+<p>A <code>DocumentFragment</code> is a lightweight, invisible container
+in JavaScript designed to hold DOM nodes in memory before they are
+appended to the active document tree. Because direct modifications to
+the live DOM trigger costly layout recalculations and repaints,
+manipulating elements one by one creates significant performance
+bottlenecks. Utilizing a <code>DocumentFragment</code> allows developers
+to construct complex subtrees entirely offscreen and insert them in a
+single batch operation, drastically improving rendering performance and
+user interface responsiveness.</p>
+<h2 id="the-performance-cost-of-live-dom-updates">The Performance Cost
+of Live DOM Updates</h2>
+<p>Every time an element is inserted, removed, or updated in the active
+DOM tree, the browser performs two expensive operations:</p>
+<ul>
+<li><strong>Reflow (Layout):</strong> The browser recalculates the
+physical position and geometry of all affected elements.</li>
+<li><strong>Repaint:</strong> The browser redraws the pixels on the
+screen to reflect structural and visual changes.</li>
+</ul>
+<p>When inserting multiple elements sequentially (such as rendering a
+list inside a loop), each iteration can trigger its own reflow and
+repaint cycle. This behavior, known as layout thrashing, slows down the
+browser and causes visible frame drops or interface freezing.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Inefficient: Triggers a reflow and repaint on every iteration</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> list <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;item-list&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">1000</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> item <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElement</span>(<span class="st">&#39;li&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  item<span class="op">.</span><span class="at">textContent</span> <span class="op">=</span> <span class="vs">`Item </span><span class="sc">${</span>i<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  list<span class="op">.</span><span class="fu">appendChild</span>(item)<span class="op">;</span> <span class="co">// Modifies the live DOM 1000 times</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="how-documentfragment-batches-operations">How DocumentFragment
+Batches Operations</h2>
+<p>A <code>DocumentFragment</code> operates as a detached, minimal
+document object. It inherits node properties and methods, allowing
+developers to append, prepend, and manipulate child nodes within it just
+like any regular DOM element.</p>
+<p>Key characteristics of <code>DocumentFragment</code> include:</p>
+<ol type="1">
+<li><strong>Detached from the Active Tree:</strong> It exists entirely
+in memory. Any modification made to the fragment produces zero reflows
+and zero repaints.</li>
+<li><strong>Transparent Transfer:</strong> When a
+<code>DocumentFragment</code> is passed to a method like
+<code>Node.appendChild()</code> or <code>Element.append()</code>, the
+fragment itself is not inserted. Instead, all of its child nodes are
+transferred to the target element.</li>
+<li><strong>Automatic Cleanup:</strong> Once the children are moved to
+the live DOM, the <code>DocumentFragment</code> becomes empty, ready to
+be reused or garbage-collected.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Efficient: Batches all insertions into a single live DOM update</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> list <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;item-list&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fragment <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createDocumentFragment</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">1000</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> item <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElement</span>(<span class="st">&#39;li&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  item<span class="op">.</span><span class="at">textContent</span> <span class="op">=</span> <span class="vs">`Item </span><span class="sc">${</span>i<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  fragment<span class="op">.</span><span class="fu">appendChild</span>(item)<span class="op">;</span> <span class="co">// Modifies the offscreen fragment</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Single reflow and repaint occurs here</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>list<span class="op">.</span><span class="fu">appendChild</span>(fragment)<span class="op">;</span></span></code></pre></div>
+<h2 id="documentfragment-vs-innerhtml">DocumentFragment vs.
+innerHTML</h2>
+<p>While string concatenation with <code>innerHTML</code> also allows
+batch updates, <code>DocumentFragment</code> offers distinct
+advantages:</p>
+<ul>
+<li><strong>Security:</strong> Building nodes programmatically prevents
+Cross-Site Scripting (XSS) vulnerabilities associated with unsanitized
+HTML strings.</li>
+<li><strong>Event Listeners and References:</strong> Elements created
+via <code>document.createElement()</code> retain attached event
+listeners and direct object references, which are lost when replacing
+elements via <code>innerHTML</code>.</li>
+<li><strong>Parsing Overhead:</strong> <code>innerHTML</code> forces the
+browser's HTML parser to interpret strings into DOM nodes, whereas
+<code>DocumentFragment</code> operates directly on existing node
+instances.</li>
+</ul>
+<h2 id="summary">Summary</h2>
+<p><code>DocumentFragment</code> serves as an essential mechanism for
+high-performance DOM manipulation in vanilla JavaScript. By acting as a
+temporary, in-memory staging area for new elements, it collapses what
+would otherwise be hundreds or thousands of separate browser rendering
+calculations into a single, optimized operation.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

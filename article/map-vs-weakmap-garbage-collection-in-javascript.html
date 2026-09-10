@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map vs WeakMap Garbage Collection in JavaScript - javascript</title>
+    <meta name="description" content="JavaScript provides both Map and WeakMap to store key-value pairs, but the critical difference between them lies in how they handle memory management and garbage collection. A standard Map maintains strong references to its keys, meaning objects used as">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/map-vs-weakmap-garbage-collection-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Map vs WeakMap Garbage Collection in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/map-vs-weakmap-garbage-collection-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript provides both Map and WeakMap to store key-value pairs, but the critical difference between them lies in how they handle memory management and garbage collection. A standard Map maintains strong references to its keys, meaning objects used as" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="map-vs-weakmap-garbage-collection-in-javascript">Map vs WeakMap
+Garbage Collection in JavaScript</h1>
+<p>JavaScript provides both <code>Map</code> and <code>WeakMap</code> to
+store key-value pairs, but the critical difference between them lies in
+how they handle memory management and garbage collection. A standard
+<code>Map</code> maintains strong references to its keys, meaning
+objects used as keys will not be cleared from memory even if all other
+references to them are removed. In contrast, a <code>WeakMap</code>
+holds "weak" references to its keys, allowing the JavaScript garbage
+collector to free up memory automatically as soon as an object key loses
+all other references in the application.</p>
+<h3 id="strong-references-in-map">Strong References in Map</h3>
+<p>In a standard <code>Map</code>, keys can be of any data type,
+including primitives, functions, and objects. When an object is used as
+a key in a <code>Map</code>, the map retains a strong reference to that
+object.</p>
+<p>As long as the <code>Map</code> instance itself remains in memory,
+the key object and its associated value will also remain in memory. Even
+if you set the original variable pointing to the object to
+<code>null</code>, the garbage collector will not reclaim the object
+because the <code>Map</code> is still referencing it.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> user <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span> }<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userMap <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>userMap<span class="op">.</span><span class="fu">set</span>(user<span class="op">,</span> <span class="st">&quot;User profile data&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Remove the original reference</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>user <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// The object { name: &quot;Alice&quot; } remains in memory because userMap holds a strong reference to it.</span></span></code></pre></div>
+<p>To release the memory in a <code>Map</code>, you must explicitly
+remove the entry using <code>map.delete(key)</code> or clear the entire
+map with <code>map.clear()</code>. Failing to do so can lead to memory
+leaks, especially in long-running applications or single-page
+applications.</p>
+<h3 id="weak-references-in-weakmap">Weak References in WeakMap</h3>
+<p>A <code>WeakMap</code> addresses this memory retention issue by
+holding only weak references to its keys. Because of how weak references
+work, <code>WeakMap</code> has specific constraints:</p>
+<ol type="1">
+<li><strong>Keys must be objects:</strong> Primitive values (like
+strings, numbers, or booleans) cannot be used as keys in a
+<code>WeakMap</code> because primitives cannot be
+garbage-collected.</li>
+<li><strong>Keys are weakly held:</strong> If no other reference to a
+key object exists outside the <code>WeakMap</code>, the garbage
+collector will automatically reclaim the object and remove the
+corresponding key-value pair from memory.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> user <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userWeakMap <span class="op">=</span> <span class="kw">new</span> <span class="bu">WeakMap</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>userWeakMap<span class="op">.</span><span class="fu">set</span>(user<span class="op">,</span> <span class="st">&quot;User profile data&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Remove the original reference</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>user <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// The object { name: &quot;Alice&quot; } and its associated value will be automatically garbage-collected.</span></span></code></pre></div>
+<h3 id="why-weakmap-cannot-be-iterated">Why WeakMap Cannot Be
+Iterated</h3>
+<p>Because garbage collection runs non-deterministically at the
+JavaScript engine's discretion, an entry in a <code>WeakMap</code> could
+be removed at any moment. As a result, <code>WeakMap</code> does not
+support:</p>
+<ul>
+<li>Iteration methods like <code>.forEach()</code>,
+<code>.keys()</code>, <code>.values()</code>, or
+<code>.entries()</code>.</li>
+<li>The <code>for...of</code> loop.</li>
+<li>The <code>.size</code> property or <code>.clear()</code>
+method.</li>
+</ul>
+<p>These limitations ensure the integrity of the data structure,
+preventing unpredictable behavior caused by the timing of the garbage
+collector.</p>
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Map</th>
+<th style="text-align: left;">WeakMap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Garbage Collection</strong></td>
+<td style="text-align: left;">Prevents GC of key objects (strong
+reference).</td>
+<td style="text-align: left;">Allows GC of key objects when unreferenced
+elsewhere (weak reference).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Key Types</strong></td>
+<td style="text-align: left;">Any type (objects, primitives,
+functions).</td>
+<td style="text-align: left;">Objects only (and non-registered symbols
+in modern engines).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Memory Leak Risk</strong></td>
+<td style="text-align: left;">High if entries are not manually
+deleted.</td>
+<td style="text-align: left;">Low, memory cleans up automatically.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Iterability</strong></td>
+<td style="text-align: left;">Fully iterable (<code>keys()</code>,
+<code>values()</code>, <code>forEach</code>).</td>
+<td style="text-align: left;">Not iterable.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Size Property</strong></td>
+<td style="text-align: left;">Yes (<code>map.size</code>).</td>
+<td style="text-align: left;">No.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-use-each">When to Use Each</h3>
+<ul>
+<li><strong>Use <code>Map</code></strong> when you need to store data
+with primitive keys, iterate over keys and values, track the size of the
+collection, or maintain data for the entire lifecycle of the map.</li>
+<li><strong>Use <code>WeakMap</code></strong> when you need to associate
+metadata with objects owned by other parts of the application (such as
+DOM nodes or third-party library objects) without preventing those
+objects from being cleaned up by the garbage collector.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

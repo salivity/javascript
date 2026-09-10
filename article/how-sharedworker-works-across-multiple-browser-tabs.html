@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How SharedWorker Works Across Multiple Browser Tabs - javascript</title>
+    <meta name="description" content="The SharedWorker interface allows multiple browser contexts—such as tabs, windows, or iframes—to run and interact with a single shared JavaScript background thread. By binding connections to a centralized script instance via explicit communication po">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-sharedworker-works-across-multiple-browser-tabs">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How SharedWorker Works Across Multiple Browser Tabs - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-sharedworker-works-across-multiple-browser-tabs" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The SharedWorker interface allows multiple browser contexts—such as tabs, windows, or iframes—to run and interact with a single shared JavaScript background thread. By binding connections to a centralized script instance via explicit communication po" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-sharedworker-works-across-multiple-browser-tabs">How
+SharedWorker Works Across Multiple Browser Tabs</h1>
+<p>The <code>SharedWorker</code> interface allows multiple browser
+contexts—such as tabs, windows, or iframes—to run and interact with a
+single shared JavaScript background thread. By binding connections to a
+centralized script instance via explicit communication ports, web
+applications can centralize network requests, synchronize application
+state, and manage shared resources without duplicating background
+processing across each open tab.</p>
+<h2 id="the-same-origin-instance-model">The Same-Origin Instance
+Model</h2>
+<p>When a browser tab instantiates a
+<code>new SharedWorker(scriptURL, [name])</code>, the browser checks if
+a worker instance already exists for that exact script URL and name
+under the same origin (protocol, domain, and port).</p>
+<ul>
+<li>If an instance already exists, the browser simply connects the new
+tab to the running worker.</li>
+<li>If no matching worker exists, the browser spawns a new background
+thread, loads the script, and executes it.</li>
+</ul>
+<p>Because execution is scoped to the origin, data within the worker
+thread resides in a single, shared memory space accessible by any
+eligible browsing context.</p>
+<h2 id="port-based-communication">Port-Based Communication</h2>
+<p>Unlike standard dedicated Web Workers that use the worker instance
+directly to send and receive messages, <code>SharedWorker</code> relies
+on <code>MessagePort</code> objects provided by the Channel Messaging
+API.</p>
+<ol type="1">
+<li><strong>Tab Connection:</strong> When a tab initializes the worker,
+it receives a reference to a dedicated port via
+<code>worker.port</code>.</li>
+<li><strong>Worker Event Handling:</strong> Inside the shared worker
+script, the runtime fires the <code>onconnect</code> event each time a
+new tab connects.</li>
+<li><strong>Port Assignment:</strong> The <code>connect</code> event
+contains a <code>ports</code> array containing the communication port
+corresponding to that specific tab (<code>e.ports[0]</code>).</li>
+<li><strong>Data Transfer:</strong> Both the tab and the shared worker
+communicate asynchronously through their respective port objects using
+<code>port.postMessage()</code> and the <code>port.onmessage</code>
+event handler (or <code>port.addEventListener('message', ...)</code>
+combined with <code>port.start()</code>).</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// main.js (Tabs)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">SharedWorker</span>(<span class="st">&#39;worker.js&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="at">port</span><span class="op">.</span><span class="fu">start</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="at">port</span><span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Message received from SharedWorker:&#39;</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="at">port</span><span class="op">.</span><span class="fu">postMessage</span>(<span class="st">&#39;Hello from Tab&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// worker.js (SharedWorker)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> connections <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="at">onconnect</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> port <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">ports</span>[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  connections<span class="op">.</span><span class="fu">push</span>(port)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  port<span class="op">.</span><span class="fu">start</span>()<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  port<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (e) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Broadcast data to all connected tabs</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    connections<span class="op">.</span><span class="fu">forEach</span>((conn) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      conn<span class="op">.</span><span class="fu">postMessage</span>(<span class="vs">`Broadcasting: </span><span class="sc">${</span>e<span class="op">.</span><span class="at">data</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="lifecycle-and-resource-management">Lifecycle and Resource
+Management</h2>
+<p>A <code>SharedWorker</code> remains active as long as at least one
+connected tab, window, or iframe maintains an open port to it. Once all
+connected browsing contexts are closed or explicitly close their ports,
+the browser terminates the worker instance to reclaim system memory.</p>
+<p>This architecture is especially effective for maintaining a single
+persistent WebSocket or Server-Sent Events (SSE) connection,
+centralizing data caching, and eliminating duplicate network polling
+across multi-tab user sessions.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

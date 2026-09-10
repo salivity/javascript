@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JSCodeShift and Recast Automate Codemods - javascript</title>
+    <meta name="description" content="Automated refactoring across large JavaScript codebases relies heavily on codemods powered by Recast and jscodeshift. These tools operate by parsing raw source code into an Abstract Syntax Tree (AST), modifying the tree programmatically, and serializing">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-jscodeshift-and-recast-automate-codemods">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JSCodeShift and Recast Automate Codemods - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-jscodeshift-and-recast-automate-codemods" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Automated refactoring across large JavaScript codebases relies heavily on codemods powered by Recast and jscodeshift. These tools operate by parsing raw source code into an Abstract Syntax Tree (AST), modifying the tree programmatically, and serializing" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-jscodeshift-and-recast-automate-codemods">How JSCodeShift
+and Recast Automate Codemods</h1>
+<p>Automated refactoring across large JavaScript codebases relies
+heavily on codemods powered by Recast and jscodeshift. These tools
+operate by parsing raw source code into an Abstract Syntax Tree (AST),
+modifying the tree programmatically, and serializing it back into source
+code while preserving original comments, whitespace, and formatting.
+Understanding how these tools handle parsing, node manipulation, and
+style-preserving generation is essential for building scalable, reliable
+codebase transformations.</p>
+<h3 id="the-codemod-pipeline">The Codemod Pipeline</h3>
+<p>The process of running an AST-based codemod follows a three-step
+lifecycle: <strong>Parse</strong>, <strong>Transform</strong>, and
+<strong>Print</strong>.</p>
+<ol type="1">
+<li><strong>Parse:</strong> Source code text is converted into an
+Abstract Syntax Tree.</li>
+<li><strong>Transform:</strong> A transformation script queries,
+modifies, replaces, or deletes specific nodes in the AST.</li>
+<li><strong>Print:</strong> The modified AST is regenerated back into
+plain JavaScript source code.</li>
+</ol>
+<h3 id="1-parsing-and-ast-representation-with-recast">1. Parsing and AST
+Representation with Recast</h3>
+<p>Recast handles the heavy lifting of parsing and printing. When Recast
+parses JavaScript using an underlying parser (such as Babel, Flow, or
+Esprima), it does not merely generate standard AST nodes conforming to
+the ESTree specification. It also attaches precise location metadata and
+tracks original formatting details, tokens, and comments.</p>
+<p>Each AST node represents a syntactic construct in the language—such
+as variable declarations, function calls, binary expressions, or import
+statements. Recast preserves the original structure by wrapping each
+node with positional tokens that track where in the file the node was
+originally located.</p>
+<h3 id="2-querying-and-manipulating-nodes-with-jscodeshift">2. Querying
+and Manipulating Nodes with jscodeshift</h3>
+<p>While Recast provides the low-level parsing and printing
+infrastructure, <strong>jscodeshift</strong> provides the execution
+engine and a high-level, fluent API for traversing and manipulating the
+AST.</p>
+<p>Built on top of <code>ast-types</code>, jscodeshift provides a
+jQuery-like syntax for AST queries:</p>
+<ul>
+<li><strong>Collections:</strong> Searching for nodes (e.g.,
+<code>root.find(j.CallExpression)</code>) returns a wrapped collection
+of AST paths.</li>
+<li><strong>Node Paths:</strong> Instead of exposing raw AST nodes,
+jscodeshift wraps them in <code>NodePath</code> objects. A
+<code>NodePath</code> maintains references to the parent scope, parent
+nodes, and sibling nodes, making it easy to determine the context of an
+expression or mutate relationships safely.</li>
+<li><strong>Builders:</strong> jscodeshift exposes factory functions for
+every AST node type (e.g., <code>j.identifier()</code>,
+<code>j.importDeclaration()</code>), allowing developers to
+programmatically generate syntactically correct AST structures without
+manual dictionary construction.</li>
+<li><strong>Mutations:</strong> Developers can call methods such as
+<code>.replaceWith()</code>, <code>.insertBefore()</code>,
+<code>.remove()</code>, or <code>.forEach()</code> directly on
+collections to modify the tree in-place.</li>
+</ul>
+<h3 id="3-non-destructive-code-generation-and-formatting">3.
+Non-Destructive Code Generation and Formatting</h3>
+<p>A major limitation of traditional AST stringifiers is that they
+reprint the entire file from scratch, stripping away custom whitespace,
+indentation rules, and comments. Recast solves this through
+non-destructive printing:</p>
+<ul>
+<li><strong>Node Identity Tracking:</strong> When serializing the AST
+back into code, Recast compares the transformed AST nodes against the
+original tokens and source text.</li>
+<li><strong>Localized Reprinting:</strong> For untouched nodes, Recast
+outputs the original source substring verbatim. For modified or newly
+inserted nodes, Recast uses an internal pretty-printer that formats the
+generated code to match the surrounding indentation and style
+conventions.</li>
+<li><strong>Comment Association:</strong> Recast intelligently maintains
+attachment references between comments and their adjacent nodes,
+preventing comments from drifting or disappearing during node
+relocations and deletions.</li>
+</ul>
+<h3 id="4-scalable-execution-across-repositories">4. Scalable Execution
+Across Repositories</h3>
+<p>At scale, running codemods across thousands of files can be
+resource-intensive. jscodeshift serves as a CLI runner that parallelizes
+execution across multiple worker processes utilizing all available CPU
+cores. It provides dry-run capabilities, unified diff previews, and
+progress reporting, allowing developers to safely test, inspect, and
+apply sweeping structural changes across massive codebases within
+seconds.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

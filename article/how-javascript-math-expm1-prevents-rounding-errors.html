@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Math.expm1 Prevents Rounding Errors - javascript</title>
+    <meta name="description" content="JavaScript's Math.expm1() function calculates $e^x - 1$, where $e$ is the base of the natural logarithm and $x$ is the argument. When values of $x$ are extremely close to zero, calculating Math.exp(x) - 1 manually leads to severe precision loss due to a">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-math-expm1-prevents-rounding-errors">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Math.expm1 Prevents Rounding Errors - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-math-expm1-prevents-rounding-errors" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript's Math.expm1() function calculates $e^x - 1$, where $e$ is the base of the natural logarithm and $x$ is the argument. When values of $x$ are extremely close to zero, calculating Math.exp(x) - 1 manually leads to severe precision loss due to a" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-mathexpm1-prevents-rounding-errors">How
+JavaScript Math.expm1 Prevents Rounding Errors</h1>
+<p>JavaScript's <code>Math.expm1()</code> function calculates <span
+class="math inline">\(e^x - 1\)</span>, where <span
+class="math inline">\(e\)</span> is the base of the natural logarithm
+and <span class="math inline">\(x\)</span> is the argument. When values
+of <span class="math inline">\(x\)</span> are extremely close to zero,
+calculating <code>Math.exp(x) - 1</code> manually leads to severe
+precision loss due to a floating-point phenomenon known as catastrophic
+cancellation. <code>Math.expm1()</code> circumvents this by using
+specialized mathematical approximations, such as Taylor series, to
+compute the result directly without ever calculating <span
+class="math inline">\(e^x\)</span> first.</p>
+<h2 id="the-problem-catastrophic-cancellation">The Problem: Catastrophic
+Cancellation</h2>
+<p>JavaScript represents numbers using the IEEE 754 standard for
+double-precision floating-point numbers. These numbers allocate 53 bits
+to the significand (mantissa), providing roughly 15 to 17 decimal digits
+of precision.</p>
+<p>When <span class="math inline">\(x\)</span> is very close to zero,
+<span class="math inline">\(e^x\)</span> produces a value extremely
+close to 1:</p>
+<p><span class="math display">\[e^x \approx 1 + x\]</span></p>
+<p>If <span class="math inline">\(x = 10^{-15}\)</span>, then <span
+class="math inline">\(e^x \approx 1.000000000000001\)</span>.</p>
+<p>In standard floating-point representation, storing this intermediate
+value requires the lower-order digits of <span
+class="math inline">\(x\)</span> to shift into the limited precision
+window, pushing out and discarding the least significant bits. When you
+subsequently subtract <code>1</code> (<code>Math.exp(x) - 1</code>), the
+leading digits cancel out, leaving behind zeroes and the truncated,
+inaccurate remainder. If <span class="math inline">\(x\)</span> is
+smaller than roughly <span class="math inline">\(10^{-16}\)</span>,
+<code>Math.exp(x)</code> rounds to exactly <code>1</code>, making
+<code>Math.exp(x) - 1</code> evaluate to <code>0</code>, resulting in a
+100% relative error.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> x <span class="op">=</span> <span class="fl">1e-15</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Naive implementation:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">exp</span>(x) <span class="op">-</span> <span class="dv">1</span>)<span class="op">;</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: 1.1102230246251565e-15 (Significant precision loss)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Using Math.expm1:</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">expm1</span>(x))<span class="op">;</span> </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: 1.0000000000000005e-15 (Accurate to near machine epsilon)</span></span></code></pre></div>
+<h2 id="how-mathexpm1-solves-the-issue">How Math.expm1() Solves the
+Issue</h2>
+<p>Instead of computing the intermediate term <span
+class="math inline">\(e^x\)</span>, modern JavaScript engines implement
+<code>Math.expm1(x)</code> using mathematical techniques optimized for
+values near zero.</p>
+<h3 id="1-taylor-series-expansion">1. Taylor Series Expansion</h3>
+<p>The Taylor (Maclaurin) series expansion for <span
+class="math inline">\(e^x\)</span> is:</p>
+<p><span class="math display">\[e^x = 1 + x + \frac{x^2}{2!} +
+\frac{x^3}{3!} + \frac{x^4}{4!} + \dots\]</span></p>
+<p>Subtracting 1 algebraically eliminates the constant term before any
+computation occurs:</p>
+<p><span class="math display">\[e^x - 1 = x + \frac{x^2}{2!} +
+\frac{x^3}{3!} + \frac{x^4}{4!} + \dots\]</span></p>
+<p>Factoring out <span class="math inline">\(x\)</span>:</p>
+<p><span class="math display">\[e^x - 1 = x \left(1 + \frac{x}{2!} +
+\frac{x^2}{3!} + \frac{x^3}{4!} + \dots\right)\]</span></p>
+<p>Because the leading <code>1</code> is eliminated analytically, the
+computer evaluates only terms where <span
+class="math inline">\(x\)</span> scales the output directly. The
+intermediate addition of <code>1</code> is completely bypassed,
+preserving all significant digits of <span
+class="math inline">\(x\)</span>.</p>
+<h3 id="2-high-degree-polynomial-and-rational-approximations">2.
+High-Degree Polynomial and Rational Approximations</h3>
+<p>For production runtimes (such as V8 in Node.js and Chrome, or
+JavaScriptCore in Safari), engines rely on optimized C math libraries
+(like <code>fdlibm</code>). When <span
+class="math inline">\(|x|\)</span> is small (typically <span
+class="math inline">\(|x| &lt; 2^{-1}\)</span> or <span
+class="math inline">\(|x| &lt; 10^{-5}\)</span>):</p>
+<ul>
+<li>The algorithm uses <strong>Remez-generated polynomial
+approximations</strong> or <strong>Padé (rational)
+approximations</strong> rather than computing an infinite series at
+runtime.</li>
+<li>For extremely small numbers (e.g., <span class="math inline">\(|x|
+&lt; 2^{-54}\)</span>), higher-order terms like <span
+class="math inline">\(x^2/2\)</span> are smaller than the precision
+threshold, so the function simply returns <span
+class="math inline">\(x\)</span> directly.</li>
+<li>For values farther from zero where cancellation is not an issue, the
+implementation falls back to calculating <code>Math.exp(x) - 1</code>
+directly.</li>
+</ul>
+<p>By switching algorithms based on the magnitude of <span
+class="math inline">\(x\)</span>, <code>Math.expm1</code> delivers high
+precision across all floating-point ranges while maintaining
+computational efficiency.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

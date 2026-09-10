@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Bytecode Caching Works - javascript</title>
+    <meta name="description" content="Bytecode caching is a browser optimization technique that stores the compiled machine-readable bytecode of JavaScript files, allowing subsequent page loads to bypass the heavy parsing and compilation stages. By persisting this intermediate representation">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-bytecode-caching-works">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Bytecode Caching Works - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-bytecode-caching-works" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Bytecode caching is a browser optimization technique that stores the compiled machine-readable bytecode of JavaScript files, allowing subsequent page loads to bypass the heavy parsing and compilation stages. By persisting this intermediate representation" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-bytecode-caching-works">How JavaScript Bytecode
+Caching Works</h1>
+<p>Bytecode caching is a browser optimization technique that stores the
+compiled machine-readable bytecode of JavaScript files, allowing
+subsequent page loads to bypass the heavy parsing and compilation
+stages. By persisting this intermediate representation to memory or
+disk, modern JavaScript engines like V8, SpiderMonkey, and
+JavaScriptCore drastically reduce script initialization time, lower CPU
+overhead, and accelerate Time to Interactive (TTI) for returning
+users.</p>
+<h2 id="the-standard-javascript-execution-pipeline">The Standard
+JavaScript Execution Pipeline</h2>
+<p>To understand bytecode caching, it is necessary to examine how
+browsers normally execute JavaScript:</p>
+<ol type="1">
+<li><strong>Fetching:</strong> The browser downloads the raw JavaScript
+source code as text.</li>
+<li><strong>Parsing:</strong> The JavaScript engine scans and tokenizes
+the source code, converting it into an Abstract Syntax Tree (AST).</li>
+<li><strong>Compilation:</strong> An interpreter or baseline compiler
+(such as V8's Ignition) compiles the AST into intermediate
+bytecode.</li>
+<li><strong>Execution:</strong> The virtual machine executes the
+bytecode, and optimizing compilers (such as V8's TurboFan) further
+optimize hot code paths during runtime.</li>
+</ol>
+<p>In a traditional setup without bytecode caching, steps 2 and 3 must
+occur every time a script is loaded, consuming significant processing
+time and battery power on client devices.</p>
+<h2 id="how-bytecode-caching-modifies-the-pipeline">How Bytecode Caching
+Modifies the Pipeline</h2>
+<p>Bytecode caching changes this process by preserving the output of the
+compilation step:</p>
+<ul>
+<li><strong>Cold Run (First Visit):</strong> When a script executes for
+the first time, the engine parses and compiles the code as usual. If the
+script meets specific heuristics (such as being executed again within a
+short time or exceeding a specific size), the engine serializes the
+generated bytecode and writes it to an isolated cache linked to the HTTP
+cache entry.</li>
+<li><strong>Warm Run (Subsequent Visits):</strong> When the browser
+loads the identical cached script, it checks for an associated bytecode
+cache. If found, the engine bypasses both parsing (AST generation) and
+baseline compilation, immediately loading the deserialized bytecode into
+the execution environment.</li>
+</ul>
+<pre><code>Cold Run:  [Source Code] ──&gt; [Parser (AST)] ──&gt; [Compiler] ──&gt; [Bytecode] ──&gt; [Execution]
+                                                                  │
+                                                        (Saved to Cache)
+                                                                  │
+Warm Run:  [Source Code Check] ───────────────────────────&gt; [Cached Bytecode] ──&gt; [Execution]</code></pre>
+<h2 id="why-recompilation-is-skipped">Why Recompilation Is Skipped</h2>
+<p>Recompilation is avoided because bytecode represents the exact
+instruction set required by the browser's JavaScript virtual machine. By
+serializing this internal representation alongside metadata (such as
+source offsets and scope structures), the engine reconstructs the
+internal state of the script without reading or analyzing the original
+text.</p>
+<p>This mechanism eliminates two computationally expensive
+operations:</p>
+<ul>
+<li><strong>Syntax and Semantic Validation:</strong> Tokenizing
+characters and checking for syntax errors.</li>
+<li><strong>AST Construction and Translation:</strong> Structuring code
+into tree nodes and converting those nodes into primitive engine
+instructions.</li>
+</ul>
+<h2 id="cache-invalidation-and-integrity">Cache Invalidation and
+Integrity</h2>
+<p>Browsers maintain strict validation checks to ensure stale or
+corrupted bytecode is never executed:</p>
+<ul>
+<li><strong>Source Matching:</strong> The browser verifies that the
+script's source text or HTTP cache tag (such as ETag or
+<code>Last-Modified</code>) matches the metadata stored with the
+bytecode.</li>
+<li><strong>Engine Versioning:</strong> Bytecode is tightly coupled to
+specific engine architectures and versions. If the browser updates or
+changes runtime flags, the bytecode cache is invalidated
+automatically.</li>
+<li><strong>Partial Caching:</strong> Many modern engines only cache
+top-level code or eagerly compiled functions during the initial run,
+generating and caching inner function bytecode incrementally as those
+functions are invoked.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Node.js perf_hooks Exposes Performance Metrics - javascript</title>
+    <meta name="description" content="The node:perfhooks module provides Node.js applications with high-resolution performance measurement capabilities modeled after the W3C Web Performance APIs. This article examines how the module exposes critical runtime metrics to JavaScript code, detail">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-node-js-perf-hooks-exposes-performance-metrics">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Node.js perf_hooks Exposes Performance Metrics - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-node-js-perf-hooks-exposes-performance-metrics" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The node:perfhooks module provides Node.js applications with high-resolution performance measurement capabilities modeled after the W3C Web Performance APIs. This article examines how the module exposes critical runtime metrics to JavaScript code, detail" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-nodejs-perf_hooks-exposes-performance-metrics">How Node.js
+perf_hooks Exposes Performance Metrics</h1>
+<p>The <code>node:perf_hooks</code> module provides Node.js applications
+with high-resolution performance measurement capabilities modeled after
+the W3C Web Performance APIs. This article examines how the module
+exposes critical runtime metrics to JavaScript code, detailing its
+high-resolution timer, the Performance Timeline API, asynchronous metric
+consumption through <code>PerformanceObserver</code>, and specialized
+instrumentation for event loop lag and garbage collection.</p>
+<h3 id="high-resolution-timestamps">High-Resolution Timestamps</h3>
+<p>At the core of <code>node:perf_hooks</code> is the
+<code>performance.now()</code> method. Unlike <code>Date.now()</code>,
+which relies on the system clock and is subject to manual clock
+adjustments or NTP drift, <code>performance.now()</code> returns a
+monotonic timestamp in floating-point milliseconds. It measures time
+relative to the process initialization
+(<code>performance.timeOrigin</code>) with sub-millisecond precision,
+allowing developers to measure discrete code execution durations without
+timing inconsistencies.</p>
+<h3 id="the-performance-timeline-api">The Performance Timeline API</h3>
+<p>The module implements the standard Performance Timeline, allowing
+applications to record specific milestones and intervals using marks and
+measures:</p>
+<ul>
+<li><strong><code>performance.mark(name)</code></strong>: Creates a
+timestamped <code>PerformanceMark</code> entry in the performance
+timeline representing a specific point in execution.</li>
+<li><strong><code>performance.measure(name, startMark, endMark)</code></strong>:
+Calculates the elapsed time between two marks (or from process start)
+and generates a <code>PerformanceMeasure</code> entry.</li>
+</ul>
+<p>These entries are stored internally in an in-memory buffer and can be
+queried synchronously using methods such as
+<code>performance.getEntries()</code>,
+<code>performance.getEntriesByName()</code>, and
+<code>performance.getEntriesByType()</code>.</p>
+<h3 id="asynchronous-streaming-with-performanceobserver">Asynchronous
+Streaming with PerformanceObserver</h3>
+<p>Querying timeline entries synchronously introduces overhead and
+requires polling. To solve this, <code>perf_hooks</code> exposes the
+<code>PerformanceObserver</code> class. A
+<code>PerformanceObserver</code> runs a callback whenever new entries of
+specified types are emitted.</p>
+<p>Developers instantiate an observer, define the entry types to track
+(such as <code>mark</code>, <code>measure</code>, <code>gc</code>, or
+<code>function</code>), and call the <code>.observe()</code> method.
+Node.js then batches and delivers these records asynchronously via the
+microtask queue, minimizing the performance impact of monitoring
+itself.</p>
+<h3 id="function-profiling-via-timerify">Function Profiling via
+<code>timerify</code></h3>
+<p>The module exposes <code>performance.timerify(fn)</code>, a
+higher-order wrapper that instruments function calls. When the wrapped
+function executes, the runtime automatically generates a
+<code>PerformanceEntry</code> with the type <code>function</code>,
+capturing its execution duration. This metric is routed directly to
+active <code>PerformanceObserver</code> instances, removing the need to
+manually insert <code>mark</code> and <code>measure</code> calls around
+critical routines.</p>
+<h3 id="specialized-nodejs-runtime-metrics">Specialized Node.js Runtime
+Metrics</h3>
+<p>Beyond standard web timing APIs, <code>node:perf_hooks</code>
+includes native bindings to extract internal V8 and libuv
+statistics:</p>
+<ul>
+<li><strong>Event Loop Utilization and Delay</strong>: The
+<code>monitorEventLoopDelay()</code> method tracks event loop latency
+over time, generating a histogram of delays that exposes percentiles
+(e.g., p50, p99) to detect event loop starvation. Additionally,
+<code>performance.eventLoopUtilization()</code> provides the ratio of
+time the event loop spent actively executing code versus idling.</li>
+<li><strong>Garbage Collection (GC) Tracking</strong>: By observing
+entry types set to <code>gc</code>, the application receives detailed
+notifications regarding V8 garbage collection cycles, including the
+duration, GC type (e.g., scavenge, mark-sweep-compact), and memory
+flags.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

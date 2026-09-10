@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Benchmark.js Achieves Accurate Performance Metrics - javascript</title>
+    <meta name="description" content="Benchmark.js is a robust benchmarking library that generates reliable JavaScript performance metrics by eliminating common measurement pitfalls like timer resolution limits, JIT compiler optimizations, and environmental noise. Instead of relying on naive">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-benchmark-js-achieves-accurate-performance-metrics">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Benchmark.js Achieves Accurate Performance Metrics - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-benchmark-js-achieves-accurate-performance-metrics" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Benchmark.js is a robust benchmarking library that generates reliable JavaScript performance metrics by eliminating common measurement pitfalls like timer resolution limits, JIT compiler optimizations, and environmental noise. Instead of relying on naive" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-benchmarkjs-achieves-accurate-performance-metrics">How
+Benchmark.js Achieves Accurate Performance Metrics</h1>
+<p>Benchmark.js is a robust benchmarking library that generates reliable
+JavaScript performance metrics by eliminating common measurement
+pitfalls like timer resolution limits, JIT compiler optimizations, and
+environmental noise. Instead of relying on naive <code>Date</code> or
+<code>console.time</code> loops, it calculates statistically sound
+results through adaptive sample sizing, timer resolution detection,
+outlier mitigation, and standard statistical calculations such as the
+Student's t-distribution and margin of error.</p>
+<h2
+id="high-resolution-timers-and-resolution-calibration">High-Resolution
+Timers and Resolution Calibration</h2>
+<p>Accurate measurement begins with time source precision. Simple
+millisecond-precision timers like <code>Date.now()</code> are
+insufficient for measuring micro-operations. Benchmark.js uses
+high-resolution timers—such as <code>process.hrtime()</code> in Node.js
+or <code>performance.now()</code> in browser environments—which provide
+sub-millisecond precision.</p>
+<p>Before running tests, the library calibrates against the system timer
+to determine its minimum resolution. It calculates the smallest
+detectable time difference and ensures that test iterations run long
+enough to clear this threshold, preventing quantization errors where
+operations complete faster than the clock can tick.</p>
+<h2 id="dynamic-cycle-counts-and-warm-up-runs">Dynamic Cycle Counts and
+Warm-Up Runs</h2>
+<p>JavaScript engines utilize Just-In-Time (JIT) compilers that
+dynamically optimize code as it executes. Running a function once or a
+fixed number of times produces skewed results due to initial compilation
+overhead, inline caching, or de-optimizations.</p>
+<p>Benchmark.js overcomes this by:</p>
+<ol type="1">
+<li><strong>Executing Warm-Up Cycles:</strong> Running the code prior to
+measurement to ensure the engine has compiled and optimized the
+execution path.</li>
+<li><strong>Adaptive Cycle Scaling:</strong> Dynamically increasing the
+number of function executions per measurement cycle until the total
+elapsed time significantly exceeds the timer resolution threshold.</li>
+</ol>
+<h2 id="statistical-sampling-and-margin-of-error">Statistical Sampling
+and Margin of Error</h2>
+<p>Instead of calculating a single average execution time, Benchmark.js
+gathers multiple discrete sample runs to create a data distribution.
+Each sample represents the time taken for a calculated batch of
+operations.</p>
+<p>The library processes this sample distribution through rigorous
+statistical methods:</p>
+<ul>
+<li><strong>Arithmetic Mean:</strong> Calculates the average execution
+time across all recorded samples.</li>
+<li><strong>Sample Standard Deviation:</strong> Measures the variance
+and dispersion of the run times from the mean.</li>
+<li><strong>Student's t-Distribution:</strong> Computes a confidence
+interval (typically 95%) appropriate for small sample sizes,
+establishing the upper and lower bounds of true performance.</li>
+<li><strong>Relative Margin of Error (RME):</strong> Expresses the
+uncertainty as a percentage of the mean. If the RME exceeds an
+acceptable threshold, Benchmark.js automatically collects additional
+samples until the dataset reaches statistical significance.</li>
+</ul>
+<h2
+id="mitigating-environmental-noise-and-garbage-collection">Mitigating
+Environmental Noise and Garbage Collection</h2>
+<p>External factors such as background operating system processes and
+JavaScript garbage collection (GC) cycles introduce sudden latency
+spikes into raw benchmark data. Benchmark.js minimizes the impact of
+these variables by distributing test runs over time, evaluating
+statistical variance, and disregarding anomalies that deviate
+substantially from the normal distribution.</p>
+<p>By combining engine warm-ups, clock calibration, and formal
+hypothesis testing via confidence intervals, Benchmark.js ensures that
+reported operations per second (ops/sec) reflect the true computational
+cost of the code rather than testing environment artifacts.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

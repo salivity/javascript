@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Yarn Plug'n'Play Changes Module Resolution - javascript</title>
+    <meta name="description" content="Yarn's Plug'n'Play (PnP) is an alternative dependency management strategy that completely removes the traditional nodemodules folder from JavaScript projects. Instead of relying on the Node.js runtime to perform recursive file-system lookups to locate in">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-yarn-plug-n-play-changes-module-resolution">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Yarn Plug'n'Play Changes Module Resolution - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-yarn-plug-n-play-changes-module-resolution" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Yarn's Plug'n'Play (PnP) is an alternative dependency management strategy that completely removes the traditional nodemodules folder from JavaScript projects. Instead of relying on the Node.js runtime to perform recursive file-system lookups to locate in" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-yarn-plugnplay-changes-module-resolution">How Yarn
+Plug'n'Play Changes Module Resolution</h1>
+<p>Yarn's Plug'n'Play (PnP) is an alternative dependency management
+strategy that completely removes the traditional
+<code>node_modules</code> folder from JavaScript projects. Instead of
+relying on the Node.js runtime to perform recursive file-system lookups
+to locate installed packages, Yarn PnP uses a single static map to
+resolve dependencies instantly. This approach significantly speeds up
+installation and startup times, eliminates redundant file copying, and
+strictly prevents packages from accessing undeclared dependencies.</p>
+<h2 id="the-traditional-nodejs-module-resolution">The Traditional
+Node.js Module Resolution</h2>
+<p>To understand how Yarn PnP changes module resolution, it is essential
+to review how standard Node.js resolution works:</p>
+<ol type="1">
+<li>When a file calls <code>require('example-package')</code>, Node.js
+inspects the current directory for a <code>node_modules</code>
+folder.</li>
+<li>If it is not found, it moves up one parent directory and checks for
+<code>node_modules</code> again.</li>
+<li>This process repeats recursively up to the root of the file system
+until the module is found or an error is thrown.</li>
+<li>Once located, Node reads the package's <code>package.json</code> to
+identify the entry file, checks file extensions, and loads the target
+script.</li>
+</ol>
+<p>While simple, this mechanism results in thousands of redundant
+file-system system calls (<code>stat</code> and <code>readdir</code>),
+enables "phantom dependencies" (importing packages you did not
+explicitly declare in your <code>package.json</code>), and requires huge
+disk space to duplicate identical packages across projects.</p>
+<h2 id="the-yarn-plugnplay-approach">The Yarn Plug'n'Play Approach</h2>
+<p>Yarn Plug'n'Play abandons the <code>node_modules</code> folder
+entirely. When you run <code>yarn install</code> in PnP mode, Yarn
+performs the following steps:</p>
+<ol type="1">
+<li><strong>Global Cache Storage:</strong> Packages are downloaded once
+and stored as compressed <code>.zip</code> archives inside a global
+cache directory or within <code>.yarn/cache</code>.</li>
+<li><strong>Generating the Manifest:</strong> Yarn generates a
+<code>.pnp.cjs</code> file at the root of the project. This file
+contains a complete dependency tree, mapping package names and versions
+to their exact locations within the cache.</li>
+<li><strong>Injecting the Resolver:</strong> Yarn hooks directly into
+Node’s module resolution lifecycle (via Node's <code>--require</code> or
+<code>--loader</code> flags) to override the default resolution
+algorithm.</li>
+</ol>
+<h2 id="how-pnp-alters-module-resolution-at-runtime">How PnP Alters
+Module Resolution at Runtime</h2>
+<p>When an application runs under Yarn PnP, the module resolution
+process shifts from dynamic file-system crawling to direct in-memory
+lookup:</p>
+<h3 id="1-static-table-lookup-o1">1. Static Table Lookup (<span
+class="math inline">\(O(1)\)</span>)</h3>
+<p>When a module executes <code>require('lodash')</code>, the patched
+resolver checks <code>.pnp.cjs</code> to see which package initiated the
+request. It looks up the caller in the manifest table, verifies that
+<code>lodash</code> is declared as a dependency for that caller, and
+instantly returns the exact path to the module inside the cached
+<code>.zip</code> archive without searching the disk.</p>
+<h3 id="2-virtual-file-system-access-zipfs">2. Virtual File System
+Access (ZipFS)</h3>
+<p>Because the resolved paths point to zip archives, Yarn integrates a
+virtual file system (ZipFS). Node.js reads the files directly from the
+compressed archive into memory, removing the need to unpack thousands of
+files onto disk.</p>
+<h3 id="3-strict-boundary-enforcement">3. Strict Boundary
+Enforcement</h3>
+<p>Under standard resolution, any package can access any other package
+present in a hoisted <code>node_modules</code> directory, even if it is
+not listed in <code>package.json</code>. In Yarn PnP, the resolver
+explicitly checks permissions: if package A tries to import package B
+without listing package B in its <code>package.json</code>
+<code>dependencies</code> or <code>peerDependencies</code>, the resolver
+throws an error immediately.</p>
+<h2 id="key-impacts-on-javascript-development">Key Impacts on JavaScript
+Development</h2>
+<ul>
+<li><strong>Faster Installs and Boot Times:</strong> Without writing
+millions of files to <code>node_modules</code>, install operations take
+seconds, and application startup avoids heavy disk I/O.</li>
+<li><strong>Deterministic Environments:</strong> The static nature of
+the <code>.pnp.cjs</code> manifest ensures that every environment
+resolves identical packages from identical paths.</li>
+<li><strong>Zero Phantom Dependencies:</strong> Strict resolution
+guarantees that code will not break in production due to missing
+transitive dependency declarations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

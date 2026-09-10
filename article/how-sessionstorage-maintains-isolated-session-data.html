@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How sessionStorage Maintains Isolated Session Data - javascript</title>
+    <meta name="description" content="sessionStorage is a Web Storage API mechanism that provides isolated, key-value storage unique to both a specific origin and an individual browser tab. This article explores how the browser architecture enforces this isolation during JavaScript execution">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-sessionstorage-maintains-isolated-session-data">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How sessionStorage Maintains Isolated Session Data - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-sessionstorage-maintains-isolated-session-data" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="sessionStorage is a Web Storage API mechanism that provides isolated, key-value storage unique to both a specific origin and an individual browser tab. This article explores how the browser architecture enforces this isolation during JavaScript execution" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-sessionstorage-maintains-isolated-session-data">How
+sessionStorage Maintains Isolated Session Data</h1>
+<p><code>sessionStorage</code> is a Web Storage API mechanism that
+provides isolated, key-value storage unique to both a specific origin
+and an individual browser tab. This article explores how the browser
+architecture enforces this isolation during JavaScript execution,
+examining the concepts of browsing contexts, origin boundaries,
+lifecycle management, and how data remains sandboxed across separate
+execution environments.</p>
+<h2 id="the-role-of-browsing-contexts">The Role of Browsing
+Contexts</h2>
+<p>The foundation of <code>sessionStorage</code> isolation lies in the
+browser's concept of a <strong>top-level browsing context</strong>. When
+a user opens a tab or a window, the browser engine assigns a unique
+browsing context to it.</p>
+<p>Even if two tabs are navigated to the exact same URL (same protocol,
+host, and port), the browser assigns a distinct
+<code>sessionStorage</code> object to each tab. The JavaScript executing
+in Tab A cannot read, modify, or listen to storage events triggered by
+Tab B. Each tab operates with its own completely independent storage
+instance in memory.</p>
+<h2 id="same-origin-policy-integration">Same-Origin Policy
+Integration</h2>
+<p>In addition to tab-level separation, <code>sessionStorage</code>
+strictly adheres to the Same-Origin Policy (SOP). An origin is defined
+by the combination of:</p>
+<ul>
+<li><strong>Protocol</strong> (e.g., <code>https://</code>)</li>
+<li><strong>Host</strong> (e.g., <code>example.com</code>)</li>
+<li><strong>Port</strong> (e.g., <code>:443</code>)</li>
+</ul>
+<p>If a tab navigates across different origins, the browser isolates the
+data per origin within that specific session. JavaScript running on
+<code>https://example.com</code> cannot access keys stored by
+<code>https://sub.example.com</code> or <code>http://example.com</code>,
+even within the exact same browser tab.</p>
+<h2 id="lifecycle-and-in-tab-navigation">Lifecycle and In-Tab
+Navigation</h2>
+<p><code>sessionStorage</code> is designed to survive intra-tab
+navigation and page reloads while maintaining boundary protection:</p>
+<ol type="1">
+<li><strong>Page Reloads:</strong> Refreshing the current page maintains
+the existing browsing context, meaning the data in
+<code>sessionStorage</code> remains accessible to the reloaded
+script.</li>
+<li><strong>Same-Origin Navigation:</strong> Navigating from one page to
+another on the same origin (e.g., from <code>/login</code> to
+<code>/dashboard</code>) inside the same tab preserves the session
+data.</li>
+<li><strong>Session Termination:</strong> Closing the tab or window
+completely destroys the browsing context and immediately flushes the
+associated <code>sessionStorage</code> data from memory.</li>
+</ol>
+<h2 id="tab-duplication-and-windowopen-behavior">Tab Duplication and
+<code>window.open</code> Behavior</h2>
+<p>A common point of nuance occurs when opening new windows or tabs via
+JavaScript:</p>
+<ul>
+<li><strong>Direct Links and New Tabs:</strong> Opening a page in a new
+tab via standard links (<code>target="_blank"</code>) creates a new,
+empty <code>sessionStorage</code> instance.</li>
+<li><strong>Window Opening (<code>window.open</code>):</strong>
+Historically, using <code>window.open()</code> from an existing page
+could copy the opener’s <code>sessionStorage</code> to the newly spawned
+tab. However, this is a <strong>deep copy by value</strong>, not a
+shared reference. Any subsequent mutations made in the new tab do not
+reflect in the parent tab, and vice versa. Modern browsers using
+<code>rel="noopener"</code> prevent this copying behavior entirely,
+initializing an empty storage container.</li>
+</ul>
+<h2 id="synchronous-execution-and-thread-safety">Synchronous Execution
+and Thread Safety</h2>
+<p>Because JavaScript runs on a single-threaded event loop per execution
+context, calls to <code>sessionStorage.setItem()</code>,
+<code>sessionStorage.getItem()</code>, and
+<code>sessionStorage.removeItem()</code> execute synchronously.</p>
+<p>The browser manages the underlying storage map directly in the
+process allocated to that rendering context. This architecture ensures
+that read and write operations are immediate, deterministic, and fully
+shielded from concurrent modifications by scripts running in other
+tabs.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

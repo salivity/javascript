@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reducing performance.now Precision Against Timing Attacks - javascript</title>
+    <meta name="description" content="High-resolution web timers like performance.now() previously exposed sub-microsecond accuracy, creating vulnerabilities that allowed malicious JavaScript to execute hardware-level side-channel and cache-timing attacks. To defend users against threats lik">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/reducing-performance-now-precision-against-timing-attacks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Reducing performance.now Precision Against Timing Attacks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/reducing-performance-now-precision-against-timing-attacks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="High-resolution web timers like performance.now() previously exposed sub-microsecond accuracy, creating vulnerabilities that allowed malicious JavaScript to execute hardware-level side-channel and cache-timing attacks. To defend users against threats lik" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="reducing-performancenow-precision-against-timing-attacks">Reducing
+performance.now Precision Against Timing Attacks</h1>
+<p>High-resolution web timers like <code>performance.now()</code>
+previously exposed sub-microsecond accuracy, creating vulnerabilities
+that allowed malicious JavaScript to execute hardware-level side-channel
+and cache-timing attacks. To defend users against threats like Spectre
+and Meltdown, major browser vendors systematically clamped timestamp
+resolution, introduced randomized jitter, and gated microsecond
+precision behind strict isolation policies.</p>
+<h3 id="the-threat-of-high-resolution-timing">The Threat of
+High-Resolution Timing</h3>
+<p>JavaScript execution within a web browser runs in a sandboxed
+environment. However, hardware-level CPU mechanisms—such as speculative
+execution, branch prediction, and memory caching—leak information
+through timing discrepancies. An attacker can measure subtle differences
+in execution time to determine whether a specific memory address is
+cached in the CPU L1/L2 cache or fetched from main memory.</p>
+<p>Originally, the High Resolution Time specification allowed
+<code>performance.now()</code> to deliver timestamps with floating-point
+values accurate to fractions of a microsecond. This level of granularity
+allowed attackers to infer sensitive data across origins, read
+unauthorized system memory, and bypass traditional sandbox
+boundaries.</p>
+<h3 id="timestamp-clamping-and-coarsening">Timestamp Clamping and
+Coarsening</h3>
+<p>The primary defense implemented by browser vendors (such as Google,
+Mozilla, and Apple) was reducing the resolution of
+<code>performance.now()</code> by clamping timestamps to coarser
+intervals.</p>
+<p>Instead of returning nanosecond-scale precision, browsers rounded
+timestamps to broader increments:</p>
+<ul>
+<li><strong>Initial mitigations:</strong> In the wake of Spectre
+disclosures, browsers coarsened <code>performance.now()</code>
+resolution to intervals such as 20 microseconds (µs), 50 µs, or 100
+µs.</li>
+<li><strong>Modern baselines:</strong> Most modern browsers cap the
+default timer resolution to between 5 µs and 100 µs depending on the
+platform, device type, and security context.</li>
+</ul>
+<p>By eliminating sub-microsecond precision by default, the temporal
+difference between a CPU cache hit and a cache miss becomes
+indistinguishable within single-event measurements.</p>
+<h3 id="adding-jitter-and-noise">Adding Jitter and Noise</h3>
+<p>Attackers initially attempted to bypass timestamp clamping through
+statistical averaging. By repeating a malicious operation thousands of
+times and computing average elapsed times, an attacker could
+mathematically reconstruct fine-grained timing information despite
+coarsened timestamps.</p>
+<p>To counter statistical reconstruction, vendors introduced artificial
+jitter (randomized noise) into the timer results. When jitter is
+applied, timestamps are slightly perturbed or randomly rounded either up
+or down. This injects non-deterministic variance into the measurements,
+significantly degrading an attacker’s ability to infer hardware states
+through statistical aggregation.</p>
+<h3
+id="cross-origin-isolation-and-safe-precision-restoration">Cross-Origin
+Isolation and Safe Precision Restoration</h3>
+<p>While reduced precision mitigated side-channel attacks, legitimate
+web applications (such as audio processors, web games, and performance
+profilers) still required accurate timing.</p>
+<p>To safely restore higher precision, browsers implemented cross-origin
+isolation. High-resolution timers are only restored to sub-microsecond
+precision (typically up to 5 µs without artificial jitter) if a website
+enforces the following HTTP response headers:</p>
+<ol type="1">
+<li><code>Cross-Origin-Opener-Policy: same-origin</code> (COOP)</li>
+<li><code>Cross-Origin-Embedder-Policy: require-corp</code> (COEP)</li>
+</ol>
+<p>These headers ensure that the webpage runs in a dedicated operating
+system process separate from other websites, preventing cross-origin
+data from residing in the same memory address space and neutralizing the
+threat model that timing exploits rely on.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

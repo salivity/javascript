@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Command Pattern: Execution and Undo States - javascript</title>
+    <meta name="description" content="The Command Pattern is a behavioral design pattern that turns a request into a stand-alone object containing all information about the request. In JavaScript, this pattern decouples the object invoking an operation from the one that knows how to perform">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-command-pattern-execution-and-undo-states">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Command Pattern: Execution and Undo States - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-command-pattern-execution-and-undo-states" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Command Pattern is a behavioral design pattern that turns a request into a stand-alone object containing all information about the request. In JavaScript, this pattern decouples the object invoking an operation from the one that knows how to perform" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-command-pattern-execution-and-undo-states">JavaScript
+Command Pattern: Execution and Undo States</h1>
+<p>The Command Pattern is a behavioral design pattern that turns a
+request into a stand-alone object containing all information about the
+request. In JavaScript, this pattern decouples the object invoking an
+operation from the one that knows how to perform it, encapsulating the
+action, its arguments, and the corresponding reverse action. By
+packaging an operation as an object with both <code>execute</code> and
+<code>undo</code> methods, applications can easily implement
+transactional behavior, queued tasks, and multi-level undo/redo
+operations while maintaining clean separation of concerns.</p>
+<h2 id="core-components-of-the-pattern">Core Components of the
+Pattern</h2>
+<p>To encapsulate execution and undo states, the Command Pattern relies
+on four distinct roles:</p>
+<ol type="1">
+<li><strong>Receiver:</strong> The business object that performs the
+actual work (e.g., modifying text, changing an application state).</li>
+<li><strong>Command:</strong> The object that binds a specific action to
+the receiver. It exposes an <code>execute()</code> method to perform the
+action and an <code>undo()</code> method to reverse it.</li>
+<li><strong>Invoker:</strong> The component that triggers the command
+and manages execution history stacks.</li>
+<li><strong>Client:</strong> The code that configures the receiver,
+creates concrete command instances, and passes them to the invoker.</li>
+</ol>
+<h2 id="encapsulating-execution">Encapsulating Execution</h2>
+<p>In traditional imperative code, an event handler directly mutates
+state or calls methods on a business object. This binds the UI or
+triggering mechanism tightly to the underlying implementation.</p>
+<p>Under the Command Pattern, execution is abstracted into an interface.
+When a command is created, it captures the target receiver and any
+parameters needed to run:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ReceiverTextDocument {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">text</span> <span class="op">=</span> <span class="st">&quot;&quot;</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">insert</span>(text<span class="op">,</span> position) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">text</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">text</span><span class="op">.</span><span class="fu">slice</span>(<span class="dv">0</span><span class="op">,</span> position) <span class="op">+</span> text <span class="op">+</span> <span class="kw">this</span><span class="op">.</span><span class="at">text</span><span class="op">.</span><span class="fu">slice</span>(position)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">delete</span>(position<span class="op">,</span> length) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> removed <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">text</span><span class="op">.</span><span class="fu">slice</span>(position<span class="op">,</span> position <span class="op">+</span> length)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">text</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">text</span><span class="op">.</span><span class="fu">slice</span>(<span class="dv">0</span><span class="op">,</span> position) <span class="op">+</span> <span class="kw">this</span><span class="op">.</span><span class="at">text</span><span class="op">.</span><span class="fu">slice</span>(position <span class="op">+</span> length)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> removed<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="encapsulating-undo-states">Encapsulating Undo States</h2>
+<p>There are two primary strategies for encapsulating an undo state in a
+command:</p>
+<ol type="1">
+<li><strong>Inverse Operation:</strong> The command calculates and
+executes the opposite function (e.g., text insertion is undone by text
+deletion).</li>
+<li><strong>State Snapshot (Memento):</strong> The command captures the
+receiver's state immediately before execution and restores that snapshot
+during the undo phase.</li>
+</ol>
+<p>Using the inverse operation approach, the command records only the
+metadata required to revert its own changes, minimizing memory
+overhead:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> InsertTextCommand {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(<span class="bu">document</span><span class="op">,</span> text<span class="op">,</span> position) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">document</span> <span class="op">=</span> <span class="bu">document</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">text</span> <span class="op">=</span> text<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">position</span> <span class="op">=</span> position<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">execute</span>() {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">document</span><span class="op">.</span><span class="fu">insert</span>(<span class="kw">this</span><span class="op">.</span><span class="at">text</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">undo</span>() {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">document</span><span class="op">.</span><span class="fu">delete</span>(<span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">text</span><span class="op">.</span><span class="at">length</span>)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If the state change is complex or destructive, storing previous state
+within the command instance during <code>execute()</code> guarantees
+that <code>undo()</code> returns the application to its exact prior
+state:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> UpdateSettingCommand {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(settingsStore<span class="op">,</span> key<span class="op">,</span> newValue) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">settingsStore</span> <span class="op">=</span> settingsStore<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">key</span> <span class="op">=</span> key<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">newValue</span> <span class="op">=</span> newValue<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">previousValue</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">execute</span>() {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">previousValue</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">settingsStore</span><span class="op">.</span><span class="fu">get</span>(<span class="kw">this</span><span class="op">.</span><span class="at">key</span>)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">settingsStore</span><span class="op">.</span><span class="fu">set</span>(<span class="kw">this</span><span class="op">.</span><span class="at">key</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">newValue</span>)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">undo</span>() {</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">previousValue</span> <span class="op">!==</span> <span class="kw">null</span>) {</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">settingsStore</span><span class="op">.</span><span class="fu">set</span>(<span class="kw">this</span><span class="op">.</span><span class="at">key</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">previousValue</span>)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="managing-state-history-with-the-invoker">Managing State History
+with the Invoker</h2>
+<p>The Invoker executes commands and maintains history stacks. Because
+each command object fully encapsulates how to both apply and reverse its
+effect, the invoker does not need to know the internal workings of the
+receiver.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CommandManager {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">history</span> <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">redoStack</span> <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">executeCommand</span>(command) {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    command<span class="op">.</span><span class="fu">execute</span>()<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">history</span><span class="op">.</span><span class="fu">push</span>(command)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">redoStack</span> <span class="op">=</span> []<span class="op">;</span> <span class="co">// Clear redo stack on new operation</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">undo</span>() {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> command <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">history</span><span class="op">.</span><span class="fu">pop</span>()<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (command) {</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>      command<span class="op">.</span><span class="fu">undo</span>()<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">redoStack</span><span class="op">.</span><span class="fu">push</span>(command)<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">redo</span>() {</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> command <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">redoStack</span><span class="op">.</span><span class="fu">pop</span>()<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (command) {</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>      command<span class="op">.</span><span class="fu">execute</span>()<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">history</span><span class="op">.</span><span class="fu">push</span>(command)<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="putting-it-together">Putting It Together</h2>
+<p>When integrated, the client creates instances of commands and submits
+them to the manager:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> doc <span class="op">=</span> <span class="kw">new</span> <span class="fu">ReceiverTextDocument</span>()<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> manager <span class="op">=</span> <span class="kw">new</span> <span class="fu">CommandManager</span>()<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Execute commands</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>manager<span class="op">.</span><span class="fu">executeCommand</span>(<span class="kw">new</span> <span class="fu">InsertTextCommand</span>(doc<span class="op">,</span> <span class="st">&quot;Hello&quot;</span><span class="op">,</span> <span class="dv">0</span>))<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>manager<span class="op">.</span><span class="fu">executeCommand</span>(<span class="kw">new</span> <span class="fu">InsertTextCommand</span>(doc<span class="op">,</span> <span class="st">&quot; World&quot;</span><span class="op">,</span> <span class="dv">5</span>))<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(doc<span class="op">.</span><span class="at">text</span>)<span class="op">;</span> <span class="co">// &quot;Hello World&quot;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Undo the last action</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>manager<span class="op">.</span><span class="fu">undo</span>()<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(doc<span class="op">.</span><span class="at">text</span>)<span class="op">;</span> <span class="co">// &quot;Hello&quot;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Redo the action</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>manager<span class="op">.</span><span class="fu">redo</span>()<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(doc<span class="op">.</span><span class="at">text</span>)<span class="op">;</span> <span class="co">// &quot;Hello World&quot;</span></span></code></pre></div>
+<p>By storing execution logic, dynamic arguments, and previous state
+references within isolated command instances, JavaScript applications
+achieve modular, testable, and robust undo/redo capabilities.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

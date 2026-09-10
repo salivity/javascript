@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How SWC Uses Rust for Fast JS and TS Compilation - javascript</title>
+    <meta name="description" content="Speedy Web Compiler (SWC) is an extensible compilation platform that transforms and bundles JavaScript and TypeScript code at speeds up to twenty times faster than traditional tools like Babel. By using Rust as its underlying language, SWC eliminates run">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-swc-uses-rust-for-fast-js-and-ts-compilation">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How SWC Uses Rust for Fast JS and TS Compilation - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-swc-uses-rust-for-fast-js-and-ts-compilation" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Speedy Web Compiler (SWC) is an extensible compilation platform that transforms and bundles JavaScript and TypeScript code at speeds up to twenty times faster than traditional tools like Babel. By using Rust as its underlying language, SWC eliminates run" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-swc-uses-rust-for-fast-js-and-ts-compilation">How SWC Uses
+Rust for Fast JS and TS Compilation</h1>
+<p>Speedy Web Compiler (SWC) is an extensible compilation platform that
+transforms and bundles JavaScript and TypeScript code at speeds up to
+twenty times faster than traditional tools like Babel. By using Rust as
+its underlying language, SWC eliminates runtime overhead, implements
+efficient memory models, and leverages multi-threaded execution. This
+article examines the core architectural decisions and Rust features that
+enable SWC to achieve high-performance compilation.</p>
+<h3 id="native-execution-and-zero-garbage-collection-overhead">Native
+Execution and Zero Garbage Collection Overhead</h3>
+<p>Traditional JavaScript toolchains (such as Babel, ESLint, or Webpack)
+run on Node.js, which relies on the V8 JavaScript engine. While V8 is
+heavily optimized, it incurs significant overhead through just-in-time
+(JIT) compilation and periodic garbage collection (GC) cycles. During
+large builds, GC pauses can stall the compilation pipeline as thousands
+of Abstract Syntax Tree (AST) nodes are allocated and discarded.</p>
+<p>SWC is compiled directly to native machine code using Rust's LLVM
+backend. Because Rust manages memory statically through its ownership
+and borrowing system, SWC does not require a garbage collector. Memory
+is allocated and deallocated predictably, eliminating GC pauses and
+minimizing runtime latency.</p>
+<h3
+id="memory-optimization-with-arena-allocation-and-string-interning">Memory
+Optimization with Arena Allocation and String Interning</h3>
+<p>Parsing large codebases creates millions of small objects
+representing tokens, expressions, and statements. In standard heap
+allocators, creating and destroying these nodes individually causes
+memory fragmentation and performance bottlenecks.</p>
+<p>SWC optimizes memory utilization through two key techniques:</p>
+<ul>
+<li><strong>Arena Allocation:</strong> Instead of allocating individual
+AST nodes on the general heap, SWC uses arena allocators (such as bump
+allocation). An arena allocates a large contiguous block of memory
+upfront. AST nodes are pushed onto this block rapidly with minimal
+pointer adjustment. When compilation finishes, the entire arena is freed
+at once, reducing allocation overhead to near zero.</li>
+<li><strong>String Interning (Atom Table):</strong> JavaScript and
+TypeScript source files contain repetitive identifiers, keywords, and
+literals. SWC uses an atom table (<code>swc_atoms</code>) to store a
+single instance of each unique string. AST nodes store lightweight
+integer references (symbols or string slices) rather than duplicating
+strings, keeping the memory footprint minimal and enabling fast
+integer-based equality comparisons.</li>
+</ul>
+<h3 id="fearless-concurrency-via-rayon">Fearless Concurrency via
+Rayon</h3>
+<p>JavaScript execution in Node.js is inherently single-threaded by
+default, requiring worker threads or separate processes to distribute
+compilation tasks across multiple CPU cores. This introduces
+process-spawn overhead and complex inter-process communication (IPC)
+serialization.</p>
+<p>Rust provides thread safety guarantees at compile time via its type
+system (<code>Send</code> and <code>Sync</code> traits). SWC leverages
+the <code>rayon</code> data-parallelism library to parallelize parsing,
+transformations, and code generation across all available CPU cores.
+Files and modules are compiled concurrently without data races or
+runtime locking penalties, allowing SWC to scale linearly with modern
+multi-core processors.</p>
+<h3 id="custom-lexer-and-ast-design">Custom Lexer and AST Design</h3>
+<p>SWC does not rely on generic parser generators. It features a
+hand-written, highly optimized lexer and parser specifically tailored
+for modern ECMAScript, JSX, and TypeScript specifications.</p>
+<p>The AST representation is carefully aligned to maximize CPU cache
+locality. By structuring data types to minimize memory alignment padding
+and cache misses, the CPU can iterate through AST nodes and execute AST
+transformation passes with maximum throughput.</p>
+<h3 id="efficient-native-bindings-and-webassembly-support">Efficient
+Native Bindings and WebAssembly Support</h3>
+<p>To integrate seamlessly with existing Node.js workflows, SWC exposes
+native Node.js bindings via N-API (using <code>napi-rs</code>). This
+bridge allows Node.js applications to pass code buffers directly to the
+underlying Rust binary with minimal serialization cost. For environments
+where native binaries are not supported, SWC compiles to WebAssembly
+(WASM), providing high-speed in-browser and cross-platform compilation
+capabilities.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

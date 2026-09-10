@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB onupgradeneeded and Schema Migrations - javascript</title>
+    <meta name="description" content="This article provides an in-depth look at the onupgradeneeded event in IndexedDB and explains how JavaScript manages database schema migrations. You will learn what triggers the onupgradeneeded lifecycle event, how IndexedDB versioning works, and the sta">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/indexeddb-onupgradeneeded-and-schema-migrations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="IndexedDB onupgradeneeded and Schema Migrations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/indexeddb-onupgradeneeded-and-schema-migrations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an in-depth look at the onupgradeneeded event in IndexedDB and explains how JavaScript manages database schema migrations. You will learn what triggers the onupgradeneeded lifecycle event, how IndexedDB versioning works, and the sta" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="indexeddb-onupgradeneeded-and-schema-migrations">IndexedDB
+onupgradeneeded and Schema Migrations</h1>
+<p>This article provides an in-depth look at the
+<code>onupgradeneeded</code> event in IndexedDB and explains how
+JavaScript manages database schema migrations. You will learn what
+triggers the <code>onupgradeneeded</code> lifecycle event, how IndexedDB
+versioning works, and the standard architectural patterns for creating
+object stores, updating indexes, and safely transforming existing data
+across different database versions.</p>
+<h2 id="what-is-the-onupgradeneeded-event">What is the onupgradeneeded
+Event?</h2>
+<p>IndexedDB is a low-level, transactional client-side database built
+directly into modern web browsers. Unlike relational databases that use
+SQL statements for schema alterations, IndexedDB controls schema changes
+through a strictly defined lifecycle event called
+<code>onupgradeneeded</code>.</p>
+<p>The <code>onupgradeneeded</code> event is the only place in an
+application's lifecycle where you are permitted to alter the structure
+of an IndexedDB database. Within this event handler, you can:</p>
+<ul>
+<li>Create or delete object stores (the IndexedDB equivalent of
+tables).</li>
+<li>Create or delete indexes.</li>
+<li>Transform or migrate existing data records to conform to a new
+schema.</li>
+</ul>
+<p>Attempting to modify database structures outside of this event will
+throw an <code>InvalidStateError</code>.</p>
+<h2 id="how-indexeddb-versioning-works">How IndexedDB Versioning
+Works</h2>
+<p>When you open a connection to an IndexedDB database, you pass a
+database name and an optional integer version number:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> request <span class="op">=</span> indexedDB<span class="op">.</span><span class="fu">open</span>(<span class="st">&quot;AppDatabase&quot;</span><span class="op">,</span> <span class="dv">2</span>)<span class="op">;</span></span></code></pre></div>
+<p>IndexedDB handles the connection request based on the requested
+version versus the version already stored on the user's device:</p>
+<ol type="1">
+<li><strong>New Database Creation:</strong> If the database does not
+exist, the browser considers its initial version to be <code>0</code>.
+Opening it with version <code>1</code> triggers
+<code>onupgradeneeded</code>.</li>
+<li><strong>Version Upgrade:</strong> If the database exists at version
+<code>1</code> and you request version <code>2</code>,
+<code>onupgradeneeded</code> fires before the database opens.</li>
+<li><strong>Same Version:</strong> If the requested version matches the
+stored version, <code>onsuccess</code> fires immediately, skipping
+<code>onupgradeneeded</code>.</li>
+<li><strong>Version Downgrade:</strong> If you request a version lower
+than the stored version, the <code>onblocked</code> or
+<code>onerror</code> event fires with a <code>VersionError</code>.
+IndexedDB does not natively support downgrading.</li>
+</ol>
+<h2 id="handling-database-migrations">Handling Database Migrations</h2>
+<p>Because client-side applications cannot guarantee that a user visits
+every single release sequentially, a user may jump directly from version
+<code>1</code> to version <code>3</code>. Your migration logic must be
+able to handle incremental schema updates dynamically.</p>
+<p>Within the <code>onupgradeneeded</code> event object, the
+<code>event.oldVersion</code> property indicates the database version
+currently stored on the client's machine, and
+<code>event.newVersion</code> indicates the target version.</p>
+<h3 id="sequential-migration-pattern">Sequential Migration Pattern</h3>
+<p>The standard way to handle migrations in JavaScript is using a
+<code>switch</code> statement without <code>break</code> statements
+(fall-through pattern) or sequential <code>if</code> blocks evaluated
+against <code>event.oldVersion</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> request <span class="op">=</span> indexedDB<span class="op">.</span><span class="fu">open</span>(<span class="st">&quot;AppDatabase&quot;</span><span class="op">,</span> <span class="dv">3</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onupgradeneeded</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> oldVersion <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">oldVersion</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Version 1: Initial setup</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (oldVersion <span class="op">&lt;</span> <span class="dv">1</span>) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> userStore <span class="op">=</span> db<span class="op">.</span><span class="fu">createObjectStore</span>(<span class="st">&quot;users&quot;</span><span class="op">,</span> { <span class="dt">keyPath</span><span class="op">:</span> <span class="st">&quot;id&quot;</span> })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    userStore<span class="op">.</span><span class="fu">createIndex</span>(<span class="st">&quot;by_email&quot;</span><span class="op">,</span> <span class="st">&quot;email&quot;</span><span class="op">,</span> { <span class="dt">unique</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Version 2: Add a new object store and an index</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (oldVersion <span class="op">&lt;</span> <span class="dv">2</span>) {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> orderStore <span class="op">=</span> db<span class="op">.</span><span class="fu">createObjectStore</span>(<span class="st">&quot;orders&quot;</span><span class="op">,</span> { <span class="dt">keyPath</span><span class="op">:</span> <span class="st">&quot;orderId&quot;</span> })<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    orderStore<span class="op">.</span><span class="fu">createIndex</span>(<span class="st">&quot;by_user&quot;</span><span class="op">,</span> <span class="st">&quot;userId&quot;</span><span class="op">,</span> { <span class="dt">unique</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Version 3: Add a new index to an existing store</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (oldVersion <span class="op">&lt;</span> <span class="dv">3</span>) {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> transaction <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">transaction</span><span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> userStore <span class="op">=</span> transaction<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&quot;users&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    userStore<span class="op">.</span><span class="fu">createIndex</span>(<span class="st">&quot;by_name&quot;</span><span class="op">,</span> <span class="st">&quot;name&quot;</span><span class="op">,</span> { <span class="dt">unique</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Database successfully opened and ready for transactions.&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onerror</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&quot;Database failed to open:&quot;</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">error</span>)<span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="migrating-and-transforming-stored-data">Migrating and
+Transforming Stored Data</h2>
+<p>Schema changes sometimes require updating the shape of existing data
+records. When <code>onupgradeneeded</code> is triggered, an implicit
+version-change transaction (<code>IDBTransaction</code>) is
+automatically created and accessible via
+<code>event.target.transaction</code>.</p>
+<p>You can use this transaction to iterate through existing records with
+a cursor and update fields:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onupgradeneeded</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> transaction <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">transaction</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">oldVersion</span> <span class="op">&lt;</span> <span class="dv">2</span>) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> userStore <span class="op">=</span> transaction<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&quot;users&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Iterate over all records to add a new default property</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    userStore<span class="op">.</span><span class="fu">openCursor</span>()<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> (cursorEvent) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> cursor <span class="op">=</span> cursorEvent<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (cursor) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> updatedRecord <span class="op">=</span> cursor<span class="op">.</span><span class="at">value</span><span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        updatedRecord<span class="op">.</span><span class="at">isActive</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span> <span class="co">// Add new property</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        cursor<span class="op">.</span><span class="fu">update</span>(updatedRecord)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        cursor<span class="op">.</span><span class="fu">continue</span>()<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="transaction-rollback-and-error-handling">Transaction Rollback
+and Error Handling</h2>
+<p>All structural operations and data modifications executed inside the
+<code>onupgradeneeded</code> handler run within a single atomic
+transaction. If an error occurs during any step of the migration
+process, the browser automatically aborts the transaction. This rolls
+the database back to its previous version and state, preventing partial
+updates and database corruption.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Garbage Collection Works - javascript</title>
+    <meta name="description" content="JavaScript automatically manages memory allocation and release through an internal process known as garbage collection. This article explores the JavaScript memory life cycle, breaks down the core algorithms used to identify unreachable objects—specifi">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-garbage-collection-works">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Garbage Collection Works - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-garbage-collection-works" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript automatically manages memory allocation and release through an internal process known as garbage collection. This article explores the JavaScript memory life cycle, breaks down the core algorithms used to identify unreachable objects—specifi" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-garbage-collection-works">How JavaScript Garbage
+Collection Works</h1>
+<p>JavaScript automatically manages memory allocation and release
+through an internal process known as garbage collection. This article
+explores the JavaScript memory life cycle, breaks down the core
+algorithms used to identify unreachable objects—specifically reference
+counting and mark-and-sweep—and highlights common memory leak patterns
+developers should avoid to maintain optimal application performance.</p>
+<h2 id="the-javascript-memory-life-cycle">The JavaScript Memory Life
+Cycle</h2>
+<p>Memory management across all programming languages follows a
+three-step cycle:</p>
+<ol type="1">
+<li><strong>Allocation:</strong> Memory is reserved by the operating
+system when values, objects, or functions are declared.</li>
+<li><strong>Usage:</strong> The allocated memory is read or modified
+within your application logic.</li>
+<li><strong>Release:</strong> Memory that is no longer needed is freed
+up for future allocations.</li>
+</ol>
+<p>In low-level languages like C, developers manually allocate and
+deallocate memory. In JavaScript, memory allocation happens
+automatically when variables are initialized, and deallocation is
+handled automatically in the background by the Garbage Collector
+(GC).</p>
+<h2 id="core-garbage-collection-algorithms">Core Garbage Collection
+Algorithms</h2>
+<p>The primary challenge in automated memory management is determining
+when allocated memory is no longer needed. JavaScript engines utilize
+specific algorithms to solve this problem.</p>
+<h3 id="1-reference-counting-garbage-collection">1. Reference-Counting
+Garbage Collection</h3>
+<p>This is a naive garbage collection algorithm. It operates on the
+principle of object references:</p>
+<ul>
+<li>An object is considered eligible for collection if zero other
+objects reference it.</li>
+<li>Every time a reference to an object is created, its reference count
+increases; when a reference is removed, the count decreases.</li>
+</ul>
+<p><strong>The Limitation (Circular References):</strong> Reference
+counting fails when two objects reference each other, creating a cycle.
+Even if both objects are disconnected from the rest of the application,
+their reference counts never drop to zero, preventing the engine from
+reclaiming that memory.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createCycle</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> objA <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> objB <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  objA<span class="op">.</span><span class="at">other</span> <span class="op">=</span> objB<span class="op">;</span> <span class="co">// objA references objB</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  objB<span class="op">.</span><span class="at">other</span> <span class="op">=</span> objA<span class="op">;</span> <span class="co">// objB references objA</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Both variables fall out of scope, but reference count remains &gt; 0</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">createCycle</span>()<span class="op">;</span></span></code></pre></div>
+<h3 id="2-mark-and-sweep-algorithm">2. Mark-and-Sweep Algorithm</h3>
+<p>Modern JavaScript engines (such as V8 in Chrome and Node.js,
+SpiderMonkey in Firefox, and JavaScriptCore in Safari) use the
+<strong>Mark-and-Sweep</strong> algorithm, which solves the circular
+reference problem by focusing on <em>reachability</em> rather than
+reference counts.</p>
+<p>The algorithm operates in two primary phases:</p>
+<ol type="1">
+<li><strong>Mark Phase:</strong> The engine defines a set of "roots"
+(such as the global object, current local variables, and call stack
+parameters). The garbage collector traverses the object graph starting
+from these roots, marking every object it can reach as "alive." Any
+object referenced by a reachable object is also marked.</li>
+<li><strong>Sweep Phase:</strong> The engine scans the unallocated
+memory space and reclaims all memory associated with objects that were
+not marked during the traversal.</li>
+</ol>
+<p>Because unreachable cycles cannot be reached from the root objects,
+the mark-and-sweep algorithm safely identifies and frees circular
+references.</p>
+<h2 id="engine-optimizations-v8-implementation">Engine Optimizations (V8
+Implementation)</h2>
+<p>Modern engines implement advanced strategies to prevent garbage
+collection from pausing execution and degrading user experience:</p>
+<ul>
+<li><strong>Generational Collection:</strong> Memory is divided into
+"Young" and "Old" generations. Most objects die young (temporary
+variables in functions). The young generation is checked frequently and
+quickly, while long-lived objects are moved to the old generation and
+inspected less often.</li>
+<li><strong>Incremental and Concurrent Marking:</strong> Instead of
+stopping JavaScript execution entirely to perform a full sweep
+("Stop-the-World"), engines break the marking process into small
+increments or execute it on background threads alongside main
+execution.</li>
+</ul>
+<h2 id="common-memory-leaks-in-javascript">Common Memory Leaks in
+JavaScript</h2>
+<p>Even with automatic garbage collection, memory leaks occur when
+references to unused objects are unintentionally retained:</p>
+<ul>
+<li><strong>Accidental Global Variables:</strong> Assigning values to
+undeclared variables attaches them directly to the global window/global
+scope, preventing collection.</li>
+<li><strong>Forgotten Timers and Callbacks:</strong> Active
+<code>setInterval</code> or <code>setTimeout</code> handlers retain
+references to all variables captured in their scopes until explicitly
+cleared with <code>clearInterval</code> or
+<code>clearTimeout</code>.</li>
+<li><strong>Detached DOM Nodes:</strong> Storing a reference to a DOM
+element in a JavaScript variable prevents it from being garbage
+collected, even after the element is removed from the DOM tree.</li>
+<li><strong>Closures:</strong> Nested functions that capture large outer
+scope variables keep those variables in memory for as long as the
+closure itself remains reachable.</li>
+</ul>
+<h2 id="writing-memory-efficient-javascript">Writing Memory-Efficient
+JavaScript</h2>
+<p>To assist the garbage collector and prevent performance
+bottlenecks:</p>
+<ul>
+<li>Keep variable scopes as narrow as possible using <code>let</code>
+and <code>const</code>.</li>
+<li>Nullify references to large objects or arrays when they are no
+longer required (<code>object = null</code>).</li>
+<li>Clean up event listeners and timers when components unmount or are
+destroyed.</li>
+<li>Utilize <code>WeakMap</code> and <code>WeakSet</code> when
+associating metadata with objects, as weak collections do not prevent
+their keys from being garbage collected.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

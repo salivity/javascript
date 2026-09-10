@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SubtleCrypto vs node:crypto: Key Differences - javascript</title>
+    <meta name="description" content="Both SubtleCrypto and node:crypto provide cryptographic operations in the JavaScript ecosystem, but they serve different environments, follow different standards, and offer distinct API designs. While SubtleCrypto is a standardized, browser-native API de">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/subtlecrypto-vs-node-crypto-key-differences">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="SubtleCrypto vs node:crypto: Key Differences - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/subtlecrypto-vs-node-crypto-key-differences" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Both SubtleCrypto and node:crypto provide cryptographic operations in the JavaScript ecosystem, but they serve different environments, follow different standards, and offer distinct API designs. While SubtleCrypto is a standardized, browser-native API de" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="subtlecrypto-vs-nodecrypto-key-differences">SubtleCrypto vs
+node:crypto: Key Differences</h1>
+<p>Both <code>SubtleCrypto</code> and <code>node:crypto</code> provide
+cryptographic operations in the JavaScript ecosystem, but they serve
+different environments, follow different standards, and offer distinct
+API designs. While <code>SubtleCrypto</code> is a standardized,
+browser-native API designed with security boundaries and asynchronous
+execution in mind, <code>node:crypto</code> is a Node.js-native module
+built around OpenSSL that provides high-performance, flexible, and
+synchronous operations. This guide examines their architectural
+differences, API ergonomics, security models, and ideal use cases.</p>
+<h3 id="environment-and-standardization">Environment and
+Standardization</h3>
+<ul>
+<li><strong>SubtleCrypto:</strong> Part of the official W3C Web
+Cryptography API. It is natively available in modern web browsers via
+<code>window.crypto.subtle</code> and in modern Node.js environments
+(v15+) via <code>globalThis.crypto.subtle</code>. Because it is an open
+web standard, code written against <code>SubtleCrypto</code> can run
+across different runtimes (browsers, Node.js, Deno, Cloudflare Workers)
+without alteration.</li>
+<li><strong>node:crypto:</strong> A proprietary Node.js standard library
+module written in C++ wrapping OpenSSL. It is accessible via
+<code>import crypto from 'node:crypto'</code> and is primarily intended
+for server-side environments. It cannot run directly in browser
+environments without heavyweight polyfills.</li>
+</ul>
+<h3 id="api-paradigms-asynchronous-vs-synchronous">API Paradigms:
+Asynchronous vs. Synchronous</h3>
+<ul>
+<li><strong>SubtleCrypto is strictly asynchronous:</strong> Every
+operation—whether hashing, encrypting, decrypting, or key
+generation—returns a <code>Promise</code>. It operates on
+<code>ArrayBuffer</code> and <code>TypedArray</code> views. This
+asynchronous architecture prevents cryptography operations from blocking
+the main browser UI thread.</li>
+<li><strong>node:crypto offers both models:</strong> Node's module
+supports both asynchronous callbacks/promises and synchronous methods
+(e.g., <code>crypto.randomBytes()</code>,
+<code>crypto.pbkdf2Sync()</code>). It also integrates natively with
+Node.js <code>Stream</code> and <code>Buffer</code> APIs, allowing
+developers to pipe data directly through transform streams using
+<code>crypto.createCipheriv()</code> or
+<code>crypto.createHash()</code>.</li>
+</ul>
+<h3 id="key-management-and-security-boundaries">Key Management and
+Security Boundaries</h3>
+<ul>
+<li><strong>SubtleCrypto (Opaque Key Handles):</strong> Operates using
+<code>CryptoKey</code> objects. Keys can be designated as
+non-extractable (<code>extractable: false</code>). This prevents running
+scripts, extensions, or cross-site scripting (XSS) vectors from reading
+the raw private or secret key bytes from memory once created or
+imported.</li>
+<li><strong>node:crypto (Direct Memory Access):</strong> Offers the
+<code>KeyObject</code> API, but also allows developers to work directly
+with raw <code>Buffer</code> instances containing binary key material.
+This provides maximum flexibility for server applications but lacks the
+strict sandboxing that browsers require.</li>
+</ul>
+<h3 id="feature-set-and-algorithm-support">Feature Set and Algorithm
+Support</h3>
+<ul>
+<li><strong>SubtleCrypto (Curated and Modern):</strong> Intentionally
+restricts algorithm selection to modern, secure standards such as
+AES-GCM, AES-CBC, SHA-256/384/512, HMAC, ECDSA, and RSA-PSS/OAEP. Legacy
+or broken algorithms (like MD5 or DES) are excluded to prevent
+developers from deploying insecure cryptography.</li>
+<li><strong>node:crypto (Comprehensive and Legacy-Friendly):</strong>
+Exposes nearly everything supported by the underlying OpenSSL build,
+including legacy algorithms, custom ciphers, and specialized primitives
+like Diffie-Hellman (<code>createDiffieHellman</code>), certificate
+management, and password-hashing implementations (Scrypt, Argon2).</li>
+</ul>
+<h3 id="data-streaming-and-large-payloads">Data Streaming and Large
+Payloads</h3>
+<ul>
+<li><strong>SubtleCrypto:</strong> Requires the entire payload to be
+loaded into memory as an <code>ArrayBuffer</code> before processing. It
+lacks a native chunked streaming API for large files, making it less
+suitable for multi-gigabyte encryption or hashing operations.</li>
+<li><strong>node:crypto:</strong> Excels at handling large datasets.
+Using Node streams, developers can read, hash, or encrypt files of
+arbitrary size with minimal memory consumption.</li>
+</ul>
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">SubtleCrypto</th>
+<th style="text-align: left;">node:crypto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Standard</strong></td>
+<td style="text-align: left;">W3C Web Cryptography API</td>
+<td style="text-align: left;">Node.js / OpenSSL</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Availability</strong></td>
+<td style="text-align: left;">Browsers, Node.js, Edge Runtimes</td>
+<td style="text-align: left;">Node.js only</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Execution Model</strong></td>
+<td style="text-align: left;">Exclusively Promise-based</td>
+<td style="text-align: left;">Synchronous, Asynchronous, Streams</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Data Types</strong></td>
+<td style="text-align: left;"><code>ArrayBuffer</code>,
+<code>TypedArray</code>, <code>CryptoKey</code></td>
+<td style="text-align: left;"><code>Buffer</code>,
+<code>KeyObject</code>, Streams</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Key Extraction
+Safeguards</strong></td>
+<td style="text-align: left;">Yes (<code>extractable: false</code>)</td>
+<td style="text-align: left;">No (Direct buffer access)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Legacy Algorithms</strong></td>
+<td style="text-align: left;">Excluded</td>
+<td style="text-align: left;">Supported via OpenSSL</td>
+</tr>
+</tbody>
+</table>
+<p>Choose <code>SubtleCrypto</code> when targeting cross-platform code,
+edge workers, or client-side applications. Choose
+<code>node:crypto</code> when building Node.js backend services that
+require high throughput, streaming large files, or access to specific
+cryptographic primitives not defined in the Web Cryptography
+standard.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

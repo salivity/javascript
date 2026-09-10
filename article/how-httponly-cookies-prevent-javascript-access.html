@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How HttpOnly Cookies Prevent JavaScript Access - javascript</title>
+    <meta name="description" content="This article explains how the HttpOnly flag protects sensitive browser cookies from unauthorized JavaScript access, serving as a fundamental defense against token theft in Cross-Site Scripting (XSS) attacks. It covers how the browser enforces this securi">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-httponly-cookies-prevent-javascript-access">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How HttpOnly Cookies Prevent JavaScript Access - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-httponly-cookies-prevent-javascript-access" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the HttpOnly flag protects sensitive browser cookies from unauthorized JavaScript access, serving as a fundamental defense against token theft in Cross-Site Scripting (XSS) attacks. It covers how the browser enforces this securi" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-httponly-cookies-prevent-javascript-access">How HttpOnly
+Cookies Prevent JavaScript Access</h1>
+<p>This article explains how the <code>HttpOnly</code> flag protects
+sensitive browser cookies from unauthorized JavaScript access, serving
+as a fundamental defense against token theft in Cross-Site Scripting
+(XSS) attacks. It covers how the browser enforces this security
+boundary, how the flag is configured, and the specific security benefits
+and limitations associated with its implementation.</p>
+<h3 id="understanding-the-httponly-flag">Understanding the HttpOnly
+Flag</h3>
+<p>The <code>HttpOnly</code> attribute is a security directive appended
+to the <code>Set-Cookie</code> HTTP response header sent by a web
+server. When this flag is present, it explicitly instructs the web
+browser that the cookie should not be accessible through client-side
+scripts, such as JavaScript.</p>
+<p>A standard header using this flag looks like this:</p>
+<p><code>Set-Cookie: session_id=xyz123; Secure; HttpOnly; Path=/;</code></p>
+<h3 id="the-mechanism-browser-level-isolation">The Mechanism:
+Browser-Level Isolation</h3>
+<p>Modern web browsers manage cookies through an internal storage engine
+isolated from the web page's Document Object Model (DOM). Under normal
+circumstances, JavaScript can read and write cookies using the
+<code>document.cookie</code> API.</p>
+<p>When a cookie has the <code>HttpOnly</code> flag enabled:</p>
+<ol type="1">
+<li><strong>API Redaction</strong>: The browser's JavaScript runtime
+hides the cookie from the <code>document.cookie</code> interface.
+Reading <code>document.cookie</code> returns an empty string or a list
+containing only non-HttpOnly cookies.</li>
+<li><strong>Write Protection</strong>: Any attempt by client-side
+scripts to overwrite or modify an HttpOnly cookie via
+<code>document.cookie</code> is silently ignored or blocked by the
+browser.</li>
+<li><strong>Console and Network Isolation</strong>: Client APIs like
+<code>XMLHttpRequest</code> and <code>fetch()</code> cannot read the
+cookie headers from HTTP responses directly via scripting, preventing
+indirect extraction.</li>
+</ol>
+<h3 id="automatic-transmission-to-the-server">Automatic Transmission to
+the Server</h3>
+<p>While JavaScript is completely blocked from interacting with the
+cookie, the browser continues to handle network transmission natively.
+Whenever the browser makes an HTTP or HTTPS request to the originating
+domain:</p>
+<ul>
+<li>The browser automatically attaches the <code>HttpOnly</code> cookie
+to the outgoing <code>Cookie</code> request header.</li>
+<li>Authentication and session management function normally without
+requiring client-side script involvement.</li>
+</ul>
+<h3 id="protection-against-session-hijacking-xss">Protection Against
+Session Hijacking (XSS)</h3>
+<p>The primary security objective of the <code>HttpOnly</code> flag is
+mitigating session hijacking during a Cross-Site Scripting (XSS)
+attack.</p>
+<p>In a typical XSS attack without <code>HttpOnly</code>:</p>
+<ol type="1">
+<li>An attacker injects malicious JavaScript into a vulnerable
+webpage.</li>
+<li>The script executes and reads <code>document.cookie</code>.</li>
+<li>The script transmits the session identifier to the attacker's
+server.</li>
+<li>The attacker uses the stolen identifier to impersonate the
+victim.</li>
+</ol>
+<p>With <code>HttpOnly</code> enabled, step 2 fails entirely. Even if an
+attacker successfully executes arbitrary JavaScript in the victim's
+browser, they cannot directly read or exfiltrate the session token
+stored in an HttpOnly cookie.</p>
+<h3 id="scope-and-limitations">Scope and Limitations</h3>
+<p>While <code>HttpOnly</code> provides essential protection, it is not
+a complete solution for all web vulnerabilities:</p>
+<ul>
+<li><strong>Does Not Prevent XSS Execution</strong>: Malicious scripts
+can still manipulate the DOM, redirect users, log keystrokes, or make
+authenticated requests on behalf of the user using the browser's
+automatic cookie inclusion (Cross-Site Script Inclusion / Cross-Site
+Request Forgery techniques).</li>
+<li><strong>Requires Proper Browser Support</strong>: The protection
+relies on the browser's compliance with web standards. All modern
+browsers fully enforce the <code>HttpOnly</code> specification.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

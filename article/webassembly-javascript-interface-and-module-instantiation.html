@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAssembly JavaScript Interface and Module Instantiation - javascript</title>
+    <meta name="description" content="The WebAssembly JavaScript Interface is a built-in browser and runtime API that bridges the gap between JavaScript and WebAssembly (Wasm) binary code. It allows developers to load, compile, instantiate, and interact with high-performance Wasm binaries di">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/webassembly-javascript-interface-and-module-instantiation">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebAssembly JavaScript Interface and Module Instantiation - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/webassembly-javascript-interface-and-module-instantiation" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The WebAssembly JavaScript Interface is a built-in browser and runtime API that bridges the gap between JavaScript and WebAssembly (Wasm) binary code. It allows developers to load, compile, instantiate, and interact with high-performance Wasm binaries di" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="webassembly-javascript-interface-and-module-instantiation">WebAssembly
+JavaScript Interface and Module Instantiation</h1>
+<p>The WebAssembly JavaScript Interface is a built-in browser and
+runtime API that bridges the gap between JavaScript and WebAssembly
+(Wasm) binary code. It allows developers to load, compile, instantiate,
+and interact with high-performance Wasm binaries directly within
+JavaScript environments like modern browsers and Node.js. This guide
+breaks down what the interface is, its core components, and the exact
+methods used to instantiate WebAssembly modules.</p>
+<h2 id="what-is-the-webassembly-javascript-interface">What is the
+WebAssembly JavaScript Interface?</h2>
+<p>The WebAssembly JavaScript Interface is exposed via the global
+<code>WebAssembly</code> object. It acts as a namespace containing the
+methods and constructors needed to manage the lifecycle of WebAssembly
+programs.</p>
+<p>Because WebAssembly code cannot directly access the Document Object
+Model (DOM) or web APIs on its own, it relies on JavaScript to provide
+imports (such as functions, memory, and global variables). In return,
+the compiled Wasm module exports functions and memory back to
+JavaScript, enabling bi-directional communication.</p>
+<p>Key components of the interface include:</p>
+<ul>
+<li><strong><code>WebAssembly.Module</code></strong>: Contains stateless
+WebAssembly machine code that has been compiled by the browser but not
+yet linked to execution state or memory.</li>
+<li><strong><code>WebAssembly.Instance</code></strong>: A stateful,
+executable instance of a <code>WebAssembly.Module</code>, paired with
+its imported memory, tables, and execution context.</li>
+<li><strong><code>WebAssembly.Memory</code></strong>: A resizable
+<code>ArrayBuffer</code> that holds the raw bytes of memory accessed by
+both JavaScript and WebAssembly.</li>
+<li><strong><code>WebAssembly.Table</code></strong>: A resizable typed
+array of references (like function pointers) that cannot be stored as
+raw bytes for security reasons.</li>
+</ul>
+<h2 id="how-to-instantiate-webassembly-modules">How to Instantiate
+WebAssembly Modules</h2>
+<p>Instantiating a WebAssembly module is the process of taking raw
+binary <code>.wasm</code> code, compiling it into machine code,
+resolving any required imports, and producing an executable
+<code>Instance</code>.</p>
+<p>There are two primary approaches to instantiation: streaming
+instantiation and buffer-based instantiation.</p>
+<h3 id="1-streaming-instantiation-webassemblyinstantiatestreaming">1.
+Streaming Instantiation
+(<code>WebAssembly.instantiateStreaming</code>)</h3>
+<p>Streaming is the most efficient and recommended way to instantiate
+WebAssembly modules over a network. It compiles and instantiates the
+module in the background while the raw byte code is still being
+downloaded, significantly reducing load times.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Fetch the Wasm file and instantiate it directly from the network stream</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> importObject <span class="op">=</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">env</span><span class="op">:</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">log</span><span class="op">:</span> (val) <span class="kw">=&gt;</span> <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(val)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>WebAssembly<span class="op">.</span><span class="fu">instantiateStreaming</span>(<span class="fu">fetch</span>(<span class="st">&#39;program.wasm&#39;</span>)<span class="op">,</span> importObject)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">then</span>(results <span class="kw">=&gt;</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// results contains both the compiled &#39;module&#39; and the ready &#39;instance&#39;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { module<span class="op">,</span> instance } <span class="op">=</span> results<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Call an exported WebAssembly function</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    instance<span class="op">.</span><span class="at">exports</span><span class="op">.</span><span class="fu">run</span>()<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">catch</span>(error <span class="kw">=&gt;</span> {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Failed to load Wasm module:&#39;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span></code></pre></div>
+<p><code>WebAssembly.instantiateStreaming</code> accepts a
+<code>Response</code> object (or a promise resolving to one) and an
+optional <code>importObject</code>. The response must have the
+<code>application/wasm</code> MIME type.</p>
+<h3 id="2-arraybuffer-instantiation-webassemblyinstantiate">2.
+ArrayBuffer Instantiation (<code>WebAssembly.instantiate</code>)</h3>
+<p>If the Wasm bytes are already loaded in memory—such as when read from
+the local file system in Node.js, retrieved via an
+<code>IndexedDB</code> cache, or generated dynamically—you use
+<code>WebAssembly.instantiate</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example using pre-loaded binary data</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">loadWasmBuffer</span>(bytes) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> importObject <span class="op">=</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">env</span><span class="op">:</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">memory</span><span class="op">:</span> <span class="kw">new</span> WebAssembly<span class="op">.</span><span class="fu">Memory</span>({ <span class="dt">initial</span><span class="op">:</span> <span class="dv">256</span><span class="op">,</span> <span class="dt">maximum</span><span class="op">:</span> <span class="dv">512</span> })</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Compiles and instantiates the byte buffer</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { module<span class="op">,</span> instance } <span class="op">=</span> <span class="cf">await</span> WebAssembly<span class="op">.</span><span class="fu">instantiate</span>(bytes<span class="op">,</span> importObject)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> instance<span class="op">.</span><span class="at">exports</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This method can also take a pre-compiled
+<code>WebAssembly.Module</code> object as its first argument instead of
+raw bytes, allowing a single compiled module to be instantiated multiple
+times with different import configurations.</p>
+<h2 id="the-instantiation-lifecycle">The Instantiation Lifecycle</h2>
+<p>Regardless of the method used, the instantiation process follows four
+core stages:</p>
+<ol type="1">
+<li><strong>Acquisition</strong>: The binary <code>.wasm</code> file is
+fetched as a stream or loaded into an <code>ArrayBuffer</code>.</li>
+<li><strong>Compilation &amp; Validation</strong>: The JavaScript engine
+validates the binary against WebAssembly safety rules and compiles the
+bytecode into target machine code.</li>
+<li><strong>Linking</strong>: The engine resolves all imports provided
+in the <code>importObject</code>, mapping JavaScript functions, memory
+buffers, and tables to the module.</li>
+<li><strong>Execution</strong>: The module's start function (if present)
+runs, and the resulting <code>WebAssembly.Instance</code> is returned,
+exposing its exported functions through
+<code>instance.exports</code>.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

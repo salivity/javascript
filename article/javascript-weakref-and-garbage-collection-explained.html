@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript WeakRef and Garbage Collection Explained - javascript</title>
+    <meta name="description" content="This article explores how JavaScript's garbage collector interacts with objects wrapped in a WeakRef. You will learn the difference between strong and weak references, how the garbage collector determines when to reclaim memory held by weakly referenced">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-weakref-and-garbage-collection-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript WeakRef and Garbage Collection Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-weakref-and-garbage-collection-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how JavaScript's garbage collector interacts with objects wrapped in a WeakRef. You will learn the difference between strong and weak references, how the garbage collector determines when to reclaim memory held by weakly referenced" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-weakref-and-garbage-collection-explained">JavaScript
+WeakRef and Garbage Collection Explained</h1>
+<p>This article explores how JavaScript's garbage collector interacts
+with objects wrapped in a <code>WeakRef</code>. You will learn the
+difference between strong and weak references, how the garbage collector
+determines when to reclaim memory held by weakly referenced objects, how
+to safely access these objects using the <code>.deref()</code> method,
+and the architectural implications of garbage collection's
+non-deterministic nature.</p>
+<h2 id="strong-references-vs-weak-references">Strong References vs. Weak
+References</h2>
+<p>In standard JavaScript operations, creating an assignment creates a
+strong reference. As long as a strong reference to an object exists in
+the current execution context or global scope, the garbage collector
+(GC) treats that object as reachable and will not reclaim its
+memory.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> user <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span> }<span class="op">;</span> <span class="co">// Strong reference</span></span></code></pre></div>
+<p>A <code>WeakRef</code> (Weak Reference) lets you hold a reference to
+an object without preventing that object from being garbage collected.
+If an object is only referenced through one or more <code>WeakRef</code>
+instances, it is considered unreachable by the garbage collector's
+reachability algorithm.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> target <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> weakUser <span class="op">=</span> <span class="kw">new</span> <span class="bu">WeakRef</span>(target)<span class="op">;</span></span></code></pre></div>
+<h2 id="how-the-garbage-collector-treats-weakref-targets">How the
+Garbage Collector Treats WeakRef Targets</h2>
+<p>JavaScript engines use a "mark-and-sweep" garbage collection
+algorithm. The engine traverses the object graph starting from roots
+(global variables, call stacks).</p>
+<p>When the collector encounters a <code>WeakRef</code>, it does not
+follow the reference to mark the target object as reachable. The
+lifecycle of the target object proceeds as follows:</p>
+<ol type="1">
+<li><strong>Active State:</strong> As long as at least one strong
+reference to the target exists, the target remains in memory, and the
+<code>WeakRef</code> can successfully return it.</li>
+<li><strong>Eligibility for Collection:</strong> Once all strong
+references are removed (e.g., set to <code>null</code> or out of scope),
+the target becomes eligible for garbage collection, even though the
+<code>WeakRef</code> still points to it.</li>
+<li><strong>Reclamation:</strong> During the next garbage collection
+cycle, the engine frees the memory allocated for the target object.</li>
+</ol>
+<h2 id="accessing-the-target-with-deref">Accessing the Target with
+<code>deref()</code></h2>
+<p>To access the object held by a <code>WeakRef</code>, you invoke the
+<code>deref()</code> method. This method returns the object if it is
+still present in memory, or <code>undefined</code> if the garbage
+collector has already reclaimed it.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> obj <span class="op">=</span> weakUser<span class="op">.</span><span class="fu">deref</span>()<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (obj) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Target is still in memory; obj is a temporary strong reference</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(obj<span class="op">.</span><span class="at">name</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Target has been garbage collected</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Object was collected.&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When <code>deref()</code> returns the target object, a temporary
+strong reference is created in that execution frame, ensuring the object
+will not be collected while you are actively working with it.</p>
+<h2 id="non-deterministic-cleanup">Non-Deterministic Cleanup</h2>
+<p>Garbage collection in JavaScript is non-deterministic. The JavaScript
+specification does not dictate when, how, or if garbage collection runs.
+Consequently:</p>
+<ul>
+<li>An object with no strong references may remain available via
+<code>deref()</code> for an unpredictable period until the engine
+executes a collection cycle.</li>
+<li>Garbage collection behavior varies between different JavaScript
+runtimes (e.g., V8, SpiderMonkey, JavaScriptCore) and can change based
+on system memory pressure.</li>
+<li>Code should never rely on predictable execution timing for when a
+<code>WeakRef</code> will yield <code>undefined</code>.</li>
+</ul>
+<h2 id="primary-use-cases">Primary Use Cases</h2>
+<p><code>WeakRef</code> is primarily used for:</p>
+<ul>
+<li><strong>Caches and Memoization:</strong> Storing large or expensive
+objects without preventing memory reclamation if the rest of the
+application no longer uses them.</li>
+<li><strong>Secondary Metadata Associations:</strong> Associating
+auxiliary data with objects managed by external libraries without
+introducing memory leaks.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

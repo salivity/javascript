@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Reselect Memoized Selectors Work in JavaScript - javascript</title>
+    <meta name="description" content="Reselect is a popular JavaScript library used primarily with Redux to compute derived state efficiently through memoization. By caching the results of function calls based on their inputs, Reselect prevents expensive recalculations and avoids returning n">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-reselect-memoized-selectors-work-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Reselect Memoized Selectors Work in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-reselect-memoized-selectors-work-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Reselect is a popular JavaScript library used primarily with Redux to compute derived state efficiently through memoization. By caching the results of function calls based on their inputs, Reselect prevents expensive recalculations and avoids returning n" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-reselect-memoized-selectors-work-in-javascript">How Reselect
+Memoized Selectors Work in JavaScript</h1>
+<p>Reselect is a popular JavaScript library used primarily with Redux to
+compute derived state efficiently through memoization. By caching the
+results of function calls based on their inputs, Reselect prevents
+expensive recalculations and avoids returning new object references when
+the underlying state has not changed. This article explains how
+Reselect's memoization pipeline works under the hood, how reference
+equality checks drive its decision-making, and how it protects
+applications from unnecessary component re-renders.</p>
+<h2 id="the-problem-with-naive-state-selectors">The Problem with Naive
+State Selectors</h2>
+<p>In modern state management architectures, state is often normalized
+into minimal, non-redundant structures. Views, however, require derived
+or transformed data—such as filtered lists, aggregated statistics, or
+sorted arrays.</p>
+<p>A naive approach to deriving data involves executing transformation
+logic directly inside a standard selector function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Naive selector</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> getCompletedTodos <span class="op">=</span> (state) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> state<span class="op">.</span><span class="at">todos</span><span class="op">.</span><span class="fu">filter</span>((todo) <span class="kw">=&gt;</span> todo<span class="op">.</span><span class="at">completed</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>This approach presents two major performance problems:</p>
+<ol type="1">
+<li><strong>Redundant Execution:</strong> The <code>.filter()</code>
+array method runs every time the store updates, even if
+<code>state.todos</code> was not touched.</li>
+<li><strong>Broken Reference Equality:</strong> Methods like
+<code>.filter()</code> and <code>.map()</code> always return a new array
+instance in memory. Because JavaScript compares objects and arrays by
+reference, consuming components (such as React components connected via
+<code>useSelector</code>) will assume the data changed and trigger an
+unnecessary re-render.</li>
+</ol>
+<h2 id="the-reselect-architecture-createselector">The Reselect
+Architecture: <code>createSelector</code></h2>
+<p>Reselect solves this using the <code>createSelector</code> API, which
+splits selector logic into two distinct phases: <strong>input
+selectors</strong> and a <strong>result function</strong>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { createSelector } <span class="im">from</span> <span class="st">&#39;reselect&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Input Selectors (extract raw state slices)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> selectTodos <span class="op">=</span> (state) <span class="kw">=&gt;</span> state<span class="op">.</span><span class="at">todos</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> selectFilter <span class="op">=</span> (state) <span class="kw">=&gt;</span> state<span class="op">.</span><span class="at">visibilityFilter</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Composed Memoized Selector</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> selectVisibleTodos <span class="op">=</span> <span class="fu">createSelector</span>(</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  [selectTodos<span class="op">,</span> selectFilter]<span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  (todos<span class="op">,</span> filter) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Result Function (computes derived state)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">switch</span> (filter) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">case</span> <span class="st">&#39;SHOW_COMPLETED&#39;</span><span class="op">:</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> todos<span class="op">.</span><span class="fu">filter</span>((t) <span class="kw">=&gt;</span> t<span class="op">.</span><span class="at">completed</span>)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      <span class="cf">case</span> <span class="st">&#39;SHOW_ACTIVE&#39;</span><span class="op">:</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> todos<span class="op">.</span><span class="fu">filter</span>((t) <span class="kw">=&gt;</span> <span class="op">!</span>t<span class="op">.</span><span class="at">completed</span>)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      <span class="cf">default</span><span class="op">:</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> todos<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span></code></pre></div>
+<h2 id="how-the-memoization-pipeline-executes">How the Memoization
+Pipeline Executes</h2>
+<p>When a selector created with <code>createSelector</code> is invoked,
+it follows a strict execution pipeline:</p>
+<h3 id="1-extraction-via-input-selectors">1. Extraction via Input
+Selectors</h3>
+<p>The selector first invokes each input selector function, passing
+along all arguments provided to the main selector (e.g.,
+<code>state</code>). These input selectors are designed to be fast,
+simple accessors that extract specific slices of the state tree.</p>
+<h3 id="2-shallow-equality-check-on-inputs">2. Shallow Equality Check on
+Inputs</h3>
+<p>Reselect stores the outputs of the input selectors from the previous
+execution. It compares the newly returned values from the input
+selectors against the cached values using strict reference equality
+(<code>===</code>).</p>
+<ul>
+<li><strong>Cache Hit:</strong> If every input value is strictly
+identical (<code>prevValue === nextValue</code>) to the prior execution,
+the calculation halts. Reselect bypasses the result function entirely
+and immediately returns the previously cached output reference.</li>
+<li><strong>Cache Miss:</strong> If any input selector returns a
+reference that differs from its cached counterpart, Reselect proceeds to
+the next step.</li>
+</ul>
+<h3 id="3-execution-and-result-caching">3. Execution and Result
+Caching</h3>
+<p>Upon a cache miss, the result function executes, receiving the
+outputs of the input selectors as its arguments. Reselect caches both
+the new input arguments and the newly computed return value, returning
+the fresh result to the caller.</p>
+<h2 id="default-cache-limit-cache-size-of-1">Default Cache Limit (Cache
+Size of 1)</h2>
+<p>By default, Reselect uses a memoization cache size of 1. It only
+remembers the inputs and output of the most recent invocation.</p>
+<p>If a single selector instance is called alternately with different
+arguments or different state trees, it will thrash the cache:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Calling a single selector with alternating inputs invalidates the cache</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">selectUserById</span>(state<span class="op">,</span> <span class="st">&#39;user-1&#39;</span>)<span class="op">;</span> <span class="co">// Computes for user-1, caches result</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">selectUserById</span>(state<span class="op">,</span> <span class="st">&#39;user-2&#39;</span>)<span class="op">;</span> <span class="co">// Cache miss: computes for user-2, replaces cache</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">selectUserById</span>(state<span class="op">,</span> <span class="st">&#39;user-1&#39;</span>)<span class="op">;</span> <span class="co">// Cache miss: recomputes for user-1</span></span></code></pre></div>
+<p>To resolve this scenario, developers can either instantiate separate
+selector instances per component instance (using a factory function) or
+configure Reselect with custom memoization strategies, such as an LRU
+(Least Recently Used) cache.</p>
+<h2 id="summary-of-performance-benefits">Summary of Performance
+Benefits</h2>
+<p>Reselect provides two distinct optimization layers:</p>
+<ul>
+<li><strong>Computational Optimization:</strong> CPU-heavy
+transformations (sorting large arrays, complex calculations) are skipped
+if the source data remains unmodified.</li>
+<li><strong>Rendering Optimization:</strong> By returning the exact same
+memory reference when data has not changed, downstream libraries like
+React avoid triggering costly virtual DOM diffing and re-renders.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

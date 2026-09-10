@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How ESLint Parses ASTs to Enforce Code Quality - javascript</title>
+    <meta name="description" content="ESLint maintains code quality and consistency in JavaScript projects by converting plain source text into an Abstract Syntax Tree (AST), traversing its nodes, and evaluating rules against specific code patterns. This article explains the end-to-end proce">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-eslint-parses-asts-to-enforce-code-quality">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How ESLint Parses ASTs to Enforce Code Quality - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-eslint-parses-asts-to-enforce-code-quality" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="ESLint maintains code quality and consistency in JavaScript projects by converting plain source text into an Abstract Syntax Tree (AST), traversing its nodes, and evaluating rules against specific code patterns. This article explains the end-to-end proce" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-eslint-parses-asts-to-enforce-code-quality">How ESLint
+Parses ASTs to Enforce Code Quality</h1>
+<p>ESLint maintains code quality and consistency in JavaScript projects
+by converting plain source text into an Abstract Syntax Tree (AST),
+traversing its nodes, and evaluating rules against specific code
+patterns. This article explains the end-to-end process of how ESLint
+parses source code, utilizes the Visitor pattern to inspect syntax tree
+nodes, reports rule violations, and applies automated fixes.</p>
+<h3 id="1-code-tokenization-and-parsing">1. Code Tokenization and
+Parsing</h3>
+<p>The linting process begins by feeding raw JavaScript source code into
+a parser. By default, ESLint uses <strong>Espree</strong>, a parser
+built on Acorn that complies with the ESTree specification.</p>
+<p>Parsing occurs in two primary phases:</p>
+<ul>
+<li><strong>Lexical Analysis (Tokenization):</strong> The source code
+string is scanned and broken down into a sequence of tokens (such as
+keywords, identifiers, operators, and literals), discarding meaningless
+whitespace and comments.</li>
+<li><strong>Syntactic Analysis (Tree Construction):</strong> The parser
+analyzes the token sequence against JavaScript grammatical rules to
+construct an Abstract Syntax Tree (AST).</li>
+</ul>
+<p>An AST is a hierarchical, deeply nested JSON-like object representing
+the syntactic structure of the program. For example, a simple
+declaration like <code>const total = 10;</code> is transformed into a
+<code>VariableDeclaration</code> node containing a
+<code>VariableDeclarator</code> node, which in turn holds an
+<code>Identifier</code> (name: <code>"total"</code>) and a
+<code>Literal</code> (value: <code>10</code>). Each node also stores
+metadata, including its start and end line/column coordinates in the
+original file.</p>
+<h3 id="2-ast-traversal-and-the-visitor-pattern">2. AST Traversal and
+the Visitor Pattern</h3>
+<p>Once the AST is built, ESLint traverses the tree using the
+<strong>Visitor pattern</strong>. It performs a depth-first search (DFS)
+traversal, visiting every node from the root down to the leaf nodes.</p>
+<p>During traversal, ESLint emits events for each node type:</p>
+<ul>
+<li><strong>Enter:</strong> Triggered when the traverser first reaches a
+node.</li>
+<li><strong>Exit:</strong> Triggered after the traverser has visited all
+child nodes of that specific node.</li>
+</ul>
+<p>Rules declare interest in specific node types by subscribing to these
+events using selector patterns similar to CSS selectors (e.g.,
+<code>FunctionDeclaration</code>,
+<code>BinaryExpression[operator="=="]</code>, or
+<code>CallExpression:exit</code>).</p>
+<h3 id="3-rule-execution-and-context-matching">3. Rule Execution and
+Context Matching</h3>
+<p>ESLint rules are modular JavaScript functions that return an object
+mapping AST selectors to listener functions.</p>
+<p>When ESLint's traverser encounters a node that matches a rule’s
+selector, it executes the associated function, passing the current AST
+node and a <code>context</code> object. The rule then inspects the
+properties of the node:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>module<span class="op">.</span><span class="at">exports</span> <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">meta</span><span class="op">:</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">type</span><span class="op">:</span> <span class="st">&quot;problem&quot;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">docs</span><span class="op">:</span> { <span class="dt">description</span><span class="op">:</span> <span class="st">&quot;Disallow use of eval()&quot;</span> }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">create</span>(context) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">CallExpression</span>(node) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (node<span class="op">.</span><span class="at">callee</span><span class="op">.</span><span class="at">name</span> <span class="op">===</span> <span class="st">&quot;eval&quot;</span>) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>          context<span class="op">.</span><span class="fu">report</span>({</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>            node<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>            <span class="dt">message</span><span class="op">:</span> <span class="st">&quot;Do not use eval().&quot;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>          })<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>If the node's properties violate the criteria defined by the rule,
+the rule calls <code>context.report()</code>. This registers a linting
+problem associated with the precise line and column coordinates stored
+within the AST node.</p>
+<h3 id="4-scope-analysis-and-code-fixing">4. Scope Analysis and Code
+Fixing</h3>
+<p>Beyond basic syntax checks, ESLint performs advanced analysis
+directly on top of the AST:</p>
+<ul>
+<li><strong>Scope Analysis:</strong> ESLint tracks variable creation,
+references, and closures using <code>eslint-scope</code>. This allows
+rules to detect unused variables, shadow variables, or out-of-scope
+references.</li>
+<li><strong>Automated Fixing:</strong> When calling
+<code>context.report()</code>, rules can provide a <code>fix</code>
+function. The fixer uses the node’s exact location offsets (range array)
+to insert, remove, or replace text directly within the original source
+code without breaking the rest of the file structure.</li>
+</ul>
+<p>By decoupling syntax parsing from rule execution, ESLint allows
+custom parsers (like <code>@typescript-eslint/parser</code> or
+<code>@babel/eslint-parser</code>) and custom plugins to enforce complex
+style and safety guidelines across diverse codebases.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

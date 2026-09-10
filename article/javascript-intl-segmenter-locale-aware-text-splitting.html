@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Intl.Segmenter: Locale-Aware Text Splitting - javascript</title>
+    <meta name="description" content="The Intl.Segmenter API is a built-in JavaScript object that enables locale-sensitive text segmentation, allowing developers to accurately split strings into graphemes, words, or sentences. Traditional string-splitting methods like split('') or regular ex">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-intl-segmenter-locale-aware-text-splitting">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Intl.Segmenter: Locale-Aware Text Splitting - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-intl-segmenter-locale-aware-text-splitting" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Intl.Segmenter API is a built-in JavaScript object that enables locale-sensitive text segmentation, allowing developers to accurately split strings into graphemes, words, or sentences. Traditional string-splitting methods like split('') or regular ex" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-intlsegmenter-locale-aware-text-splitting">JavaScript
+Intl.Segmenter: Locale-Aware Text Splitting</h1>
+<p>The <code>Intl.Segmenter</code> API is a built-in JavaScript object
+that enables locale-sensitive text segmentation, allowing developers to
+accurately split strings into graphemes, words, or sentences.
+Traditional string-splitting methods like <code>split('')</code> or
+regular expressions often break down when encountering emojis, complex
+scripts, or languages that do not use spaces between words. This article
+explains how <code>Intl.Segmenter</code> works, why standard methods
+fall short, and how to use this modern API to process text accurately
+across diverse human languages.</p>
+<h2 id="the-limitations-of-traditional-string-splitting">The Limitations
+of Traditional String Splitting</h2>
+<p>For years, developers relied on <code>String.prototype.split()</code>
+or regular expressions to break text apart. For example,
+<code>text.split('')</code> was commonly used to count characters, and
+<code>text.split(' ')</code> was used to separate words.</p>
+<p>These approaches fail in internationalized contexts for two primary
+reasons:</p>
+<ol type="1">
+<li><strong>Surrogate Pairs and Grapheme Clusters</strong>: In Unicode,
+a single visual character can consist of multiple code units. A family
+emoji (👨‍👩‍👧‍👦) or a letter with a combining diacritic (like <code>e</code> +
+<code>◌́</code> = <code>é</code>) is composed of multiple Unicode code
+points. Running <code>'👨‍👩‍👧‍👦'.split('')</code> produces an array of broken
+surrogate pairs rather than a single entity.</li>
+<li><strong>Languages Without Spaces</strong>: Languages such as
+Japanese, Chinese, and Thai do not use spaces to separate words. Running
+<code>'こんにちは世界'.split(' ')</code> treats the entire phrase as a
+single word.</li>
+</ol>
+<h2 id="what-is-intlsegmenter">What is <code>Intl.Segmenter</code>?</h2>
+<p>Introduced in ECMAScript 2022 (ES13), <code>Intl.Segmenter</code> is
+part of the standard JavaScript Internationalization API. It uses
+standardized linguistic data (from Unicode's Common Locale Data
+Repository, or CLDR) to parse text according to the grammatical and
+typographical rules of a specified locale.</p>
+<h3 id="syntax-and-configuration">Syntax and Configuration</h3>
+<p>To use the API, create an instance of <code>Intl.Segmenter</code> by
+supplying a locale identifier and an optional configuration object:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> segmenter <span class="op">=</span> <span class="kw">new</span> <span class="bu">Intl</span><span class="op">.</span><span class="fu">Segmenter</span>(locale<span class="op">,</span> { <span class="dt">granularity</span><span class="op">:</span> <span class="st">&#39;grapheme&#39;</span> })<span class="op">;</span></span></code></pre></div>
+<p>The <code>granularity</code> option defines how the text is divided
+and accepts three values:</p>
+<ul>
+<li><code>'grapheme'</code>: Splits by user-perceived characters
+(default).</li>
+<li><code>'word'</code>: Splits by word boundaries.</li>
+<li><code>'sentence'</code>: Splits by sentence boundaries.</li>
+</ul>
+<h2 id="splitting-by-graphemes">Splitting by Graphemes</h2>
+<p>A grapheme cluster is what a user perceives as a single visual
+character. Using <code>{ granularity: 'grapheme' }</code>,
+<code>Intl.Segmenter</code> correctly preserves complex Unicode
+structures, including composite emojis, flags, and modified letters.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> text <span class="op">=</span> <span class="st">&quot;Family: 👨‍👩‍👧‍👦&quot;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> segmenter <span class="op">=</span> <span class="kw">new</span> <span class="bu">Intl</span><span class="op">.</span><span class="fu">Segmenter</span>(<span class="st">&quot;en&quot;</span><span class="op">,</span> { <span class="dt">granularity</span><span class="op">:</span> <span class="st">&quot;grapheme&quot;</span> })<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> segments <span class="op">=</span> <span class="bu">Array</span><span class="op">.</span><span class="fu">from</span>(segmenter<span class="op">.</span><span class="fu">segment</span>(text))<span class="op">.</span><span class="fu">map</span>(s <span class="kw">=&gt;</span> s<span class="op">.</span><span class="at">segment</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(segments)<span class="op">;</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: [&#39;F&#39;, &#39;a&#39;, &#39;m&#39;, &#39;i&#39;, &#39;l&#39;, &#39;y&#39;, &#39;:&#39;, &#39; &#39;, &#39;👨‍👩‍👧‍👦&#39;]</span></span></code></pre></div>
+<p>In this example, the compound emoji is kept intact as a single item,
+whereas <code>text.split('')</code> would have broken it into several
+unrenderable elements.</p>
+<h2 id="splitting-by-words">Splitting by Words</h2>
+<p>When splitting by words, <code>Intl.Segmenter</code> analyzes text
+based on the specific linguistic conventions of the given locale. This
+enables word boundary detection even in scripts without whitespace.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> japaneseText <span class="op">=</span> <span class="st">&quot;私はプログラマーです&quot;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> segmenter <span class="op">=</span> <span class="kw">new</span> <span class="bu">Intl</span><span class="op">.</span><span class="fu">Segmenter</span>(<span class="st">&quot;ja&quot;</span><span class="op">,</span> { <span class="dt">granularity</span><span class="op">:</span> <span class="st">&quot;word&quot;</span> })<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">const</span> { segment } <span class="kw">of</span> segmenter<span class="op">.</span><span class="fu">segment</span>(japaneseText)) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(segment)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &quot;私&quot;, &quot;は&quot;, &quot;プログラマー&quot;, &quot;です&quot;</span></span></code></pre></div>
+<h3 id="filtering-non-word-tokens">Filtering Non-Word Tokens</h3>
+<p>When using word granularity, the output includes spaces, punctuation,
+and symbols. The <code>segment</code> object provides an
+<code>isWordLike</code> boolean property to filter these out:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sentence <span class="op">=</span> <span class="st">&quot;Hello, world! 🚀&quot;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> segmenter <span class="op">=</span> <span class="kw">new</span> <span class="bu">Intl</span><span class="op">.</span><span class="fu">Segmenter</span>(<span class="st">&quot;en&quot;</span><span class="op">,</span> { <span class="dt">granularity</span><span class="op">:</span> <span class="st">&quot;word&quot;</span> })<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> words <span class="op">=</span> <span class="bu">Array</span><span class="op">.</span><span class="fu">from</span>(segmenter<span class="op">.</span><span class="fu">segment</span>(sentence))</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">filter</span>(item <span class="kw">=&gt;</span> item<span class="op">.</span><span class="at">isWordLike</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">map</span>(item <span class="kw">=&gt;</span> item<span class="op">.</span><span class="at">segment</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(words)<span class="op">;</span> </span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: [&#39;Hello&#39;, &#39;world&#39;]</span></span></code></pre></div>
+<h2 id="splitting-by-sentences">Splitting by Sentences</h2>
+<p>Sentence boundary detection handles abbreviations and punctuation
+marks intelligently based on language rules:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> paragraph <span class="op">=</span> <span class="st">&quot;Dr. Smith arrived at 6 p.m. He was ready to present.&quot;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> segmenter <span class="op">=</span> <span class="kw">new</span> <span class="bu">Intl</span><span class="op">.</span><span class="fu">Segmenter</span>(<span class="st">&quot;en&quot;</span><span class="op">,</span> { <span class="dt">granularity</span><span class="op">:</span> <span class="st">&quot;sentence&quot;</span> })<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">const</span> { segment } <span class="kw">of</span> segmenter<span class="op">.</span><span class="fu">segment</span>(paragraph)) {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(segment<span class="op">.</span><span class="fu">trim</span>())<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Output:</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">// &quot;Dr. Smith arrived at 6 p.m.&quot;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">// &quot;He was ready to present.&quot;</span></span></code></pre></div>
+<p>The segmenter understands that the period in "Dr." or "p.m." does not
+necessarily indicate the end of a sentence.</p>
+<h2 id="inspecting-segment-metadata">Inspecting Segment Metadata</h2>
+<p>Calling <code>segmenter.segment(inputString)</code> returns an
+iterable <code>Segments</code> object rather than a plain array, which
+preserves memory when handling large strings. Each iterated item is an
+object containing three properties:</p>
+<ul>
+<li><code>segment</code>: The extracted substring.</li>
+<li><code>index</code>: The zero-based character index where the segment
+begins in the original string.</li>
+<li><code>input</code>: The original input string.</li>
+<li><code>isWordLike</code>: A boolean indicating if the segment
+represents a word (only present when <code>granularity</code> is
+<code>'word'</code>).</li>
+</ul>
+<p>This index data is particularly useful for building text editors,
+syntax highlighters, or search tools that need to map segmented tokens
+back to exact positions in the source text.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

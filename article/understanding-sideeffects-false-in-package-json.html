@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding sideEffects: false in package.json - javascript</title>
+    <meta name="description" content="The "sideEffects": false property in package.json is a configuration flag that tells modern JavaScript bundlers, such as Webpack, Rollup, and Vite, that a package contains no code that modifies external state upon import. By declaring this flag, you allo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-sideeffects-false-in-package-json">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding sideEffects: false in package.json - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-sideeffects-false-in-package-json" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The "sideEffects": false property in package.json is a configuration flag that tells modern JavaScript bundlers, such as Webpack, Rollup, and Vite, that a package contains no code that modifies external state upon import. By declaring this flag, you allo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="understanding-sideeffects-false-in-packagejson">Understanding
+sideEffects: false in package.json</h1>
+<p>The <code>"sideEffects": false</code> property in
+<code>package.json</code> is a configuration flag that tells modern
+JavaScript bundlers, such as Webpack, Rollup, and Vite, that a package
+contains no code that modifies external state upon import. By declaring
+this flag, you allow the bundler's tree-shaking engine to safely remove
+unused imports entirely from the final production bundle. This article
+explains what side effects are in JavaScript, how the flag enables
+aggressive tree shaking, how to configure it correctly, and how it
+drastically reduces bundle sizes.</p>
+<h3 id="what-is-a-side-effect-in-javascript">What is a Side Effect in
+JavaScript?</h3>
+<p>A "side effect" occurs when an imported module executes code that
+affects the global scope or modifies behavior outside of its own
+exported functions. Even if an application never directly calls an
+export from that module, running the module itself changes the
+environment.</p>
+<p>Common examples of side effects include:</p>
+<ul>
+<li>Modifying global objects (e.g.,
+<code>window.myCustomProperty = true</code>)</li>
+<li>Attaching event listeners to <code>window</code> or
+<code>document</code></li>
+<li>Importing CSS or SCSS stylesheets (e.g.,
+<code>import './styles.css'</code>)</li>
+<li>Executing polyfills (e.g., <code>import 'core-js'</code>)</li>
+<li>Executing top-level logic or self-invoking functions immediately
+upon import</li>
+</ul>
+<h3 id="why-bundlers-need-the-sideeffects-flag">Why Bundlers Need the
+<code>sideEffects</code> Flag</h3>
+<p>JavaScript bundlers perform "tree shaking" (dead code elimination) to
+discard unused exports. However, static analysis tools cannot always
+determine if evaluating an unused module will trigger necessary side
+effects.</p>
+<p>Without the <code>sideEffects</code> flag:</p>
+<ol type="1">
+<li>You import a utility:
+<code>import { formatDate } from 'large-utility-library';</code></li>
+<li>The library has 50 other utility files that are not imported.</li>
+<li>The bundler must inspect every file to ensure none of them execute
+global code upon being loaded. If it cannot guarantee safety, it bundles
+the unused code, leading to bloated builds.</li>
+</ol>
+<p>Setting <code>"sideEffects": false</code> explicitly guarantees to
+the bundler: <em>"If a file's exports are not consumed, it is 100% safe
+to drop the entire file and avoid compiling it."</em></p>
+<h3 id="how-to-configure-sideeffects">How to Configure
+<code>sideEffects</code></h3>
+<p>You can define <code>sideEffects</code> in your project's
+<code>package.json</code> using either a boolean value or an array of
+file patterns.</p>
+<h4 id="1-pure-libraries-no-side-effects">1. Pure Libraries (No Side
+Effects)</h4>
+<p>If your library consists entirely of pure functions and components
+with no global mutations or direct CSS imports, set the value to
+<code>false</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;my-pure-library&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;sideEffects&quot;</span><span class="fu">:</span> <span class="kw">false</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h4 id="2-libraries-with-specific-side-effects">2. Libraries with
+Specific Side Effects</h4>
+<p>If your project is mostly pure but includes certain files that must
+always run—such as CSS files or polyfills—provide an array of relative
+paths or glob patterns:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;my-ui-library&quot;</span><span class="fu">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;sideEffects&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;*.css&quot;</span><span class="ot">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;*.scss&quot;</span><span class="ot">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;./src/polyfills.js&quot;</span><span class="ot">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;./src/global-init.js&quot;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>In this scenario, any imported CSS files and the polyfill script will
+execute as intended, while all other unused JavaScript modules will be
+eliminated during the build process.</p>
+<h3 id="how-sideeffects-false-optimizes-build-sizes">How
+<code>sideEffects: false</code> Optimizes Build Sizes</h3>
+<ol type="1">
+<li><strong>Eliminates Whole Modules, Not Just Statements:</strong>
+Standard tree shaking removes unused functions inside an imported file.
+The <code>sideEffects: false</code> flag allows bundlers to skip
+parsing, bundling, and executing entire unreferenced files.</li>
+<li><strong>Accelerates Build Times:</strong> Because the bundler can
+safely ignore unreferenced dependency files, it spends less time
+analyzing Abstract Syntax Trees (ASTs) during minification.</li>
+<li><strong>Drastically Reduces Output for Component and Utility
+Libraries:</strong> In large libraries (like UI component libraries or
+large utility toolkits), a consumer might only use one component. With
+<code>sideEffects: false</code>, only that specific component and its
+direct dependencies make it into the final bundle, often reducing
+library footprint by 80% to 90%.</li>
+</ol>
+<h3 id="best-practices">Best Practices</h3>
+<ul>
+<li><strong>Always declare it in published packages:</strong> If you
+maintain an npm package, adding <code>"sideEffects": false</code> (or
+specifying exceptions) is essential for your consumers to achieve
+minimal bundle sizes.</li>
+<li><strong>Keep modules pure:</strong> Avoid top-level function calls,
+global modifications, or immediate initialization logic in source files
+containing exports.</li>
+<li><strong>Isolate necessary side effects:</strong> Place
+initialization code, polyfills, or style imports into dedicated files
+and list them explicitly in the <code>sideEffects</code> array.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

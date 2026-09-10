@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphQL: How JavaScript Clients Query and Cache Data - javascript</title>
+    <meta name="description" content="This article provides an overview of GraphQL, detailing what it is and how it fundamentally differs from traditional REST APIs. It then explains how modern JavaScript clients execute queries to retrieve structured data and leverage normalized client-side">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/graphql-how-javascript-clients-query-and-cache-data">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="GraphQL: How JavaScript Clients Query and Cache Data - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/graphql-how-javascript-clients-query-and-cache-data" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of GraphQL, detailing what it is and how it fundamentally differs from traditional REST APIs. It then explains how modern JavaScript clients execute queries to retrieve structured data and leverage normalized client-side" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="graphql-how-javascript-clients-query-and-cache-data">GraphQL:
+How JavaScript Clients Query and Cache Data</h1>
+<p>This article provides an overview of GraphQL, detailing what it is
+and how it fundamentally differs from traditional REST APIs. It then
+explains how modern JavaScript clients execute queries to retrieve
+structured data and leverage normalized client-side caching to boost web
+application performance and maintain consistent state across
+components.</p>
+<h3 id="what-is-graphql">What is GraphQL?</h3>
+<p>GraphQL is an open-source query language for APIs and a runtime for
+fulfilling those queries with existing data. Developed by Facebook in
+2012 and released publicly in 2015, GraphQL provides a complete and
+understandable description of the data in an API.</p>
+<p>Unlike REST architectures, which expose multiple endpoints returning
+fixed data structures, GraphQL typically operates via a single HTTP
+endpoint. Clients define the exact shape and fields of the response they
+require. This design eliminates common API inefficiencies:</p>
+<ul>
+<li><strong>Over-fetching:</strong> Receiving more data than an
+application interface needs.</li>
+<li><strong>Under-fetching:</strong> Receiving insufficient data from
+one endpoint, requiring sequential requests to multiple endpoints.</li>
+</ul>
+<p>GraphQL relies on a strongly typed schema definition. The schema
+defines types, relationships, queries (for read operations), and
+mutations (for write operations).</p>
+<h3 id="how-javascript-clients-query-structured-data">How JavaScript
+Clients Query Structured Data</h3>
+<p>JavaScript applications interact with a GraphQL API by sending HTTP
+<code>POST</code> requests with a payload containing a query string and
+optional variables. While standard tools like <code>fetch</code> or
+<code>Axios</code> can handle these requests, specialized GraphQL client
+libraries—such as Apollo Client, Relay, or URQL—streamline the
+workflow.</p>
+<p>A typical query lifecycle in a JavaScript application involves the
+following steps:</p>
+<ol type="1">
+<li><p><strong>Defining the Query:</strong> Developers write declarative
+queries using the GraphQL syntax, often wrapped in a template literal
+tag (such as <code>gql</code>).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { gql } <span class="im">from</span> <span class="st">&#39;@apollo/client&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> GET_USER_PROFILE <span class="op">=</span> <span class="fu">gql</span><span class="vs">`</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="vs">  query GetUserProfile($userId: ID!) {</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="vs">    user(id: $userId) {</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="vs">      id</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="vs">      name</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="vs">      email</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="vs">      posts {</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="vs">        id</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="vs">        title</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="vs">      }</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="vs">    }</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="vs">  }</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="vs">`</span><span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Executing the Request:</strong> The client library
+executes the request through React hooks (e.g., <code>useQuery</code>),
+Vue composables, or direct asynchronous function calls.</p></li>
+<li><p><strong>Parsing the Response:</strong> The server validates the
+query against its schema, resolves the data, and returns a JSON response
+matching the structure of the request:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;user&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;123&quot;</span><span class="fu">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;Jane Doe&quot;</span><span class="fu">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;email&quot;</span><span class="fu">:</span> <span class="st">&quot;jane@example.com&quot;</span><span class="fu">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;posts&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span> <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;1&quot;</span><span class="fu">,</span> <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;Understanding GraphQL&quot;</span> <span class="fu">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div></li>
+</ol>
+<h3 id="how-javascript-clients-cache-structured-data">How JavaScript
+Clients Cache Structured Data</h3>
+<p>Because GraphQL queries return custom, deeply nested data structures
+from a single endpoint, standard HTTP-level caching (such as caching
+based on URL paths) is ineffective. To solve this, JavaScript clients
+implement <strong>normalized caching</strong>.</p>
+<p>Normalized caching works through a deterministic process:</p>
+<ol type="1">
+<li><strong>Demultiplexing / Flattening Objects:</strong> When a query
+response arrives, the cache flattens the nested tree structure into
+individual records.</li>
+<li><strong>Generating Unique Identifiers:</strong> The cache creates a
+global key for every object using its type name and unique identifier,
+typically in the format <code>TypeName:id</code> (e.g.,
+<code>User:123</code> or <code>Post:1</code>).</li>
+<li><strong>Storing Normalized Entities:</strong> The client stores
+these records in a flat, lookup-table-style dictionary. Nested
+relationships are replaced with references (pointers) to the respective
+normalized keys.</li>
+<li><strong>Reconstructing Results:</strong> When a component requests
+data, the client reconstructs the required tree structure by
+dereferencing the pointers from the flat cache.</li>
+</ol>
+<h3 id="benefits-of-client-side-caching">Benefits of Client-Side
+Caching</h3>
+<ul>
+<li><strong>Automatic UI Synchronization:</strong> If a mutation or
+secondary query updates a field on <code>User:123</code>, every active
+component rendering that specific user automatically re-renders with the
+updated value without refetching.</li>
+<li><strong>Optimistic Updates:</strong> Clients can immediately update
+the local cache before the server responds to a mutation, creating a
+responsive user experience.</li>
+<li><strong>Reduced Network Overhead:</strong> Subsequent queries that
+request previously cached fields can resolve instantly from memory,
+bypassing the network entirely.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

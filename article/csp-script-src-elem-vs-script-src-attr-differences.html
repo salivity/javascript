@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSP script-src-elem vs script-src-attr Differences - javascript</title>
+    <meta name="description" content="Content Security Policy (CSP) Level 3 introduced distinct directives to control JavaScript execution with greater granularity: script-src-elem and script-src-attr. While both directives regulate script execution to prevent Cross-Site Scripting (XSS) atta">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/csp-script-src-elem-vs-script-src-attr-differences">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CSP script-src-elem vs script-src-attr Differences - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/csp-script-src-elem-vs-script-src-attr-differences" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Content Security Policy (CSP) Level 3 introduced distinct directives to control JavaScript execution with greater granularity: script-src-elem and script-src-attr. While both directives regulate script execution to prevent Cross-Site Scripting (XSS) atta" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="csp-script-src-elem-vs-script-src-attr-differences">CSP
+script-src-elem vs script-src-attr Differences</h1>
+<p>Content Security Policy (CSP) Level 3 introduced distinct directives
+to control JavaScript execution with greater granularity:
+<code>script-src-elem</code> and <code>script-src-attr</code>. While
+both directives regulate script execution to prevent Cross-Site
+Scripting (XSS) attacks, they apply to different structural locations
+within an HTML document. This article breaks down the technical
+differences between these two directives, explains their fallback
+mechanisms, and outlines why splitting them improves web application
+security.</p>
+<h2 id="the-core-difference">The Core Difference</h2>
+<p>The distinction between <code>script-src-elem</code> and
+<code>script-src-attr</code> lies in whether the JavaScript originates
+from an HTML element or an HTML attribute:</p>
+<ul>
+<li><strong><code>script-src-elem</code></strong> governs
+<code>&lt;script&gt;</code> elements and script-loading elements.</li>
+<li><strong><code>script-src-attr</code></strong> governs inline event
+handler attributes and inline execution contexts.</li>
+</ul>
+<p>Prior to CSP Level 3, the generic <code>script-src</code> directive
+governed both vectors simultaneously. The separation allows security
+teams to allow scripts loaded via elements while strictly forbidding
+risky inline event handlers.</p>
+<h2 id="understanding-script-src-elem">Understanding
+script-src-elem</h2>
+<p>The <code>script-src-elem</code> directive applies exclusively to
+elements that load or execute scripts. It controls:</p>
+<ul>
+<li>External script files loaded using
+<code>&lt;script src="..."&gt;</code>.</li>
+<li>Inline JavaScript written directly within
+<code>&lt;script&gt;...&lt;/script&gt;</code> tags.</li>
+<li>Declarative script preloading, such as
+<code>&lt;link rel="preload" as="script" href="..."&gt;</code> or
+<code>&lt;link rel="modulepreload" href="..."&gt;</code>.</li>
+<li>XSLT stylesheets that execute scripts.</li>
+</ul>
+<p>For example, to allow external scripts from your own domain and
+scripts using a cryptographic nonce, you configure:</p>
+<pre class="http"><code>Content-Security-Policy: script-src-elem &#39;self&#39; &#39;nonce-rAnd0m123&#39;;</code></pre>
+<p>Any attempt to execute an inline <code>&lt;script&gt;</code> tag
+lacking the matching nonce will be blocked by the browser.</p>
+<h2 id="understanding-script-src-attr">Understanding
+script-src-attr</h2>
+<p>The <code>script-src-attr</code> directive controls JavaScript
+embedded inside HTML attributes. It controls:</p>
+<ul>
+<li>Inline event handlers such as <code>onclick</code>,
+<code>onload</code>, <code>onerror</code>, <code>onmouseover</code>, and
+similar HTML attributes.</li>
+<li><code>javascript:</code> URLs used in navigation contexts, such as
+<code>&lt;a href="javascript:alert(1)"&gt;</code>.</li>
+</ul>
+<p>Because inline event handlers are historically one of the most common
+injection points for reflected and stored XSS, securing or eliminating
+them is a primary goal of robust CSP policies. To completely disable
+inline event handlers while retaining modern scripting, you
+configure:</p>
+<pre class="http"><code>Content-Security-Policy: script-src-attr &#39;none&#39;;</code></pre>
+<p>Under this rule, clicking
+<code>&lt;button onclick="doSomething()"&gt;</code> will fail, and the
+browser will log a CSP violation.</p>
+<h2 id="fallback-hierarchy">Fallback Hierarchy</h2>
+<p>Both directives fall back to parent directives if they are not
+explicitly declared in your policy:</p>
+<ol type="1">
+<li>If <code>script-src-elem</code> is omitted, the browser falls back
+to <code>script-src</code>.</li>
+<li>If <code>script-src-attr</code> is omitted, the browser falls back
+to <code>script-src</code>.</li>
+<li>If <code>script-src</code> is also omitted, both fall back to
+<code>default-src</code>.</li>
+</ol>
+<p>If you specify <code>script-src-elem</code> but leave out
+<code>script-src-attr</code>, any event handlers on the page will follow
+the rules of <code>script-src</code> (or <code>default-src</code>), not
+<code>script-src-elem</code>.</p>
+<h2 id="practical-security-application">Practical Security
+Application</h2>
+<p>Splitting element and attribute rules solves a common architectural
+challenge: modern frontend frameworks often require loading script
+bundles via <code>&lt;script&gt;</code> tags, but modern security best
+practices discourage inline event handlers.</p>
+<p>By utilizing both directives, you can construct an optimal
+defense:</p>
+<pre class="http"><code>Content-Security-Policy: script-src-elem &#39;self&#39; https://trustedscripts.example.com; script-src-attr &#39;none&#39;;</code></pre>
+<p>This configuration ensures that legitimate script files load as
+intended, while any script injected by an attacker into an HTML
+attribute—such as
+<code>&lt;img src="x" onerror="stealData()"&gt;</code>—is immediately
+neutralized.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

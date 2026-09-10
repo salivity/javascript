@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Worker Threads Run CPU Tasks in Node.js - javascript</title>
+    <meta name="description" content="Node.js traditionally executes JavaScript code in a single-threaded event loop, making synchronous, computationally heavy tasks block the entire application. The workerthreads module solves this problem by allowing developers to spawn actual operating sy">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-worker-threads-run-cpu-tasks-in-node-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Worker Threads Run CPU Tasks in Node.js - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-worker-threads-run-cpu-tasks-in-node-js" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Node.js traditionally executes JavaScript code in a single-threaded event loop, making synchronous, computationally heavy tasks block the entire application. The workerthreads module solves this problem by allowing developers to spawn actual operating sy" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-worker-threads-run-cpu-tasks-in-nodejs">How Worker Threads
+Run CPU Tasks in Node.js</h1>
+<p>Node.js traditionally executes JavaScript code in a single-threaded
+event loop, making synchronous, computationally heavy tasks block the
+entire application. The <code>worker_threads</code> module solves this
+problem by allowing developers to spawn actual operating system threads
+that run separate instances of the V8 JavaScript engine in parallel.
+This article explains how the <code>worker_threads</code> module
+isolates execution environments, shares data across threads, and
+prevents CPU-intensive operations from degrading application
+performance.</p>
+<h2 id="the-single-thread-bottleneck">The Single-Thread Bottleneck</h2>
+<p>The Node.js runtime excels at non-blocking I/O operations because it
+delegates file system access, network requests, and database calls to
+libuv's internal thread pool or kernel asynchronous APIs. However, pure
+computational tasks—such as image manipulation, cryptographic hashing,
+machine learning inference, and complex mathematical calculations—run
+directly on the main JavaScript execution thread. When the call stack
+handles a long-running synchronous calculation, the event loop halts,
+delaying incoming requests and freezing timers until the calculation
+completes.</p>
+<h2 id="architecture-of-worker_threads">Architecture of
+<code>worker_threads</code></h2>
+<p>The <code>worker_threads</code> module enables true multi-core CPU
+utilization by creating independent system threads. Unlike the
+<code>child_process</code> or <code>cluster</code> modules, which spawn
+completely separate system processes with high memory overhead, worker
+threads operate within the same system process.</p>
+<p>Each worker thread contains:</p>
+<ul>
+<li>Its own isolated V8 runtime instance.</li>
+<li>Its own isolated Node.js event loop.</li>
+<li>Its own execution stack and memory space.</li>
+</ul>
+<p>Because each worker hosts its own V8 instance, code inside a worker
+runs independently of the parent thread, ensuring that heavy
+computations do not block the main event loop.</p>
+<h2 id="inter-thread-communication">Inter-Thread Communication</h2>
+<p>Worker threads cannot directly access variables or functions from the
+parent context. Instead, they communicate using structured communication
+channels.</p>
+<h3 id="1-message-passing-copying-data">1. Message Passing (Copying
+Data)</h3>
+<p>The default method uses <code>MessagePort</code> objects (integrated
+into the <code>Worker</code> instance). The parent and child exchange
+messages using <code>postMessage()</code> and event listeners like
+<code>worker.on('message', callback)</code>. Under the hood, data sent
+via <code>postMessage()</code> is serialized using the HTML structured
+clone algorithm, meaning the data is copied rather than shared. While
+safe from race conditions, cloning large objects introduces memory and
+serialization overhead.</p>
+<h3 id="2-shared-memory-sharedarraybuffer">2. Shared Memory
+(<code>SharedArrayBuffer</code>)</h3>
+<p>For high-performance scenarios where copying data introduces latency,
+threads can share memory directly using <code>SharedArrayBuffer</code>.
+A <code>SharedArrayBuffer</code> points to a fixed block of raw binary
+data accessible simultaneously by both the main thread and the worker.
+To prevent race conditions and ensure thread safety when reading or
+writing to shared memory, developers must use the global
+<code>Atomics</code> object, which provides atomic operations and
+thread-synchronization primitives like <code>wait</code> and
+<code>notify</code>.</p>
+<h3 id="3-transferable-objects">3. Transferable Objects</h3>
+<p>Objects such as <code>ArrayBuffer</code> can be transferred rather
+than copied. When transferred, ownership of the underlying memory passes
+from the sender to the receiver, instantly revoking the sender's access
+and avoiding serialization overhead.</p>
+<h2 id="implementation-example">Implementation Example</h2>
+<p>Below is a standard pattern for delegating a CPU-bound operation to a
+worker thread:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// main.js</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { <span class="bu">Worker</span><span class="op">,</span> isMainThread<span class="op">,</span> parentPort<span class="op">,</span> workerData } <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;worker_threads&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (isMainThread) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span> <span class="fu">runCpuTask</span>(number) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve<span class="op">,</span> reject) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="bu">__filename</span><span class="op">,</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">workerData</span><span class="op">:</span> number</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      worker<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;message&#39;</span><span class="op">,</span> resolve)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      worker<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;error&#39;</span><span class="op">,</span> reject)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      worker<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;exit&#39;</span><span class="op">,</span> (code) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (code <span class="op">!==</span> <span class="dv">0</span>) {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>          <span class="fu">reject</span>(<span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`Worker stopped with exit code </span><span class="sc">${</span>code<span class="sc">}</span><span class="vs">`</span>))<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Execute without blocking the main event loop</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">runCpuTask</span>(<span class="dv">45</span>)<span class="op">.</span><span class="fu">then</span>(result <span class="kw">=&gt;</span> <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Result: </span><span class="sc">${</span>result<span class="sc">}</span><span class="vs">`</span>))<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Main thread continues executing immediately.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Worker thread context</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span> <span class="fu">calculateFibonacci</span>(n) {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (n <span class="op">&lt;=</span> <span class="dv">1</span>) <span class="cf">return</span> n<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">calculateFibonacci</span>(n <span class="op">-</span> <span class="dv">1</span>) <span class="op">+</span> <span class="fu">calculateFibonacci</span>(n <span class="op">-</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> result <span class="op">=</span> <span class="fu">calculateFibonacci</span>(workerData)<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  parentPort<span class="op">.</span><span class="fu">postMessage</span>(result)<span class="op">;</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="best-practices">Best Practices</h2>
+<ul>
+<li><strong>Thread Pooling:</strong> Creating a worker thread introduces
+CPU and memory overhead for spinning up the V8 instance. For
+high-throughput environments, manage workers using a thread pool pattern
+rather than instantiating a new worker per request.</li>
+<li><strong>Target Only CPU Work:</strong> Do not use worker threads for
+asynchronous I/O operations such as reading files or querying databases;
+the standard Node.js event loop handles these far more efficiently.</li>
+<li><strong>Limit Thread Count:</strong> Spawning more active worker
+threads than the number of available logical CPU cores causes thread
+contention and context-switching overhead, which reduces overall
+throughput.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

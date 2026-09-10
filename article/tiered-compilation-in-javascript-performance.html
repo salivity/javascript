@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiered Compilation in JavaScript Performance - javascript</title>
+    <meta name="description" content="Tiered compilation is the architectural strategy modern JavaScript engines use to eliminate the tradeoff between rapid application startup and maximum execution speed. Instead of relying on a single execution strategy, engines dynamically route code thro">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/tiered-compilation-in-javascript-performance">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tiered Compilation in JavaScript Performance - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/tiered-compilation-in-javascript-performance" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tiered compilation is the architectural strategy modern JavaScript engines use to eliminate the tradeoff between rapid application startup and maximum execution speed. Instead of relying on a single execution strategy, engines dynamically route code thro" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="tiered-compilation-in-javascript-performance">Tiered Compilation
+in JavaScript Performance</h1>
+<p>Tiered compilation is the architectural strategy modern JavaScript
+engines use to eliminate the tradeoff between rapid application startup
+and maximum execution speed. Instead of relying on a single execution
+strategy, engines dynamically route code through multiple compilation
+tiers based on execution frequency. This article breaks down how tiered
+compilation works, the specific roles of interpreters and optimizing
+just-in-time (JIT) compilers, and how this multi-stage approach delivers
+both instant responsiveness and sustained, high-performance
+throughput.</p>
+<h3 id="the-startup-vs-throughput-conflict">The Startup vs. Throughput
+Conflict</h3>
+<p>JavaScript engines face two opposing performance goals:</p>
+<ol type="1">
+<li><strong>Low Latency Startup:</strong> Code must begin executing
+immediately so web pages render and respond without perceptible delay.
+Complex code optimizations take time and memory, stalling execution if
+performed upfront.</li>
+<li><strong>High Peak Throughput:</strong> Long-running loops,
+data-processing pipelines, and heavy computational tasks must run as
+close to native machine speed as possible, requiring aggressive compiler
+optimizations.</li>
+</ol>
+<p>A single execution model cannot satisfy both needs. An interpreter
+starts instantly but executes slowly, while an optimizing compiler
+produces fast machine code but introduces significant startup latency.
+Tiered compilation bridges this gap by combining both approaches into a
+phased pipeline.</p>
+<h3 id="the-multi-tier-execution-architecture">The Multi-Tier Execution
+Architecture</h3>
+<p>Modern engines (such as Google V8, Mozilla SpiderMonkey, and Apple
+JavaScriptCore) implement a hierarchy of tiers:</p>
+<ul>
+<li><p><strong>Tier 1: Bytecode Interpreters and Baseline
+Compilers</strong><br />
+When a script loads, it is first parsed and transformed into bytecode. A
+lightweight interpreter (like V8's Ignition) or a non-optimizing
+baseline compiler executes this bytecode immediately with near-zero
+compilation overhead. This tier ensures instant startup. While
+executing, it collects profiling data (type feedback and execution
+counts).</p></li>
+<li><p><strong>Tier 2: Mid-Tier Compilers</strong><br />
+If a function runs repeatedly (becoming "warm"), it moves to a mid-tier
+compiler (such as V8's Sparkplug). This tier compiles bytecode into
+unoptimized machine code quickly, reducing interpreter overhead without
+expending time on deep optimizations.</p></li>
+<li><p><strong>Tier 3: Optimizing JIT Compilers</strong><br />
+When code is executed heavily (becoming "hot"), it escalates to an
+advanced optimizing compiler (such as V8's TurboFan). Using the type
+metadata collected by lower tiers, the optimizing compiler applies
+aggressive transformations:</p>
+<ul>
+<li><strong>Type Specialization:</strong> Generates machine instructions
+tailored to specific data types rather than generic, dynamic types.</li>
+<li><strong>Function Inlining:</strong> Eliminates function call
+overhead by embedding the function body directly into the caller.</li>
+<li><strong>Loop Unrolling and Dead Code Elimination:</strong>
+Streamlines control flow and strips unreachable code.</li>
+</ul></li>
+</ul>
+<h3 id="dynamic-optimization-and-deoptimization">Dynamic Optimization
+and Deoptimization</h3>
+<p>Tiered compilation relies on two runtime mechanisms to maintain
+stability and speed:</p>
+<ul>
+<li><strong>On-Stack Replacement (OSR):</strong> If a long-running loop
+is executing inside a lower tier, the engine can compile the optimized
+version and swap the execution frame on the fly without waiting for the
+function to return.</li>
+<li><strong>Deoptimization (Bailing Out):</strong> Optimizations are
+speculative and rely on the assumption that variable types will remain
+consistent. If a dynamic type change violates these assumptions, the
+engine safely deoptimizes the code, invalidating the optimized machine
+code and dropping execution back to a lower tier.</li>
+</ul>
+<h3 id="the-result">The Result</h3>
+<p>By deferring heavy compilation workloads until code has proven to be
+performance-critical, tiered compilation ensures that JavaScript
+applications achieve immediate interactive capability while seamlessly
+scaling up to near-native execution throughput for compute-intensive
+tasks.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

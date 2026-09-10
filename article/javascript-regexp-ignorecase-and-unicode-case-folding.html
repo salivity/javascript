@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript RegExp ignoreCase and Unicode Case Folding - javascript</title>
+    <meta name="description" content="The JavaScript RegExp ignoreCase (i) flag enables case-insensitive pattern matching, but its precise behavior on Unicode text depends heavily on whether the engine is operating in legacy mode or Unicode-aware mode (using the u or v flags). Without a Unic">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-regexp-ignorecase-and-unicode-case-folding">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript RegExp ignoreCase and Unicode Case Folding - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-regexp-ignorecase-and-unicode-case-folding" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The JavaScript RegExp ignoreCase (i) flag enables case-insensitive pattern matching, but its precise behavior on Unicode text depends heavily on whether the engine is operating in legacy mode or Unicode-aware mode (using the u or v flags). Without a Unic" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="javascript-regexp-ignorecase-and-unicode-case-folding">JavaScript
+RegExp ignoreCase and Unicode Case Folding</h1>
+<p>The JavaScript RegExp <code>ignoreCase</code> (<code>i</code>) flag
+enables case-insensitive pattern matching, but its precise behavior on
+Unicode text depends heavily on whether the engine is operating in
+legacy mode or Unicode-aware mode (using the <code>u</code> or
+<code>v</code> flags). Without a Unicode flag, case folding relies on
+legacy 16-bit code unit conversions that fail on astral plane characters
+and non-standard casing. When paired with the <code>u</code> or
+<code>v</code> flag, the <code>ignoreCase</code> flag triggers the
+official Unicode Simple Case Folding algorithm, standardizing character
+equivalence across international alphabets and surrogate pairs.</p>
+<h3 id="legacy-mode-vs-unicode-mode">Legacy Mode vs. Unicode Mode</h3>
+<p>When using <code>/pattern/i</code> without the <code>u</code> or
+<code>v</code> flag, JavaScript executes in a legacy mode designed for
+backward compatibility with 16-bit UCS-2/UTF-16 encoding:</p>
+<ul>
+<li><strong>Code Unit Matching:</strong> The engine checks individual
+UTF-16 code units rather than full Unicode code points. Surrogate pairs
+(characters with code points above <code>U+FFFF</code>) are evaluated as
+two separate 16-bit code units, causing case insensitivity to fail on
+characters outside the Basic Multilingual Plane (BMP).</li>
+<li><strong>Restricted Mappings:</strong> The engine uses an internal
+mapping table that checks if two characters map to the same uppercase
+form. This legacy mapping can produce inconsistent results across
+different browser implementations when evaluating non-ASCII
+characters.</li>
+</ul>
+<p>When using <code>/pattern/iu</code> or <code>/pattern/iv</code>, the
+engine switches to standard Unicode processing:</p>
+<ul>
+<li><strong>Code Point Awareness:</strong> Surrogate pairs are
+recognized as single code points.</li>
+<li><strong>Standardized Tables:</strong> The engine consults the
+canonical Unicode <code>CaseFolding.txt</code> mapping tables defined by
+the Unicode Consortium.</li>
+</ul>
+<h3 id="simple-case-folding-vs-full-case-folding">Simple Case Folding
+vs. Full Case Folding</h3>
+<p>JavaScript's regular expression engine uses <strong>Simple Case
+Folding</strong> (Common and Simple mappings, denoted as
+<code>C + S</code> in Unicode data) rather than Full Case Folding.</p>
+<p>Simple Case Folding requires that every single code point maps to
+exactly one target code point (a 1:1 mapping). This ensures that
+character counts and regex quantifiers remain predictable during
+parsing:</p>
+<ul>
+<li><strong>Single Code Point Matches:</strong> Characters with
+alternate casing variants fold into each other. For example, Latin small
+letter <code>s</code> matches the standard Latin uppercase
+<code>S</code>, as well as the historical Latin small letter sharp
+<code>s</code> (<code>ſ</code>, <code>U+017F</code>). Similarly, the
+Kelvin symbol (<code>K</code>, <code>U+212A</code>) matches the standard
+Latin letter <code>k</code>.</li>
+<li><strong>No Length Expansion:</strong> Characters that require
+one-to-many mappings in full casing are excluded. For instance, the
+German lowercase sharp s (<code>ß</code>, <code>U+00DF</code>) folds to
+its uppercase single-character equivalent (<code>ẞ</code>,
+<code>U+1E9E</code>). However, <code>/ß/iu</code> will
+<strong>not</strong> match the two-character ASCII sequence
+<code>"SS"</code>, because simple case folding cannot expand one code
+point into two.</li>
+</ul>
+<h3 id="case-folding-in-character-classes">Case Folding in Character
+Classes</h3>
+<p>The <code>ignoreCase</code> flag also transforms how character
+classes (<code>[...]</code>) evaluate ranges and individual sets under
+Unicode rules:</p>
+<ul>
+<li><strong>Canonical Range Expansion:</strong> Under
+<code>/pattern/iu</code>, writing a range such as <code>/[a-z]/iu</code>
+does not merely convert the range endpoints; it includes every Unicode
+code point whose simple case-folded form falls within that range.
+Consequently, characters like the long <code>s</code> (<code>ſ</code>)
+and the Kelvin sign (<code>K</code>) are matched by
+<code>/[a-z]/iu</code>.</li>
+<li><strong>The <code>v</code> Flag Extensions:</strong> Introduced in
+ECMAScript 2024, the <code>v</code> flag upgrades the <code>u</code>
+flag by introducing set notation and string properties within character
+classes. While it continues using Unicode case folding, it allows
+case-insensitive operations on properties of strings
+(<code>\p{...}</code>) without distorting character class
+boundaries.</li>
+</ul>
+<p>To ensure consistent and accurate Unicode case folding in JavaScript,
+regular expressions using the <code>i</code> flag should always include
+either the <code>u</code> or <code>v</code> flag.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

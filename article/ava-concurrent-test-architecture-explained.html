@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVA Concurrent Test Architecture Explained - javascript</title>
+    <meta name="description" content="AVA is a popular JavaScript test runner designed specifically to optimize test execution speed through high-level concurrency. This article breaks down AVA's dual-layer concurrent architecture, detailing how it leverages separate child processes to run t">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/ava-concurrent-test-architecture-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AVA Concurrent Test Architecture Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/ava-concurrent-test-architecture-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="AVA is a popular JavaScript test runner designed specifically to optimize test execution speed through high-level concurrency. This article breaks down AVA's dual-layer concurrent architecture, detailing how it leverages separate child processes to run t" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="ava-concurrent-test-architecture-explained">AVA Concurrent Test
+Architecture Explained</h1>
+<p>AVA is a popular JavaScript test runner designed specifically to
+optimize test execution speed through high-level concurrency. This
+article breaks down AVA's dual-layer concurrent architecture, detailing
+how it leverages separate child processes to run test files in parallel
+across multiple CPU cores, while concurrently executing individual
+asynchronous tests within each process using Node.js event-loop
+primitives.</p>
+<h2 id="process-level-parallelism-isolated-test-files">Process-Level
+Parallelism: Isolated Test Files</h2>
+<p>At the macro level, AVA isolates test files by running each file
+inside its own dedicated Node.js child process (or worker thread). This
+design choice achieves two critical goals:</p>
+<ol type="1">
+<li><strong>True Multi-Core Parallelization:</strong> JavaScript runs on
+a single thread by default. By spawning separate processes for each test
+file, AVA allows the operating system to distribute workloads across all
+available CPU cores, dramatically decreasing the total run time for
+large test suites.</li>
+<li><strong>State Isolation:</strong> Because each test file resides in
+a separate process, global state is not shared between files. Global
+variables, module mocks, or environment mutations made in one test file
+cannot leak into or contaminate another.</li>
+</ol>
+<p>The main AVA process acts as an orchestrator. It scans for test
+files, determines the system's available CPU capacity, spawns worker
+processes accordingly, and aggregates results via Inter-Process
+Communication (IPC).</p>
+<h2 id="in-process-concurrency-asynchronous-test-execution">In-Process
+Concurrency: Asynchronous Test Execution</h2>
+<p>Within an individual test file, AVA does not wait for a test to
+complete before starting the next one. Instead, it runs tests
+concurrently by default using JavaScript's native asynchronous
+architecture.</p>
+<p>When multiple tests return Promises or use <code>async/await</code>,
+AVA initiates them simultaneously. While one test is awaiting an I/O
+operation (such as a database query, network call, or disk access), the
+Node.js event loop executes other pending tests. This maximizes
+throughput during I/O-heavy integration or end-to-end tests.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">test</span>(<span class="st">&#39;fetches user profile&#39;</span><span class="op">,</span> <span class="kw">async</span> t <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> data <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetchUserData</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  t<span class="op">.</span><span class="fu">truthy</span>(data)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">test</span>(<span class="st">&#39;fetches site settings&#39;</span><span class="op">,</span> <span class="kw">async</span> t <span class="kw">=&gt;</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> settings <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetchSettings</span>()<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  t<span class="op">.</span><span class="fu">truthy</span>(settings)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>In the example above, both tests initiate their asynchronous requests
+concurrently within the same worker process.</p>
+<h2 id="controlling-concurrency-serial-execution">Controlling
+Concurrency: Serial Execution</h2>
+<p>Because concurrent execution can cause race conditions when tests
+rely on a shared local state (such as an in-memory database or a
+specific file path), AVA provides an opt-in serial execution
+modifier:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>test<span class="op">.</span><span class="fu">serial</span>(<span class="st">&#39;first step requiring shared database&#39;</span><span class="op">,</span> <span class="kw">async</span> t <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> db<span class="op">.</span><span class="fu">write</span>({ <span class="dt">id</span><span class="op">:</span> <span class="dv">1</span> })<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  t<span class="op">.</span><span class="fu">pass</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>test<span class="op">.</span><span class="fu">serial</span>(<span class="st">&#39;second step reading shared database&#39;</span><span class="op">,</span> <span class="kw">async</span> t <span class="kw">=&gt;</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> record <span class="op">=</span> <span class="cf">await</span> db<span class="op">.</span><span class="fu">read</span>(<span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  t<span class="op">.</span><span class="fu">truthy</span>(record)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>test.serial</code> instructs the runner to wait for the
+preceding test to finish completely before invoking the next one within
+that specific process, preventing race conditions without sacrificing
+the isolation benefits of the broader architecture.</p>
+<h2 id="resource-throttling-and-concurrency-limits">Resource Throttling
+and Concurrency Limits</h2>
+<p>Running unrestricted parallel processes can quickly exhaust system
+memory and CPU resources. AVA mitigates this by profiling system
+resources and limiting the maximum number of worker processes running
+simultaneously, typically defaulting to the number of logical CPU cores.
+Developers can fine-tune this behavior through configuration flags,
+defining how many worker processes to spawn concurrently to balance
+execution speed with environment constraints.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

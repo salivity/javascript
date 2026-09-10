@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algebraic Data Types in JavaScript via Tagged Unions - javascript</title>
+    <meta name="description" content="Algebraic Data Types (ADTs), particularly sum types, allow developers to represent data that can take one of several distinct variants. While JavaScript lacks built-in syntax for sum types found in languages like Haskell, Rust, or Elm, you can model them">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/algebraic-data-types-in-javascript-via-tagged-unions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Algebraic Data Types in JavaScript via Tagged Unions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/algebraic-data-types-in-javascript-via-tagged-unions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Algebraic Data Types (ADTs), particularly sum types, allow developers to represent data that can take one of several distinct variants. While JavaScript lacks built-in syntax for sum types found in languages like Haskell, Rust, or Elm, you can model them" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="algebraic-data-types-in-javascript-via-tagged-unions">Algebraic
+Data Types in JavaScript via Tagged Unions</h1>
+<p>Algebraic Data Types (ADTs), particularly sum types, allow developers
+to represent data that can take one of several distinct variants. While
+JavaScript lacks built-in syntax for sum types found in languages like
+Haskell, Rust, or Elm, you can model them effectively using tagged
+unions—also known as discriminated unions. This guide demonstrates how
+to construct, structure, and safely consume tagged unions in plain
+JavaScript to make illegal application states impossible.</p>
+<h2 id="what-is-a-tagged-union">What is a Tagged Union?</h2>
+<p>A tagged union is a data structure with a fixed set of possibilities,
+where each possibility shares a common identifier property (usually
+named <code>tag</code>, <code>type</code>, or <code>kind</code>). This
+shared tag enables code to determine which specific variant an object
+represents at runtime.</p>
+<p>A tagged union consists of:</p>
+<ol type="1">
+<li>A <strong>tag</strong> that uniquely identifies the variant.</li>
+<li>A <strong>payload</strong> containing the data specific to that
+variant.</li>
+</ol>
+<h2 id="step-1-defining-variant-constructors">Step 1: Defining Variant
+Constructors</h2>
+<p>In JavaScript, factory functions serve as constructors for each
+variant of an ADT. Consider a <code>Result</code> type, which represents
+either a successful computation (<code>Ok</code>) or a failure
+(<code>Err</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Ok <span class="op">=</span> (value) <span class="kw">=&gt;</span> ({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">tag</span><span class="op">:</span> <span class="st">&#39;Ok&#39;</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  value<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Err <span class="op">=</span> (error) <span class="kw">=&gt;</span> ({</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">tag</span><span class="op">:</span> <span class="st">&#39;Err&#39;</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  error<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Here, both <code>Ok</code> and <code>Err</code> return an object with
+a shared <code>tag</code> key, but they carry different payloads
+(<code>value</code> versus <code>error</code>).</p>
+<h2 id="step-2-consuming-variants-with-pattern-matching">Step 2:
+Consuming Variants with Pattern Matching</h2>
+<p>JavaScript does not feature native pattern matching syntax, but you
+can process tagged unions using standard <code>switch</code> statements
+based on the tag:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">handleResult</span>(result) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">switch</span> (result<span class="op">.</span><span class="at">tag</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="st">&#39;Ok&#39;</span><span class="op">:</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="vs">`Success: </span><span class="sc">${</span>result<span class="op">.</span><span class="at">value</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="st">&#39;Err&#39;</span><span class="op">:</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="vs">`Error: </span><span class="sc">${</span>result<span class="op">.</span><span class="at">error</span><span class="op">.</span><span class="at">message</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">default</span><span class="op">:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`Unhandled tag: </span><span class="sc">${</span>result<span class="op">.</span><span class="at">tag</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="step-3-creating-a-reusable-pattern-matcher">Step 3: Creating a
+Reusable Pattern Matcher</h2>
+<p>To adopt a more functional and expressive style, you can write a
+generic <code>match</code> helper function that acts like an expression
+rather than a statement:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> match <span class="op">=</span> (adt<span class="op">,</span> patterns) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> handler <span class="op">=</span> patterns[adt<span class="op">.</span><span class="at">tag</span>] <span class="op">||</span> patterns<span class="op">.</span><span class="at">_</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>handler) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`Unhandled pattern case: </span><span class="sc">${</span>adt<span class="op">.</span><span class="at">tag</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">handler</span>(adt)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>This helper allows you to handle cases declaratively:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userResult <span class="op">=</span> <span class="fu">Ok</span>({ <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;Alice&#39;</span> })<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> output <span class="op">=</span> <span class="fu">match</span>(userResult<span class="op">,</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Ok</span><span class="op">:</span> ({ value }) <span class="kw">=&gt;</span> <span class="vs">`User found: </span><span class="sc">${</span>value<span class="op">.</span><span class="at">name</span><span class="sc">}</span><span class="vs">`</span><span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Err</span><span class="op">:</span> ({ error }) <span class="kw">=&gt;</span> <span class="vs">`Failed to load user: </span><span class="sc">${</span>error<span class="sc">}</span><span class="vs">`</span><span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(output)<span class="op">;</span> <span class="co">// &quot;User found: Alice&quot;</span></span></code></pre></div>
+<h2 id="practical-example-modeling-ui-async-state">Practical Example:
+Modeling UI Async State</h2>
+<p>A common frontend anti-pattern is storing multiple flags like
+<code>{ isLoading: false, data: null, error: null }</code>, which can
+lead to invalid states (e.g., <code>isLoading: true</code> while
+<code>data</code> is present).</p>
+<p>Tagged unions solve this by defining explicit states:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Variant constructors</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> RemoteData <span class="op">=</span> {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">NotAsked</span><span class="op">:</span> () <span class="kw">=&gt;</span> ({ <span class="dt">tag</span><span class="op">:</span> <span class="st">&#39;NotAsked&#39;</span> })<span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Loading</span><span class="op">:</span> () <span class="kw">=&gt;</span> ({ <span class="dt">tag</span><span class="op">:</span> <span class="st">&#39;Loading&#39;</span> })<span class="op">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Success</span><span class="op">:</span> (data) <span class="kw">=&gt;</span> ({ <span class="dt">tag</span><span class="op">:</span> <span class="st">&#39;Success&#39;</span><span class="op">,</span> data })<span class="op">,</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Failure</span><span class="op">:</span> (error) <span class="kw">=&gt;</span> ({ <span class="dt">tag</span><span class="op">:</span> <span class="st">&#39;Failure&#39;</span><span class="op">,</span> error })<span class="op">,</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Render logic using the matcher</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">renderUI</span>(state) {</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">match</span>(state<span class="op">,</span> {</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">NotAsked</span><span class="op">:</span> () <span class="kw">=&gt;</span> <span class="st">&#39;&lt;button&gt;Load Data&lt;/button&gt;&#39;</span><span class="op">,</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Loading</span><span class="op">:</span> () <span class="kw">=&gt;</span> <span class="st">&#39;&lt;p&gt;Loading...&lt;/p&gt;&#39;</span><span class="op">,</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Success</span><span class="op">:</span> ({ data }) <span class="kw">=&gt;</span> <span class="vs">`&lt;ul&gt;</span><span class="sc">${</span>data<span class="op">.</span><span class="fu">map</span>(item <span class="kw">=&gt;</span> <span class="vs">`&lt;li&gt;</span><span class="sc">${</span>item<span class="sc">}</span><span class="vs">&lt;/li&gt;`</span>)<span class="op">.</span><span class="fu">join</span>(<span class="st">&#39;&#39;</span>)<span class="sc">}</span><span class="vs">&lt;/ul&gt;`</span><span class="op">,</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Failure</span><span class="op">:</span> ({ error }) <span class="kw">=&gt;</span> <span class="vs">`&lt;p class=&quot;error&quot;&gt;</span><span class="sc">${</span>error<span class="sc">}</span><span class="vs">&lt;/p&gt;`</span><span class="op">,</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> state <span class="op">=</span> RemoteData<span class="op">.</span><span class="fu">Loading</span>()<span class="op">;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">renderUI</span>(state))<span class="op">;</span> <span class="co">// &quot;&lt;p&gt;Loading...&lt;/p&gt;&quot;</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>state <span class="op">=</span> RemoteData<span class="op">.</span><span class="fu">Success</span>([<span class="st">&#39;Item 1&#39;</span><span class="op">,</span> <span class="st">&#39;Item 2&#39;</span>])<span class="op">;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">renderUI</span>(state))<span class="op">;</span> <span class="co">// &quot;&lt;ul&gt;&lt;li&gt;Item 1&lt;/li&gt;&lt;li&gt;Item 2&lt;/li&gt;&lt;/ul&gt;&quot;</span></span></code></pre></div>
+<h2 id="summary">Summary</h2>
+<p>Modeling Algebraic Data Types via tagged unions in JavaScript
+requires only two conventions:</p>
+<ul>
+<li>Use consistent factory functions that attach a discriminator
+property (<code>tag</code>).</li>
+<li>Handle branching either through <code>switch</code> statements or a
+higher-order <code>match</code> function.</li>
+</ul>
+<p>This pattern clarifies domain boundaries, prevents contradictory
+states, and provides clean, maintainable logic across your JavaScript
+applications.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

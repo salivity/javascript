@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Threading in Node.js with worker_threads - javascript</title>
+    <meta name="description" content="This article explores how Node.js achieves true multi-threading using the built-in workerthreads module. It covers the limitations of Node.js's traditional single-threaded architecture, explains how worker threads execute parallel code on separate operat">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/multi-threading-in-node-js-with-worker-threads">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Multi-Threading in Node.js with worker_threads - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/multi-threading-in-node-js-with-worker-threads" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Node.js achieves true multi-threading using the built-in workerthreads module. It covers the limitations of Node.js's traditional single-threaded architecture, explains how worker threads execute parallel code on separate operat" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="multi-threading-in-nodejs-with-worker_threads">Multi-Threading
+in Node.js with worker_threads</h1>
+<p>This article explores how Node.js achieves true multi-threading using
+the built-in <code>worker_threads</code> module. It covers the
+limitations of Node.js's traditional single-threaded architecture,
+explains how worker threads execute parallel code on separate operating
+system threads with isolated V8 engines, and details the mechanisms used
+for inter-thread communication and shared memory.</p>
+<h2 id="the-limitation-of-the-single-thread">The Limitation of the
+Single Thread</h2>
+<p>Node.js runs JavaScript on a single thread powered by the V8 engine
+and an event loop managed by <code>libuv</code>. This model is
+exceptionally fast and efficient for I/O-bound operations like reading
+files, querying databases, or handling network requests, as these tasks
+are offloaded to system kernels or internal thread pools.</p>
+<p>However, CPU-intensive tasks—such as data encryption, image
+manipulation, or heavy mathematical calculations—block the main thread.
+While the CPU calculates, the event loop cannot process incoming
+requests, causing the entire application to become unresponsive.</p>
+<h2 id="how-worker_threads-enable-true-multi-threading">How
+<code>worker_threads</code> Enable True Multi-Threading</h2>
+<p>Introduced to solve the CPU bottleneck, the
+<code>worker_threads</code> module allows developers to create and run
+multiple threads concurrently within a single Node.js process. It
+achieves true multi-threading through the following architecture:</p>
+<h3 id="1-isolated-v8-instances">1. Isolated V8 Instances</h3>
+<p>Each worker thread runs its own instance of the V8 JavaScript engine
+(known as a V8 Isolate). This means that every worker has its own
+execution context, global scope, and microtask queue, completely
+separated from the main thread and other workers.</p>
+<h3 id="2-independent-event-loops">2. Independent Event Loops</h3>
+<p>Along with its own V8 instance, each worker thread runs its own
+dedicated <code>libuv</code> event loop. A worker thread can process
+asynchronous events, timers, and I/O tasks independently without
+interfering with the main thread's event loop.</p>
+<h3 id="3-real-os-level-threads">3. Real OS-Level Threads</h3>
+<p>Worker threads in Node.js are mapped directly to native operating
+system threads. When you instantiate a new worker, the operating system
+can schedule that thread on an available CPU core. If your machine has
+multiple cores, multiple worker threads execute JavaScript code
+simultaneously in true parallel fashion.</p>
+<h2 id="data-sharing-and-inter-thread-communication">Data Sharing and
+Inter-Thread Communication</h2>
+<p>Because each worker thread operates inside its own isolated context,
+they do not share global variables. Node.js provides two primary
+mechanisms to exchange data between threads:</p>
+<h3 id="message-passing">Message Passing</h3>
+<p>Threads communicate using a built-in message-passing interface built
+on <code>MessagePort</code> objects:</p>
+<ul>
+<li><strong><code>parentPort.postMessage()</code> and
+<code>worker.postMessage()</code></strong>: Sends serialized data
+between the parent thread and the worker.</li>
+<li><strong>Structured Clone Algorithm</strong>: Data sent via
+<code>postMessage</code> is copied using the HTML structured clone
+algorithm, preventing race conditions by ensuring threads do not access
+the exact same memory reference.</li>
+</ul>
+<h3 id="shared-memory-via-sharedarraybuffer">Shared Memory via
+<code>SharedArrayBuffer</code></h3>
+<p>When copying large datasets introduces performance overhead, Node.js
+allows true shared memory through <code>SharedArrayBuffer</code>
+objects:</p>
+<ul>
+<li><strong>Direct Memory Access</strong>: Multiple threads can read and
+write to the same raw binary buffer simultaneously without copying
+data.</li>
+<li><strong>Thread Safety with <code>Atomics</code></strong>: To prevent
+race conditions and ensure thread-safe operations on shared memory, the
+JavaScript <code>Atomics</code> API provides atomic operations (like
+<code>Atomics.add</code>, <code>Atomics.load</code>, and
+<code>Atomics.wait</code>) to synchronize access.</li>
+</ul>
+<h2 id="worker-threads-vs-child-processes">Worker Threads vs. Child
+Processes</h2>
+<p>Before <code>worker_threads</code>, developers relied on the
+<code>child_process</code> module or the <code>cluster</code> module to
+handle CPU-heavy operations across multiple CPU cores. While child
+processes provide parallel execution, they create entirely new operating
+system processes with significant memory overhead.</p>
+<p>In contrast, worker threads run inside the same OS process:</p>
+<ul>
+<li><strong>Lower Overhead</strong>: Threads share the process's
+existing memory space, making creation and context switching faster than
+spawning new processes.</li>
+<li><strong>Shared Memory Support</strong>: Child processes cannot
+directly share memory buffers without complex IPC (Inter-Process
+Communication), whereas worker threads natively support
+<code>SharedArrayBuffer</code>.</li>
+</ul>
+<h2 id="when-to-use-worker-threads">When to Use Worker Threads</h2>
+<p>Worker threads are not a universal replacement for standard
+asynchronous code. They should be used strictly for:</p>
+<ul>
+<li>Complex mathematical calculations</li>
+<li>Cryptographic operations and hashing</li>
+<li>Image, audio, or video processing</li>
+<li>Large-scale data transformation or parsing</li>
+</ul>
+<p>For standard I/O tasks, database queries, and web routing, Node.js's
+native asynchronous single-threaded model remains the most performant
+approach.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

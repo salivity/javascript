@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Fine-Grained Reactivity and Signals - javascript</title>
+    <meta name="description" content="Fine-grained reactivity is a modern web architecture pattern that updates only the specific parts of an application that rely on changed state, eliminating the need to re-execute entire component trees. At the core of this model are signals—reactive pr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-fine-grained-reactivity-and-signals">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Fine-Grained Reactivity and Signals - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-fine-grained-reactivity-and-signals" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Fine-grained reactivity is a modern web architecture pattern that updates only the specific parts of an application that rely on changed state, eliminating the need to re-execute entire component trees. At the core of this model are signals—reactive pr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="understanding-fine-grained-reactivity-and-signals">Understanding
+Fine-Grained Reactivity and Signals</h1>
+<p>Fine-grained reactivity is a modern web architecture pattern that
+updates only the specific parts of an application that rely on changed
+state, eliminating the need to re-execute entire component trees. At the
+core of this model are signals—reactive primitives that encapsulate
+values and automatically track where and how those values are read. This
+article breaks down the mechanics of fine-grained reactivity, detailing
+how signals dynamically record dependencies at runtime and how state
+changes propagate through an application with minimal overhead.</p>
+<h2 id="what-is-fine-grained-reactivity">What Is Fine-Grained
+Reactivity?</h2>
+<p>In traditional component-based models (such as classic React), a
+change in state triggers a top-down re-render of the component and its
+children. The framework generates a new Virtual DOM tree, compares it
+against the previous tree (reconciliation), and updates the actual DOM
+accordingly.</p>
+<p>Fine-grained reactivity bypasses the component boundary entirely.
+Instead of treating components as recurring units of execution,
+components run only once during setup. The framework binds data directly
+to the individual DOM nodes or derived computations that consume it.
+When a value changes, only the precise function, text node, or computed
+property tied to that specific value updates. This eliminates
+reconciliation overhead and guarantees targeted, deterministic
+updates.</p>
+<h2 id="the-structure-of-a-signal">The Structure of a Signal</h2>
+<p>A signal is an atomic unit of state consisting of three primary
+elements:</p>
+<ol type="1">
+<li><strong>A Value:</strong> The stored data of any type (primitive,
+object, array).</li>
+<li><strong>A Getter:</strong> A read function that retrieves the
+current value and registers the current subscriber.</li>
+<li><strong>A Setter:</strong> A write function that updates the value
+and notifies all registered subscribers.</li>
+</ol>
+<p>In addition to signals, the system relies on
+<strong>observers</strong> (often called effects or computations). An
+observer is a function that runs automatically whenever the signals it
+depends on produce a new value.</p>
+<h2 id="how-signals-track-dependencies-at-runtime">How Signals Track
+Dependencies at Runtime</h2>
+<p>Dependency tracking in fine-grained systems does not rely on static
+code analysis, compilers, or manual dependency arrays like
+<code>useEffect</code>. Instead, it operates entirely at runtime using a
+dynamic subscription mechanism managed by an execution context
+stack.</p>
+<h3 id="1-the-global-context-stack">1. The Global Context Stack</h3>
+<p>To track what code is currently running, the reactive runtime
+maintains an internal global variable or stack (often referred to as
+<code>currentObserver</code> or <code>contextStack</code>).</p>
+<p>When an effect or computed signal runs:</p>
+<ul>
+<li>The system pushes that observer onto the context stack.</li>
+<li>The observer executes its inner function.</li>
+<li>Once execution completes, the observer is popped off the stack.</li>
+</ul>
+<h3 id="2-the-read-phase-dependency-registration">2. The Read Phase
+(Dependency Registration)</h3>
+<p>Whenever an observer reads a signal during its execution, the
+signal's getter function is invoked. The getter performs two steps:</p>
+<ol type="1">
+<li>It inspects the global context stack to see if an observer is
+currently running.</li>
+<li>If an active observer exists, the signal registers that observer in
+its internal set of subscribers. Simultaneously, the observer registers
+the signal in its set of dependencies (enabling bidirectional tracking
+for future cleanup).</li>
+</ol>
+<p>Because registration occurs synchronously during code execution,
+dependencies are established automatically.</p>
+<h3 id="3-the-write-phase-notification-and-propagation">3. The Write
+Phase (Notification and Propagation)</h3>
+<p>When a signal's setter is invoked with a new value:</p>
+<ol type="1">
+<li>The signal checks if the new value differs from the old value
+(typically using strict equality).</li>
+<li>If the value has changed, the signal loops through its subscriber
+set.</li>
+<li>Each subscribed observer is either scheduled to re-run or
+immediately re-executed.</li>
+</ol>
+<p>When the observer re-runs, it repeats the read phase.</p>
+<h2 id="handling-dynamic-dependencies-and-conditionals">Handling Dynamic
+Dependencies and Conditionals</h2>
+<p>Runtime dependency tracking automatically adapts to branching logic
+within your code:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">effect</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">useFirstName</span>()) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">firstName</span>())<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">lastName</span>())<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If <code>useFirstName()</code> returns <code>true</code>, the effect
+reads <code>firstName()</code> and subscribes to both
+<code>useFirstName</code> and <code>firstName</code>. It does not
+subscribe to <code>lastName</code>.</p>
+<p>If <code>useFirstName()</code> later changes to <code>false</code>,
+the effect re-runs. During this pass, it reads <code>lastName()</code>
+instead. Before each run, modern reactive libraries clear the observer's
+previous subscriptions, allowing the effect to record a fresh, accurate
+set of dependencies. This prevents memory leaks and avoids unnecessary
+runs triggered by inactive branches.</p>
+<h2 id="key-benefits-of-signal-based-dependency-tracking">Key Benefits
+of Signal-Based Dependency Tracking</h2>
+<ul>
+<li><strong>Automatic Precision:</strong> Developers do not need to
+maintain manual dependency lists, preventing stale closure bugs.</li>
+<li><strong>Zero Reconciliation Cost:</strong> State changes map
+directly to DOM updates without diffing Virtual DOM trees.</li>
+<li><strong>Composable Architecture:</strong> Signals can be created,
+shared, and combined anywhere in a codebase, completely independent of
+UI component lifecycles.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

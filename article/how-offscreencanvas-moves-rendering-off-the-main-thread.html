@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How OffscreenCanvas Moves Rendering Off the Main Thread - javascript</title>
+    <meta name="description" content="This article explains how the OffscreenCanvas API optimizes web application performance by decoupling graphical rendering from the browser's main JavaScript thread. By transferring 2D and WebGL rendering operations to dedicated Web Workers, developers ca">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-offscreencanvas-moves-rendering-off-the-main-thread">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How OffscreenCanvas Moves Rendering Off the Main Thread - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-offscreencanvas-moves-rendering-off-the-main-thread" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the OffscreenCanvas API optimizes web application performance by decoupling graphical rendering from the browser's main JavaScript thread. By transferring 2D and WebGL rendering operations to dedicated Web Workers, developers ca" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-offscreencanvas-moves-rendering-off-the-main-thread">How
+OffscreenCanvas Moves Rendering Off the Main Thread</h1>
+<p>This article explains how the <code>OffscreenCanvas</code> API
+optimizes web application performance by decoupling graphical rendering
+from the browser's main JavaScript thread. By transferring 2D and WebGL
+rendering operations to dedicated Web Workers, developers can prevent
+intensive visual calculations from blocking user interactions, style
+recalculations, and layout processing, resulting in smooth animations
+and responsive user interfaces.</p>
+<h2 id="the-main-thread-bottleneck-in-web-rendering">The Main Thread
+Bottleneck in Web Rendering</h2>
+<p>In standard browser architecture, the main JavaScript thread is
+responsible for handling user input, executing application logic,
+calculating CSS layouts, managing the DOM, and painting frames.
+Traditional HTML <code>&lt;canvas&gt;</code> elements must be controlled
+from this main thread because they are tightly coupled to the DOM
+tree.</p>
+<p>When an application performs heavy graphics tasks—such as rendering
+complex 2D vector data, updating dynamic particle systems, or running
+intensive WebGL fragment shaders—the main thread becomes saturated.
+Because JavaScript is single-threaded, long-running draw calls delay
+event listeners and DOM updates, causing frame drops (jank) and
+unresponsive controls.</p>
+<h2 id="how-offscreencanvas-works">How OffscreenCanvas Works</h2>
+<p>The <code>OffscreenCanvas</code> interface provides a rendering
+surface that does not depend on the DOM. Because it is completely
+decoupled from the document tree, its execution context can be
+transferred across thread boundaries.</p>
+<p>The handoff mechanism works through the following process:</p>
+<ol type="1">
+<li><strong>Canvas Decoupling</strong>: An existing
+<code>&lt;canvas&gt;</code> element on the main thread generates an
+<code>OffscreenCanvas</code> instance using the
+<code>transferControlToOffscreen()</code> method.</li>
+<li><strong>Transferable Objects</strong>: The resulting
+<code>OffscreenCanvas</code> object is transferred to a Web Worker via
+<code>postMessage()</code>. Because it is transferred rather than
+cloned, ownership moves to the worker thread without memory-duplication
+overhead.</li>
+<li><strong>Context Creation in the Worker</strong>: The Web Worker
+requests a rendering context (<code>2d</code>, <code>webgl</code>, or
+<code>webgl2</code>) directly on the <code>OffscreenCanvas</code> and
+initiates the render loop using <code>requestAnimationFrame</code>
+within the worker scope.</li>
+</ol>
+<h2 id="parallel-rendering-and-frame-presentation">Parallel Rendering
+and Frame Presentation</h2>
+<p>Once the rendering pipeline is active within a Web Worker, all
+computational tasks associated with the canvas run in isolation from the
+UI:</p>
+<ul>
+<li><strong>Computation and State Management</strong>: Physics engines,
+texture generation, geometry parsing, and WebGL state changes run
+entirely in background threads.</li>
+<li><strong>Direct Compositor Communication</strong>: When drawing
+commands complete, the browser's rendering engine automatically pushes
+the rendered buffer directly to the system's compositor thread.</li>
+<li><strong>Independent Execution</strong>: Even if the main thread is
+completely blocked by heavy data processing or synchronous operations,
+the Web Worker continues to render and swap buffers at the display's
+native refresh rate.</li>
+</ul>
+<p>By utilizing <code>OffscreenCanvas</code>, complex WebGL scenes and
+dense 2D graphics achieve predictable frame rates while leaving the main
+thread free to respond instantly to user interactions.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

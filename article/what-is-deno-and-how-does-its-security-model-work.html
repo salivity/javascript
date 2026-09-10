@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Deno and How Does Its Security Model Work? - javascript</title>
+    <meta name="description" content="Deno is a modern, secure runtime for JavaScript and TypeScript built on Google's V8 engine and Rust. Unlike traditional runtimes that grant programs full access to underlying system resources by default, Deno adopts a secure-by-default sandbox architectu">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/what-is-deno-and-how-does-its-security-model-work">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Deno and How Does Its Security Model Work? - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/what-is-deno-and-how-does-its-security-model-work" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Deno is a modern, secure runtime for JavaScript and TypeScript built on Google's V8 engine and Rust. Unlike traditional runtimes that grant programs full access to underlying system resources by default, Deno adopts a secure-by-default sandbox architectu" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="what-is-deno-and-how-does-its-security-model-work">What Is Deno
+and How Does Its Security Model Work?</h1>
+<p>Deno is a modern, secure runtime for JavaScript and TypeScript built
+on Google's V8 engine and Rust. Unlike traditional runtimes that grant
+programs full access to underlying system resources by default, Deno
+adopts a secure-by-default sandbox architecture. This article explains
+what Deno is, how its granular permission system operates, and why it
+provides a reliable environment for executing untrusted JavaScript code
+without exposing your system to security vulnerabilities.</p>
+<h2 id="understanding-deno">Understanding Deno</h2>
+<p>Created by Ryan Dahl, the original creator of Node.js, Deno was
+designed to address architectural challenges found in older runtimes. It
+natively supports both JavaScript and TypeScript without external build
+tools, complies closely with standard Web APIs (such as
+<code>fetch</code> and <code>WebSockets</code>), and packages single
+executable binaries with a built-in suite of development tools like
+linters, test runners, and formatters.</p>
+<p>Beyond these developer-experience improvements, Deno's fundamental
+design shift lies in its security architecture.</p>
+<h2 id="the-threat-of-unrestricted-execution">The Threat of Unrestricted
+Execution</h2>
+<p>In traditional server-side environments like Node.js, any imported
+package or executed script has unrestricted access to the host machine.
+A third-party library downloaded from a package registry can quietly
+read SSH keys, write to arbitrary directories, query system environment
+variables, or establish unauthorized network connections to exfiltrate
+data. This model makes applications particularly vulnerable to software
+supply chain attacks and makes running untrusted, user-submitted code
+dangerous without complex containerization.</p>
+<h2 id="the-default-secure-sandbox">The Default Secure Sandbox</h2>
+<p>Deno mitigates these risks by executing scripts inside a secure
+sandbox by default. When you run a script without additional flags, Deno
+denies access to:</p>
+<ul>
+<li>The file system (reading and writing)</li>
+<li>The network (incoming and outgoing requests)</li>
+<li>Environment variables</li>
+<li>Operating system subprocesses</li>
+<li>High-resolution time measurement (to prevent timing attacks)</li>
+</ul>
+<p>If a script attempts to perform any of these actions without explicit
+permission, the operation immediately throws an error and halts
+execution.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">deno</span> run script.ts</span></code></pre></div>
+<p>If <code>script.ts</code> attempts to execute
+<code>fetch("https://example.com")</code> or
+<code>Deno.readTextFile("/etc/passwd")</code>, the runtime blocks the
+operation because the process lacks the necessary capabilities.</p>
+<h2 id="explicit-and-granular-permissions">Explicit and Granular
+Permissions</h2>
+<p>To grant capabilities, developers must provide explicit command-line
+flags. Deno supports fine-grained scoping, ensuring that scripts are
+granted the principle of least privilege:</p>
+<ul>
+<li><strong>Network Access (<code>--allow-net</code>):</strong> Grants
+access to all network requests, or restricts access to specific domains:
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">deno</span> run <span class="at">--allow-net</span><span class="op">=</span>api.github.com script.ts</span></code></pre></div></li>
+<li><strong>File System Read Access
+(<code>--allow-read</code>):</strong> Grants access to read disk files,
+optionally restricted to specific directories:
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">deno</span> run <span class="at">--allow-read</span><span class="op">=</span>/tmp,./data script.ts</span></code></pre></div></li>
+<li><strong>File System Write Access
+(<code>--allow-write</code>):</strong> Controls write operations to
+specified files or directories.</li>
+<li><strong>Environment Access (<code>--allow-env</code>):</strong>
+Limits access to specific environment variables instead of exposing all
+system secrets:
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">deno</span> run <span class="at">--allow-env</span><span class="op">=</span>PORT,DATABASE_URL script.ts</span></code></pre></div></li>
+<li><strong>Subprocesses (<code>--allow-run</code>):</strong> Limits
+which system binaries the runtime is permitted to spawn.</li>
+</ul>
+<p>By restricting permissions to precise directories or network
+endpoints, even compromised or malicious dependencies cannot access
+sensitive files outside their designated boundaries.</p>
+<h2 id="runtime-permission-api">Runtime Permission API</h2>
+<p>Deno also includes a programmable Permissions API, allowing scripts
+to query, request, or revoke permissions at runtime:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode typescript"><code class="sourceCode typescript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> status <span class="op">=</span> <span class="cf">await</span> Deno<span class="op">.</span><span class="at">permissions</span><span class="op">.</span><span class="fu">query</span>({ name<span class="op">:</span> <span class="st">&quot;read&quot;</span><span class="op">,</span> path<span class="op">:</span> <span class="st">&quot;/var/log&quot;</span> })<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (status<span class="op">.</span><span class="at">state</span> <span class="op">===</span> <span class="st">&quot;granted&quot;</span>) {</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Proceed with file access</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Handle restricted access gracefully</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This API enables applications to request permissions dynamically or
+voluntarily drop elevated capabilities once an initialization task
+finishes, reducing the runtime's attack surface during execution.</p>
+<h2 id="safely-running-untrusted-code">Safely Running Untrusted
+Code</h2>
+<p>When hosting platforms, plugins, or workflows that execute untrusted
+code written by end-users or third parties, Deno simplifies isolation.
+By running untrusted scripts without any <code>--allow-*</code> flags,
+the runtime guarantees that the code cannot compromise host files,
+harvest environment credentials, or communicate with unauthorized
+external servers.</p>
+<p>For multi-tenant environments, Deno Web Workers inherit or restrict
+permissions even further, allowing host applications to instantiate
+lightweight, isolated sub-environments without the latency or
+infrastructure overhead of spinning up dedicated virtual machines or
+Docker containers.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

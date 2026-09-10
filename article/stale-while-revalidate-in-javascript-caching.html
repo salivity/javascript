@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stale-While-Revalidate in JavaScript Caching - javascript</title>
+    <meta name="description" content="The stale-while-revalidate caching strategy optimizes asset delivery and data fetching by serving cached (stale) assets immediately to the client while simultaneously triggering a background network request to fetch the latest version (revalidation). In">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/stale-while-revalidate-in-javascript-caching">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stale-While-Revalidate in JavaScript Caching - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/stale-while-revalidate-in-javascript-caching" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The stale-while-revalidate caching strategy optimizes asset delivery and data fetching by serving cached (stale) assets immediately to the client while simultaneously triggering a background network request to fetch the latest version (revalidation). In" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="stale-while-revalidate-in-javascript-caching">Stale-While-Revalidate
+in JavaScript Caching</h1>
+<p>The <code>stale-while-revalidate</code> caching strategy optimizes
+asset delivery and data fetching by serving cached (stale) assets
+immediately to the client while simultaneously triggering a background
+network request to fetch the latest version (revalidation). In
+JavaScript caching layers—ranging from HTTP headers and Service Workers
+to client-side data-fetching libraries—this pattern eliminates latency
+bottlenecks, ensures instant rendering, and keeps application data
+eventually consistent without blocking user interactions.</p>
+<h3 id="how-the-mechanism-works">How the Mechanism Works</h3>
+<p>The <code>stale-while-revalidate</code> workflow operates in a
+four-step lifecycle:</p>
+<ol type="1">
+<li><strong>Initial Request:</strong> The client requests an asset or
+data payload.</li>
+<li><strong>Instant Cache Response:</strong> If a cached version exists,
+the caching layer immediately returns it, even if its freshness lifetime
+has expired. The user experiences zero network latency.</li>
+<li><strong>Asynchronous Background Revalidation:</strong> Concurrently,
+a network request is dispatched in the background to retrieve the fresh
+asset from the origin server or API.</li>
+<li><strong>Cache Update:</strong> Once the network response arrives,
+the cache is updated with the fresh data. Subsequent requests receive
+the newly updated content.</li>
+</ol>
+<h3 id="javascript-implementation-layers">JavaScript Implementation
+Layers</h3>
+<h4 id="1-http-cache-control-header">1. HTTP Cache-Control Header</h4>
+<p>Modern browsers support <code>stale-while-revalidate</code> natively
+via HTTP response headers:</p>
+<pre class="http"><code>Cache-Control: max-age=60, stale-while-revalidate=300</code></pre>
+<p>In this scenario, the response is fresh for 60 seconds. Between 60
+and 360 seconds, the browser serves the stale response instantly while
+executing an asynchronous background fetch to refresh the cache.</p>
+<h4 id="2-service-workers-workbox-and-cache-storage-api">2. Service
+Workers (Workbox and Cache Storage API)</h4>
+<p>In Progressive Web Apps (PWAs), Service Workers intercept network
+requests at the browser level using the Cache Storage API:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;fetch&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">respondWith</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    caches<span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;dynamic-assets&#39;</span>)<span class="op">.</span><span class="fu">then</span>(<span class="kw">async</span> (cache) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> cachedResponse <span class="op">=</span> <span class="cf">await</span> cache<span class="op">.</span><span class="fu">match</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> networkFetch <span class="op">=</span> <span class="fu">fetch</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span>)<span class="op">.</span><span class="fu">then</span>((networkResponse) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        cache<span class="op">.</span><span class="fu">put</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span><span class="op">,</span> networkResponse<span class="op">.</span><span class="fu">clone</span>())<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> networkResponse<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> cachedResponse <span class="op">||</span> networkFetch<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Libraries like Workbox formalize this pattern under
+<code>workbox.strategies.StaleWhileRevalidate()</code>, allowing
+developers to define custom routing rules and cache expiration
+windows.</p>
+<h4 id="3-client-side-data-fetching-libraries">3. Client-Side Data
+Fetching Libraries</h4>
+<p>JavaScript frameworks frequently employ this pattern for API state
+management using libraries such as SWR (named directly after the
+directive) and TanStack Query:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> useSWR <span class="im">from</span> <span class="st">&#39;swr&#39;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">UserProfile</span>() {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { data<span class="op">,</span> error } <span class="op">=</span> <span class="fu">useSWR</span>(<span class="st">&#39;/api/user&#39;</span><span class="op">,</span> fetcher)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (error) <span class="cf">return</span> <span class="op">&lt;</span>div<span class="op">&gt;</span>Failed to load<span class="op">&lt;/</span>div<span class="op">&gt;;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>data) <span class="cf">return</span> <span class="op">&lt;</span>div<span class="op">&gt;</span>Loading<span class="op">...&lt;/</span>div<span class="op">&gt;;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="op">&lt;</span>div<span class="op">&gt;</span>Hello<span class="op">,</span> {data<span class="op">.</span><span class="at">name</span>}<span class="op">!&lt;/</span>div<span class="op">&gt;;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The library immediately populates the UI using local memory cache,
+issues a background API call, and automatically triggers a re-render
+once the fresh state is returned.</p>
+<h3 id="performance-benefits">Performance Benefits</h3>
+<ul>
+<li><strong>Elimination of Perceived Latency:</strong>
+Time-to-First-Byte (TTFB) and First Contentful Paint (FCP) improve
+dramatically because assets load directly from disk or memory caches
+rather than waiting for round-trip network times.</li>
+<li><strong>Resilience to Poor Connectivity:</strong> If the background
+network request fails due to intermittent connectivity, the user
+continues interacting with the stale version uninterrupted.</li>
+<li><strong>Server Load Smoothing:</strong> Background revalidations
+prevent synchronized cache stampedes, spreading origin server requests
+more evenly over time.</li>
+</ul>
+<h3 id="key-considerations">Key Considerations</h3>
+<p><code>stale-while-revalidate</code> relies on the principle of
+eventual consistency. It is ideal for non-critical assets, static files,
+dashboard views, and social feeds. It should be avoided for real-time,
+transactional operations—such as financial checkouts or authentication
+states—where displaying outdated information creates functional
+errors.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

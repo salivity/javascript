@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Houdini Paint API: Custom JavaScript in CSS Rendering - javascript</title>
+    <meta name="description" content="The CSS Houdini Paint API is a modern web standard that allows developers to write custom JavaScript functions to draw directly into an element’s visual properties, such as backgrounds, borders, and masks. By exposing the browser's internal rendering e">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/css-houdini-paint-api-custom-javascript-in-css-rendering">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CSS Houdini Paint API: Custom JavaScript in CSS Rendering - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/css-houdini-paint-api-custom-javascript-in-css-rendering" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The CSS Houdini Paint API is a modern web standard that allows developers to write custom JavaScript functions to draw directly into an element’s visual properties, such as backgrounds, borders, and masks. By exposing the browser's internal rendering e" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="css-houdini-paint-api-custom-javascript-in-css-rendering">CSS
+Houdini Paint API: Custom JavaScript in CSS Rendering</h1>
+<p>The CSS Houdini Paint API is a modern web standard that allows
+developers to write custom JavaScript functions to draw directly into an
+element’s visual properties, such as backgrounds, borders, and masks. By
+exposing the browser's internal rendering engine via Paint Worklets, it
+bridges the gap between high-level CSS declarations and low-level
+rendering mechanics. This article explains what the Paint API is, how it
+injects custom JavaScript directly into the browser's native paint
+phase, and the performance benefits of bypassing traditional DOM-based
+drawing techniques.</p>
+<h2 id="what-is-the-css-houdini-paint-api">What is the CSS Houdini Paint
+API?</h2>
+<p>CSS Houdini is a collection of low-level browser APIs designed to
+give developers direct access to the CSS Object Model (CSSOM) and the
+browser's rendering engine. Within this suite, the <strong>Paint
+API</strong> (specifically the <code>CSS Paint Worklet</code>) provides
+an interface to programmatically generate 2D visual assets on
+demand.</p>
+<p>Instead of referencing static image files (such as PNGs, SVGs, or
+WebPs) or relying on complex CSS hacks, developers can write a
+lightweight JavaScript class that uses a Canvas-like 2D drawing context
+to dynamically generate visuals directly within the CSS styling
+layer.</p>
+<h2 id="how-custom-javascript-executes-in-the-rendering-pipeline">How
+Custom JavaScript Executes in the Rendering Pipeline</h2>
+<p>To understand how Houdini executes JavaScript within the rendering
+pipeline, it is essential to look at the standard browser rendering
+lifecycle:</p>
+<ol type="1">
+<li><strong>Parse / DOM &amp; CSSOM Tree:</strong> The browser parses
+HTML and CSS to create the DOM and style trees.</li>
+<li><strong>Style Resolution:</strong> Computes final styles for every
+element on the page.</li>
+<li><strong>Layout (Reflow):</strong> Calculates the geometry,
+dimensions, and positioning of elements.</li>
+<li><strong>Paint:</strong> Fills in pixels, generating drawing commands
+for colors, borders, text, and images.</li>
+<li><strong>Composite:</strong> Layers are assembled and sent to the GPU
+to be rasterized on the screen.</li>
+</ol>
+<h3 id="the-paint-worklet-execution-model">The Paint Worklet Execution
+Model</h3>
+<p>Traditional JavaScript runs on the main browser thread, where heavy
+calculations can block layout and user interactions. The Paint API
+operates differently by using <strong>Worklets</strong>:</p>
+<ul>
+<li><strong>Off-Main-Thread Execution:</strong> Paint Worklets run in a
+dedicated, isolated execution context separate from the main thread.
+This prevents complex drawing logic from causing frame drops or UI
+lag.</li>
+<li><strong>Hooking into the Paint Phase:</strong> When an element with
+a Houdini paint function enters the Paint phase of the pipeline, the
+browser invokes the registered JavaScript <code>paint()</code> method
+directly.</li>
+<li><strong>Context Generation:</strong> The browser passes an internal
+2D drawing context (a subset of the HTML5 Canvas API), the element's
+layout geometry (<code>geometry.width</code>,
+<code>geometry.height</code>), and any observed CSS custom properties
+(CSS variables) directly to the function.</li>
+<li><strong>Immediate Rasterization:</strong> The generated drawing
+commands are converted into display lists and sent straight to the
+compositing layer without needing to create new DOM nodes or load
+external network assets.</li>
+</ul>
+<h2 id="the-core-components-of-the-paint-api">The Core Components of the
+Paint API</h2>
+<p>Implementing a Houdini Paint API workflow requires three main
+steps:</p>
+<h3 id="1-registering-the-paint-worklet">1. Registering the Paint
+Worklet</h3>
+<p>A dedicated JavaScript file defines a class with a standard
+<code>paint()</code> method and registers it with the runtime:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CustomCheckerboardPainter {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">static</span> <span class="kw">get</span> <span class="fu">inputProperties</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [<span class="st">&#39;--checker-color&#39;</span><span class="op">,</span> <span class="st">&#39;--checker-size&#39;</span>]<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paint</span>(ctx<span class="op">,</span> geometry<span class="op">,</span> properties) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> color <span class="op">=</span> properties<span class="op">.</span><span class="fu">get</span>(<span class="st">&#39;--checker-color&#39;</span>)<span class="op">.</span><span class="fu">toString</span>()<span class="op">.</span><span class="fu">trim</span>() <span class="op">||</span> <span class="st">&#39;#000&#39;</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> size <span class="op">=</span> <span class="pp">parseInt</span>(properties<span class="op">.</span><span class="fu">get</span>(<span class="st">&#39;--checker-size&#39;</span>)<span class="op">.</span><span class="fu">toString</span>()) <span class="op">||</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> color<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> y <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> y <span class="op">&lt;</span> geometry<span class="op">.</span><span class="at">height</span><span class="op">;</span> y <span class="op">+=</span> size <span class="op">*</span> <span class="dv">2</span>) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">let</span> x <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> x <span class="op">&lt;</span> geometry<span class="op">.</span><span class="at">width</span><span class="op">;</span> x <span class="op">+=</span> size <span class="op">*</span> <span class="dv">2</span>) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        ctx<span class="op">.</span><span class="fu">fillRect</span>(x<span class="op">,</span> y<span class="op">,</span> size<span class="op">,</span> size)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        ctx<span class="op">.</span><span class="fu">fillRect</span>(x <span class="op">+</span> size<span class="op">,</span> y <span class="op">+</span> size<span class="op">,</span> size<span class="op">,</span> size)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="fu">registerPaint</span>(<span class="st">&#39;checkerboard&#39;</span><span class="op">,</span> CustomCheckerboardPainter)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-loading-the-worklet-module">2. Loading the Worklet Module</h3>
+<p>The JavaScript module must be loaded into the CSS engine from the
+main application script:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&#39;paintWorklet&#39;</span> <span class="kw">in</span> <span class="bu">CSS</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">CSS</span><span class="op">.</span><span class="at">paintWorklet</span><span class="op">.</span><span class="fu">addModule</span>(<span class="st">&#39;checkerboard-worklet.js&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-applying-the-painter-in-css">3. Applying the Painter in
+CSS</h3>
+<p>Once registered, the painter function can be used anywhere a CSS
+<code>&lt;image&gt;</code> is accepted:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode css"><code class="sourceCode css"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">.dynamic-background</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="va">--checker-color</span><span class="ch">:</span> <span class="cn">#3b82f6</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="va">--checker-size</span><span class="ch">:</span> <span class="dv">30</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">background-image</span><span class="ch">:</span> <span class="fu">paint(</span><span class="dv">checkerboard</span><span class="fu">)</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="performance-and-architectural-advantages">Performance and
+Architectural Advantages</h2>
+<ul>
+<li><strong>No DOM Overhead:</strong> Generating complex geometric
+backgrounds or decorative borders traditionally required additional
+nested <code>div</code> elements or SVG wrappers. The Paint API achieves
+identical results with zero DOM footprint.</li>
+<li><strong>Reactive to CSS Property Changes:</strong> By declaring
+custom properties in <code>inputProperties</code>, the browser
+automatically recalculates and repaints only when those specific CSS
+variables change.</li>
+<li><strong>Skipping Reflows:</strong> Updating a custom property that
+affects only the paint stage avoids triggering an expensive Layout
+(reflow) cycle, executing solely within the Paint and Composite
+phases.</li>
+<li><strong>Resolution Independence:</strong> Because the drawing
+commands scale dynamically using the element's actual layout bounds
+(<code>geometry</code>), graphics remain sharp at any screen density or
+viewport size without loading larger asset files.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

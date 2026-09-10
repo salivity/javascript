@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporting API: Send Browser Reports to JavaScript Backends - javascript</title>
+    <meta name="description" content="The Reporting API is a modern browser mechanism that automatically captures client-side issues—including Content Security Policy (CSP) violations, deprecated API usage, Permissions Policy violations, and network errors—and transmits them directly to">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/reporting-api-send-browser-reports-to-javascript-backends">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Reporting API: Send Browser Reports to JavaScript Backends - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/reporting-api-send-browser-reports-to-javascript-backends" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Reporting API is a modern browser mechanism that automatically captures client-side issues—including Content Security Policy (CSP) violations, deprecated API usage, Permissions Policy violations, and network errors—and transmits them directly to" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="reporting-api-send-browser-reports-to-javascript-backends">Reporting
+API: Send Browser Reports to JavaScript Backends</h1>
+<p>The Reporting API is a modern browser mechanism that automatically
+captures client-side issues—including Content Security Policy (CSP)
+violations, deprecated API usage, Permissions Policy violations, and
+network errors—and transmits them directly to a designated server
+endpoint. This article explains how web applications configure the
+Reporting API via HTTP headers, how browsers batch and transmit these
+diagnostic reports as JSON payloads, and how a JavaScript backend
+receives and processes them.</p>
+<h3 id="1-configuring-the-reporting-endpoints-header">1. Configuring the
+Reporting-Endpoints Header</h3>
+<p>To instruct the browser where to send diagnostic data, the web server
+must return the <code>Reporting-Endpoints</code> HTTP response header
+with the requested web page. This header maps custom endpoint names to
+specific target URLs on your JavaScript backend.</p>
+<pre class="http"><code>Reporting-Endpoints: default=&quot;https://api.example.com/reports&quot;, csp-endpoint=&quot;https://api.example.com/csp-reports&quot;</code></pre>
+<p>Once defined, other security and diagnostic headers (such as
+<code>Content-Security-Policy</code> or <code>Document-Policy</code>)
+reference these endpoint names to route specific report types.</p>
+<pre class="http"><code>Content-Security-Policy: script-src &#39;self&#39;; report-to csp-endpoint;</code></pre>
+<h3 id="2-browser-event-detection-and-batching">2. Browser Event
+Detection and Batching</h3>
+<p>When a user visits a page, the browser monitors for specific
+triggers:</p>
+<ul>
+<li><strong>Deprecation Reports:</strong> Triggered when the page
+executes an obsolete JavaScript API or CSS property.</li>
+<li><strong>CSP Violations:</strong> Triggered when scripts,
+stylesheets, or frames violate the security policy.</li>
+<li><strong>Crash and Intervention Reports:</strong> Triggered if a tab
+crashes or the browser blocks a behavior due to performance or security
+limits.</li>
+</ul>
+<p>Rather than sending a separate HTTP request for every individual
+event, the browser buffers reports locally and transmits them in
+asynchronous batches. This design prevents report traffic from degrading
+page performance or consuming excessive network bandwidth.</p>
+<h3 id="3-payload-format-and-transmission">3. Payload Format and
+Transmission</h3>
+<p>When sending reports, the browser issues an HTTP <code>POST</code>
+request to the configured backend endpoint.</p>
+<ul>
+<li><strong>Content-Type:</strong> The request uses the
+<code>application/reports+json</code> media type.</li>
+<li><strong>Payload Structure:</strong> The request body contains an
+array of JSON objects, each representing an event.</li>
+</ul>
+<p>An example payload containing a deprecation report and a CSP
+violation looks like this:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ot">[</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;deprecation&quot;</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">420</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/dashboard&quot;</span><span class="fu">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;user_agent&quot;</span><span class="fu">:</span> <span class="st">&quot;Mozilla/5.0 ...&quot;</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;body&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;websql&quot;</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;anticipatedRemoval&quot;</span><span class="fu">:</span> <span class="st">&quot;2024-12-01&quot;</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Web SQL is deprecated and will be removed.&quot;</span><span class="fu">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;sourceFile&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/main.js&quot;</span><span class="fu">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;lineNumber&quot;</span><span class="fu">:</span> <span class="dv">45</span><span class="fu">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;columnNumber&quot;</span><span class="fu">:</span> <span class="dv">12</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">{</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;csp-violation&quot;</span><span class="fu">,</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">120</span><span class="fu">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/dashboard&quot;</span><span class="fu">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;user_agent&quot;</span><span class="fu">:</span> <span class="st">&quot;Mozilla/5.0 ...&quot;</span><span class="fu">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;body&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;blockedURL&quot;</span><span class="fu">:</span> <span class="st">&quot;https://malicious-cdn.com/evil.js&quot;</span><span class="fu">,</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;disposition&quot;</span><span class="fu">:</span> <span class="st">&quot;enforce&quot;</span><span class="fu">,</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;documentURL&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/dashboard&quot;</span><span class="fu">,</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;effectiveDirective&quot;</span><span class="fu">:</span> <span class="st">&quot;script-src-elem&quot;</span><span class="fu">,</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;originalPolicy&quot;</span><span class="fu">:</span> <span class="st">&quot;script-src &#39;self&#39;; report-to csp-endpoint;&quot;</span><span class="fu">,</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;statusCode&quot;</span><span class="fu">:</span> <span class="dv">200</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="ot">]</span></span></code></pre></div>
+<h3 id="4-handling-reports-in-a-javascript-backend">4. Handling Reports
+in a JavaScript Backend</h3>
+<p>Because reports arrive as JSON over standard HTTP <code>POST</code>
+requests, a JavaScript backend (such as Node.js with Express or Next.js
+API routes) only needs to accept the
+<code>application/reports+json</code> content type, parse the array, and
+persist or log the incoming data.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> express <span class="im">from</span> <span class="st">&#39;express&#39;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> app <span class="op">=</span> <span class="fu">express</span>()<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Parse JSON bodies, including application/reports+json</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">use</span>(express<span class="op">.</span><span class="fu">json</span>({ <span class="dt">type</span><span class="op">:</span> [<span class="st">&#39;application/json&#39;</span><span class="op">,</span> <span class="st">&#39;application/reports+json&#39;</span>] }))<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;/reports&#39;</span><span class="op">,</span> (req<span class="op">,</span> res) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> reports <span class="op">=</span> req<span class="op">.</span><span class="at">body</span><span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">Array</span><span class="op">.</span><span class="fu">isArray</span>(reports)) {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> report <span class="kw">of</span> reports) {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`[</span><span class="sc">${</span>report<span class="op">.</span><span class="at">type</span><span class="sc">}</span><span class="vs">] on </span><span class="sc">${</span>report<span class="op">.</span><span class="at">url</span><span class="sc">}</span><span class="vs">:`</span><span class="op">,</span> report<span class="op">.</span><span class="at">body</span>)<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Route to monitoring services, loggers, or databases</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Respond with a 204 No Content or 200 OK</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  res<span class="op">.</span><span class="fu">status</span>(<span class="dv">204</span>)<span class="op">.</span><span class="fu">end</span>()<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">listen</span>(<span class="dv">3000</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Reporting API backend running on port 3000&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>The server returns an empty <code>200</code> or <code>204</code>
+status code upon successful receipt, allowing the browser to clear its
+internal report queue.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

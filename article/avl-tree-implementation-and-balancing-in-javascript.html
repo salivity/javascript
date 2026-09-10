@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVL Tree Implementation and Balancing in JavaScript - javascript</title>
+    <meta name="description" content="This article covers the fundamental structure and self-balancing mechanics of an AVL tree, followed by a concrete JavaScript implementation. You will learn how node heights and balance factors are calculated, how the four primary rotation algorithms (Lef">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/avl-tree-implementation-and-balancing-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AVL Tree Implementation and Balancing in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/avl-tree-implementation-and-balancing-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article covers the fundamental structure and self-balancing mechanics of an AVL tree, followed by a concrete JavaScript implementation. You will learn how node heights and balance factors are calculated, how the four primary rotation algorithms (Lef" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="avl-tree-implementation-and-balancing-in-javascript">AVL Tree
+Implementation and Balancing in JavaScript</h1>
+<p>This article covers the fundamental structure and self-balancing
+mechanics of an AVL tree, followed by a concrete JavaScript
+implementation. You will learn how node heights and balance factors are
+calculated, how the four primary rotation algorithms (Left, Right,
+Left-Right, and Right-Left) restore tree equilibrium, and how to combine
+these operations into a functional insertion routine.</p>
+<h2 id="avl-tree-structure">AVL Tree Structure</h2>
+<p>An AVL tree is a self-balancing binary search tree (BST). In an AVL
+tree, the heights of the two child subtrees of any node differ by at
+most one. If at any time they differ by more than one, rebalancing is
+performed to restore this property.</p>
+<p>Each node in an AVL tree maintains standard BST references
+(<code>left</code> and <code>right</code>), a <code>key</code> (or
+value), and an explicit <code>height</code> property:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AVLNode {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(key) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">key</span> <span class="op">=</span> key<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">left</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">right</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">height</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// New nodes are added at leaf level with height 1</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The tree's primary structural metrics are calculated as follows:</p>
+<ul>
+<li><strong>Height:</strong> The length of the longest path from a node
+to a leaf. A null child has a height of <code>0</code>.</li>
+<li><strong>Balance Factor (<span
+class="math inline">\(BF\)</span>):</strong> Calculated as
+<code>height(left subtree) - height(right subtree)</code>. A node is
+balanced when <span class="math inline">\(BF \in \{-1, 0,
+1\}\)</span>.</li>
+</ul>
+<h2 id="the-balancing-algorithm">The Balancing Algorithm</h2>
+<p>When a node insertion causes the balance factor of an ancestor to
+become greater than <code>1</code> or less than <code>-1</code>, the
+tree must be restructured using rotations. There are four imbalance
+scenarios:</p>
+<ol type="1">
+<li><strong>Left-Left (LL) Case (<span class="math inline">\(BF &gt;
+1\)</span> and key &lt; left child key):</strong> Fixed with a single
+<strong>Right Rotation</strong>.</li>
+<li><strong>Right-Right (RR) Case (<span class="math inline">\(BF &lt;
+-1\)</span> and key &gt; right child key):</strong> Fixed with a single
+<strong>Left Rotation</strong>.</li>
+<li><strong>Left-Right (LR) Case (<span class="math inline">\(BF &gt;
+1\)</span> and key &gt; left child key):</strong> Fixed with a
+<strong>Left Rotation</strong> on the left child, followed by a
+<strong>Right Rotation</strong> on the current node.</li>
+<li><strong>Right-Left (RL) Case (<span class="math inline">\(BF &lt;
+-1\)</span> and key &lt; right child key):</strong> Fixed with a
+<strong>Right Rotation</strong> on the right child, followed by a
+<strong>Left Rotation</strong> on the current node.</li>
+</ol>
+<h3 id="rotation-mechanics">Rotation Mechanics</h3>
+<p>A <strong>Right Rotation</strong> around node <span
+class="math inline">\(y\)</span> with left child <span
+class="math inline">\(x\)</span>:</p>
+<ul>
+<li><span class="math inline">\(x\)</span>'s right child becomes <span
+class="math inline">\(y\)</span>'s left child.</li>
+<li><span class="math inline">\(y\)</span> becomes <span
+class="math inline">\(x\)</span>'s right child.</li>
+<li>Heights of <span class="math inline">\(y\)</span> and <span
+class="math inline">\(x\)</span> are recalculated.</li>
+</ul>
+<p>A <strong>Left Rotation</strong> around node <span
+class="math inline">\(x\)</span> with right child <span
+class="math inline">\(y\)</span>:</p>
+<ul>
+<li><span class="math inline">\(y\)</span>'s left child becomes <span
+class="math inline">\(x\)</span>'s right child.</li>
+<li><span class="math inline">\(x\)</span> becomes <span
+class="math inline">\(y\)</span>'s left child.</li>
+<li>Heights of <span class="math inline">\(x\)</span> and <span
+class="math inline">\(y\)</span> are recalculated.</li>
+</ul>
+<h2 id="javascript-implementation">JavaScript Implementation</h2>
+<p>Below is the complete implementation of the AVL tree structure,
+helper functions, rotations, and recursive insertion algorithm:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AVLTree {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">root</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Get height of a node (0 if null)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getHeight</span>(node) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> node <span class="op">?</span> node<span class="op">.</span><span class="at">height</span> <span class="op">:</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Calculate balance factor</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getBalanceFactor</span>(node) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> node <span class="op">?</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getHeight</span>(node<span class="op">.</span><span class="at">left</span>) <span class="op">-</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getHeight</span>(node<span class="op">.</span><span class="at">right</span>) <span class="op">:</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Update node height based on children</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">updateHeight</span>(node) {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    node<span class="op">.</span><span class="at">height</span> <span class="op">=</span> <span class="dv">1</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="kw">this</span><span class="op">.</span><span class="fu">getHeight</span>(node<span class="op">.</span><span class="at">left</span>)<span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getHeight</span>(node<span class="op">.</span><span class="at">right</span>))<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Right rotation</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rotateRight</span>(y) {</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> x <span class="op">=</span> y<span class="op">.</span><span class="at">left</span><span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> T2 <span class="op">=</span> x<span class="op">.</span><span class="at">right</span><span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Perform rotation</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    x<span class="op">.</span><span class="at">right</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    y<span class="op">.</span><span class="at">left</span> <span class="op">=</span> T2<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Update heights</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">updateHeight</span>(y)<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">updateHeight</span>(x)<span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x<span class="op">;</span> <span class="co">// New root</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Left rotation</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rotateLeft</span>(x) {</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> y <span class="op">=</span> x<span class="op">.</span><span class="at">right</span><span class="op">;</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> T2 <span class="op">=</span> y<span class="op">.</span><span class="at">left</span><span class="op">;</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Perform rotation</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>    y<span class="op">.</span><span class="at">left</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    x<span class="op">.</span><span class="at">right</span> <span class="op">=</span> T2<span class="op">;</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Update heights</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">updateHeight</span>(x)<span class="op">;</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">updateHeight</span>(y)<span class="op">;</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> y<span class="op">;</span> <span class="co">// New root</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Insert a key into the tree</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">insert</span>(key) {</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">root</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">_insertNode</span>(<span class="kw">this</span><span class="op">.</span><span class="at">root</span><span class="op">,</span> key)<span class="op">;</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">_insertNode</span>(node<span class="op">,</span> key) {</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Standard BST insertion</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>node) {</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">new</span> <span class="fu">AVLNode</span>(key)<span class="op">;</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (key <span class="op">&lt;</span> node<span class="op">.</span><span class="at">key</span>) {</span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>      node<span class="op">.</span><span class="at">left</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">_insertNode</span>(node<span class="op">.</span><span class="at">left</span><span class="op">,</span> key)<span class="op">;</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> <span class="cf">if</span> (key <span class="op">&gt;</span> node<span class="op">.</span><span class="at">key</span>) {</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>      node<span class="op">.</span><span class="at">right</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">_insertNode</span>(node<span class="op">.</span><span class="at">right</span><span class="op">,</span> key)<span class="op">;</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> node<span class="op">;</span> <span class="co">// Duplicate keys not allowed</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Update height of current node</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">updateHeight</span>(node)<span class="op">;</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Get the balance factor</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> balance <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getBalanceFactor</span>(node)<span class="op">;</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Balance the node if required</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Left-Left (LL)</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (balance <span class="op">&gt;</span> <span class="dv">1</span> <span class="op">&amp;&amp;</span> key <span class="op">&lt;</span> node<span class="op">.</span><span class="at">left</span><span class="op">.</span><span class="at">key</span>) {</span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="fu">rotateRight</span>(node)<span class="op">;</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Right-Right (RR)</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (balance <span class="op">&lt;</span> <span class="op">-</span><span class="dv">1</span> <span class="op">&amp;&amp;</span> key <span class="op">&gt;</span> node<span class="op">.</span><span class="at">right</span><span class="op">.</span><span class="at">key</span>) {</span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="fu">rotateLeft</span>(node)<span class="op">;</span></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Left-Right (LR)</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (balance <span class="op">&gt;</span> <span class="dv">1</span> <span class="op">&amp;&amp;</span> key <span class="op">&gt;</span> node<span class="op">.</span><span class="at">left</span><span class="op">.</span><span class="at">key</span>) {</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>      node<span class="op">.</span><span class="at">left</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">rotateLeft</span>(node<span class="op">.</span><span class="at">left</span>)<span class="op">;</span></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="fu">rotateRight</span>(node)<span class="op">;</span></span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Right-Left (RL)</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (balance <span class="op">&lt;</span> <span class="op">-</span><span class="dv">1</span> <span class="op">&amp;&amp;</span> key <span class="op">&lt;</span> node<span class="op">.</span><span class="at">right</span><span class="op">.</span><span class="at">key</span>) {</span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>      node<span class="op">.</span><span class="at">right</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">rotateRight</span>(node<span class="op">.</span><span class="at">right</span>)<span class="op">;</span></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="fu">rotateLeft</span>(node)<span class="op">;</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> node<span class="op">;</span></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="complexity">Complexity</h2>
+<p>Because tree height is strictly maintained at <span
+class="math inline">\(O(\log n)\)</span>, all primary AVL
+operations—including lookup, insertion, and deletion—guarantee a
+worst-case time complexity of <span class="math inline">\(O(\log
+n)\)</span>. Rotations operate solely on reference pointers and execute
+in <span class="math inline">\(O(1)\)</span> time.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

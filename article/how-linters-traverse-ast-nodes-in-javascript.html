@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Linters Traverse AST Nodes in JavaScript - javascript</title>
+    <meta name="description" content="JavaScript code linters detect anti-patterns, security risks, and style violations by transforming raw source code into an Abstract Syntax Tree (AST) and systematically inspecting each node. By utilizing parsing algorithms and tree-traversal patterns—p">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-linters-traverse-ast-nodes-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Linters Traverse AST Nodes in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-linters-traverse-ast-nodes-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript code linters detect anti-patterns, security risks, and style violations by transforming raw source code into an Abstract Syntax Tree (AST) and systematically inspecting each node. By utilizing parsing algorithms and tree-traversal patterns—p" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-linters-traverse-ast-nodes-in-javascript">How Linters
+Traverse AST Nodes in JavaScript</h1>
+<p>JavaScript code linters detect anti-patterns, security risks, and
+style violations by transforming raw source code into an Abstract Syntax
+Tree (AST) and systematically inspecting each node. By utilizing parsing
+algorithms and tree-traversal patterns—primarily the Visitor
+Pattern—linters examine structural code syntax, track variable scopes,
+and evaluate node relationships. This article explains the technical
+pipeline linters use to parse JavaScript, navigate AST nodes, and report
+or automatically fix code issues.</p>
+<h2 id="1-parsing-source-code-into-an-ast">1. Parsing Source Code into
+an AST</h2>
+<p>Before traversal begins, the linter passes the raw source code string
+to a parser (such as Espree, Babel, or Acorn). Parsing occurs in two
+distinct phases:</p>
+<ol type="1">
+<li><strong>Lexical Analysis (Tokenization):</strong> The parser reads
+the character stream and converts it into a flat list of tokens,
+stripping whitespace and comments unless required for formatting
+rules.</li>
+<li><strong>Syntactic Analysis:</strong> The parser validates the tokens
+against the JavaScript grammar specification (usually adhering to the
+ESTree standard) and organizes them into a hierarchical tree structure
+called an Abstract Syntax Tree (AST).</li>
+</ol>
+<p>Each node in the AST represents a syntactic construct (e.g.,
+<code>FunctionDeclaration</code>, <code>BinaryExpression</code>,
+<code>VariableDeclarator</code>) and contains metadata such as line
+numbers, column offsets, and references to child nodes.</p>
+<h2 id="2-tree-traversal-with-the-visitor-pattern">2. Tree Traversal
+with the Visitor Pattern</h2>
+<p>Linters traverse the generated AST using a depth-first search (DFS)
+guided by the <strong>Visitor Pattern</strong>.</p>
+<p>During traversal, the traversal engine emits events as it enters and
+leaves each node:</p>
+<ul>
+<li><strong>Enter:</strong> The linter visits the node before processing
+any of its child nodes.</li>
+<li><strong>Exit:</strong> The linter returns to the node after all of
+its descendants have been fully traversed.</li>
+</ul>
+<pre><code>Program (enter)
+  └── VariableDeclaration (enter)
+        └── VariableDeclarator (enter)
+              └── Identifier (enter -&gt; exit)
+        └── VariableDeclarator (exit)
+  └── VariableDeclaration (exit)
+Program (exit)</code></pre>
+<p>Rules register specific "listener" functions that trigger when the
+traversal engine encounters matching node types.</p>
+<h2 id="3-node-matching-and-css-style-selectors">3. Node Matching and
+CSS-Style Selectors</h2>
+<p>Linters like ESLint use selector engines (such as
+<code>esquery</code>) to allow rules to target specific structural
+patterns in the AST, similar to CSS selectors targeting DOM nodes.</p>
+<p>Rules can listen for:</p>
+<ul>
+<li><strong>Specific Node Types:</strong> Listening directly to
+<code>BinaryExpression</code> or <code>AssignmentExpression</code>.</li>
+<li><strong>Attribute Filters:</strong> Matching nodes where specific
+properties hold true, such as
+<code>BinaryExpression[operator="=="]</code>.</li>
+<li><strong>Relational Selectors:</strong> Matching structures based on
+ancestry or siblings, such as
+<code>CallExpression &gt; MemberExpression[property.name="eval"]</code>.</li>
+</ul>
+<h2 id="4-scope-and-contextual-analysis">4. Scope and Contextual
+Analysis</h2>
+<p>Static analysis often requires more than isolated node inspection.
+Linters maintain an internal state during traversal to track lexical
+scope, variable declarations, and execution paths.</p>
+<ul>
+<li><strong>Scope Manager:</strong> Linters construct a tree of nested
+scopes (global, function, block). When a variable is defined, the linter
+records it in the current scope. When an identifier is referenced, the
+linter links it back to its declaration to flag issues like unused
+variables or shadow declarations.</li>
+<li><strong>Code Path Analysis:</strong> Linters generate control-flow
+graphs (CFGs) to identify unreachable code, infinite loops, or paths
+that fail to return a value.</li>
+</ul>
+<h2 id="5-flagging-anti-patterns-and-applying-fixes">5. Flagging
+Anti-Patterns and Applying Fixes</h2>
+<p>When a rule’s conditions are met (for example, identifying a
+<code>==</code> operator instead of <code>===</code>), the rule invokes
+a reporting method on the linter's context object:</p>
+<ol type="1">
+<li><strong>Error Object Creation:</strong> The rule emits a diagnostic
+report containing the error message, severity level (warning or error),
+and precise source code coordinates (<code>loc</code>).</li>
+<li><strong>Fixer Application:</strong> If the anti-pattern has an
+automatic fix, the rule provides a fixer function. The fixer specifies
+an atomic source code modification—such as replacing, inserting, or
+removing characters at specific text offsets—without invalidating
+neighboring code tokens.</li>
+</ol>
+<p>Once the traversal completes, the linter aggregates all emitted
+reports and outputs the results to the terminal, IDE, or CI/CD
+pipeline.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

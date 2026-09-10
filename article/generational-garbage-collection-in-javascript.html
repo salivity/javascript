@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generational Garbage Collection in JavaScript - javascript</title>
+    <meta name="description" content="Generational garbage collection is an automated memory management technique used by modern JavaScript engines to optimize performance by categorizing objects based on their age. Because checking every object in memory is computationally expensive, JavaSc">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/generational-garbage-collection-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Generational Garbage Collection in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/generational-garbage-collection-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Generational garbage collection is an automated memory management technique used by modern JavaScript engines to optimize performance by categorizing objects based on their age. Because checking every object in memory is computationally expensive, JavaSc" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="generational-garbage-collection-in-javascript">Generational
+Garbage Collection in JavaScript</h1>
+<p>Generational garbage collection is an automated memory management
+technique used by modern JavaScript engines to optimize performance by
+categorizing objects based on their age. Because checking every object
+in memory is computationally expensive, JavaScript engines like Google's
+V8 divide the memory heap into distinct generations. This article
+explains how generational garbage collectors work, the hypothesis behind
+them, and the specific categories used to organize JavaScript
+objects.</p>
+<h3 id="the-generational-hypothesis">The Generational Hypothesis</h3>
+<p>Generational garbage collection is built on the "weak generational
+hypothesis," an empirical observation that most allocated objects have
+very short lifespans. In typical JavaScript execution, functions
+allocate temporary variables, closures, and intermediate objects that
+become unreachable almost immediately after execution completes.
+Conversely, objects that survive for an extended period tend to remain
+reachable for a significant portion of the application's runtime.</p>
+<h3 id="how-javascript-objects-are-categorized">How JavaScript Objects
+Are Categorized</h3>
+<p>To exploit this behavior, JavaScript engines divide the memory heap
+into two primary generations: the Young Generation and the Old
+Generation.</p>
+<h4 id="1-the-young-generation-new-space">1. The Young Generation (New
+Space)</h4>
+<p>The Young Generation is a small, fast-clearing memory region where
+nearly all newly instantiated JavaScript objects are initially
+allocated. It is designed to handle high turnover and is typically split
+into sub-spaces:</p>
+<ul>
+<li><strong>Nursery (Allocate Space):</strong> The entry point where new
+objects reside upon creation.</li>
+<li><strong>Intermediate (Survivor Spaces):</strong> Sub-spaces used
+during collection cycles to hold objects that survived their first
+cleanup.</li>
+</ul>
+<p>Because most objects allocated here die quickly, cleanups in the
+Young Generation—known as <strong>Minor Garbage Collection</strong> or
+<strong>Scavenge</strong>—are frequent, extremely fast, and only inspect
+a small portion of the total memory. During a Scavenge cycle, active
+(live) objects are copied to an empty survivor space, and the remaining
+dead space is instantly reclaimed.</p>
+<h4 id="2-the-old-generation-old-space">2. The Old Generation (Old
+Space)</h4>
+<p>The Old Generation is a larger memory space reserved for long-lived
+objects. If an object in the Young Generation survives multiple Minor GC
+cycles (a process called "aging"), it is promoted or
+<strong>tenured</strong> to the Old Generation.</p>
+<p>Common residents of the Old Generation include:</p>
+<ul>
+<li>Global variables and long-lived state.</li>
+<li>Application-level singletons, caches, and DOM references.</li>
+<li>Closures that persist across multiple operations.</li>
+</ul>
+<p>Cleanups in this region are known as <strong>Major Garbage
+Collection</strong> (often using algorithms like Mark-Sweep,
+Mark-Compact, or Incremental Marking). Because the Old Generation is
+large, Major GCs are resource-intensive and occur much less frequently
+than Minor GCs.</p>
+<h3 id="the-promotion-lifecycle">The Promotion Lifecycle</h3>
+<p>The movement of JavaScript objects through the garbage collector
+follows a direct lifecycle:</p>
+<ol type="1">
+<li><strong>Allocation:</strong> A new object is created and placed in
+the Young Generation's nursery.</li>
+<li><strong>Survival:</strong> During a Minor GC, the engine identifies
+if the object is still referenced. If unreachable, it is deleted; if
+reachable, it moves to a survivor space.</li>
+<li><strong>Promotion (Tenuring):</strong> If the object survives
+consecutive Minor GC cycles (typically two), it is promoted to the Old
+Generation.</li>
+<li><strong>Long-Term Collection:</strong> The promoted object remains
+in the Old Generation until it eventually loses all active references,
+at which point a Major GC reclaims its memory.</li>
+</ol>
+<p>By segregating short-lived temporary data from persistent application
+data, generational garbage collection minimizes execution pauses, keeps
+CPU overhead low, and ensures efficient memory utilization in JavaScript
+applications.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Role of Libuv in Node.js Architecture - javascript</title>
+    <meta name="description" content="The libuv library is the foundational C library that powers the asynchronous, non-blocking I/O operations and event-driven architecture of Node.js. While the V8 engine is responsible for executing JavaScript code, libuv handles the underlying operating s">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/role-of-libuv-in-node-js-architecture">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Role of Libuv in Node.js Architecture - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/role-of-libuv-in-node-js-architecture" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The libuv library is the foundational C library that powers the asynchronous, non-blocking I/O operations and event-driven architecture of Node.js. While the V8 engine is responsible for executing JavaScript code, libuv handles the underlying operating s" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="role-of-libuv-in-nodejs-architecture">Role of Libuv in Node.js
+Architecture</h1>
+<p>The libuv library is the foundational C library that powers the
+asynchronous, non-blocking I/O operations and event-driven architecture
+of Node.js. While the V8 engine is responsible for executing JavaScript
+code, libuv handles the underlying operating system tasks, manages the
+event loop, provides a worker thread pool for blocking operations, and
+abstracts cross-platform system calls. This article explains how libuv
+integrates into the Node.js architecture and breaks down its primary
+components and responsibilities.</p>
+<h2 id="what-is-libuv">What is Libuv?</h2>
+<p>Libuv is an open-source, multi-platform support library initially
+written specifically for Node.js, though it is now used by other
+projects like Julia and Neovim. Its primary purpose is to provide an
+abstracted interface for asynchronous I/O operations across different
+operating systems, including Windows, Linux, and macOS.</p>
+<h2 id="key-roles-of-libuv-in-nodejs">Key Roles of Libuv in Node.js</h2>
+<h3 id="1-managing-the-event-loop">1. Managing the Event Loop</h3>
+<p>JavaScript is inherently single-threaded. Libuv provides the event
+loop that allows Node.js to perform non-blocking I/O operations despite
+this single-threaded nature.</p>
+<p>The libuv event loop operates in distinct phases, processing specific
+types of callbacks in each phase:</p>
+<ul>
+<li><strong>Timers:</strong> Executes callbacks scheduled by
+<code>setTimeout()</code> and <code>setInterval()</code>.</li>
+<li><strong>Pending Callbacks:</strong> Executes I/O callbacks deferred
+to the next loop iteration.</li>
+<li><strong>Idle, Prepare:</strong> Used internally by libuv for
+housekeeping.</li>
+<li><strong>Poll:</strong> Retrieves new I/O events and executes
+I/O-related callbacks (except close callbacks, timers, and
+<code>setImmediate()</code>).</li>
+<li><strong>Check:</strong> Executes callbacks invoked by
+<code>setImmediate()</code>.</li>
+<li><strong>Close Callbacks:</strong> Executes callbacks for closed
+resources, such as <code>socket.on('close', ...)</code>.</li>
+</ul>
+<h3 id="2-the-worker-thread-pool">2. The Worker Thread Pool</h3>
+<p>Certain system tasks cannot be executed asynchronously by the
+operating system kernel. For these operations, libuv maintains a
+configurable thread pool (defaulting to 4 threads, configurable via the
+<code>UV_THREADPOOL_SIZE</code> environment variable).</p>
+<p>Libuv offloads the following tasks to its thread pool:</p>
+<ul>
+<li><strong>File System Operations:</strong> All synchronous and
+asynchronous <code>fs</code> APIs.</li>
+<li><strong>DNS Resolution:</strong> Functions like
+<code>dns.lookup()</code>.</li>
+<li><strong>Cryptography:</strong> Intensive operations like
+<code>crypto.pbkdf2()</code>, <code>crypto.randomBytes()</code>, and
+<code>crypto.scrypt()</code>.</li>
+<li><strong>Compression:</strong> Zlib operations.</li>
+</ul>
+<p>Once a worker thread completes a task, it notifies the event loop,
+which then executes the corresponding JavaScript callback on the main
+thread.</p>
+<h3 id="3-cross-platform-asynchronous-io-abstraction">3. Cross-Platform
+Asynchronous I/O Abstraction</h3>
+<p>Different operating systems handle asynchronous I/O using different
+kernel-level mechanisms:</p>
+<ul>
+<li><strong>Linux:</strong> <code>epoll</code></li>
+<li><strong>macOS / BSD:</strong> <code>kqueue</code></li>
+<li><strong>Windows:</strong> <code>IOCP</code> (Input/Output Completion
+Ports)</li>
+<li><strong>Solaris:</strong> <code>event ports</code></li>
+</ul>
+<p>Libuv provides a unified C API that abstracts these platform-specific
+mechanisms. Developers write standard Node.js JavaScript code, and libuv
+translates those operations into the most efficient polling mechanism
+available on the host operating system.</p>
+<h3 id="4-networking-and-inter-process-communication">4. Networking and
+Inter-Process Communication</h3>
+<p>Libuv provides non-blocking implementations of networking protocols,
+including TCP, UDP, and Unix domain sockets (or Windows Named Pipes). It
+handles socket creation, binding, listening, and data transmission
+entirely within the asynchronous system layer, avoiding thread
+blocking.</p>
+<h2 id="how-v8-and-libuv-work-together">How V8 and Libuv Work
+Together</h2>
+<p>The Node.js runtime relies on a direct partnership between the V8
+engine and libuv:</p>
+<ol type="1">
+<li><strong>Code Execution:</strong> The V8 engine parses and executes
+JavaScript code on the main thread.</li>
+<li><strong>I/O Delegation:</strong> When an asynchronous task (like
+reading a file or making a network request) is encountered, Node.js
+bindings pass the request to libuv.</li>
+<li><strong>Execution Handling:</strong> Libuv either delegates the
+operation to the OS kernel asynchronously (for network I/O) or assigns
+it to a thread in its worker pool (for file I/O).</li>
+<li><strong>Callback Queueing:</strong> When the operation finishes,
+libuv places the associated callback into the event loop.</li>
+<li><strong>Callback Execution:</strong> When the main execution stack
+is empty, V8 picks up the callback from the event loop and executes
+it.</li>
+</ol>
+<h2 id="summary">Summary</h2>
+<p>Libuv is the engine behind Node.js's high-concurrency and
+non-blocking performance. By encapsulating the event loop, maintaining a
+thread pool for blocking tasks, and providing a unified abstraction
+layer over platform-specific I/O interfaces, libuv enables Node.js to
+handle thousands of concurrent operations efficiently on a single
+JavaScript execution thread.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How composedPath Traces Events in Shadow DOM - javascript</title>
+    <meta name="description" content="The Event.composedPath() method in JavaScript returns an array of DOM nodes representing the exact hierarchy an event travels through during propagation, from the originating target up to the Window object. When dealing with Web Components, it serves as">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-composedpath-traces-events-in-shadow-dom">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How composedPath Traces Events in Shadow DOM - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-composedpath-traces-events-in-shadow-dom" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Event.composedPath() method in JavaScript returns an array of DOM nodes representing the exact hierarchy an event travels through during propagation, from the originating target up to the Window object. When dealing with Web Components, it serves as" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-composedpath-traces-events-in-shadow-dom">How composedPath
+Traces Events in Shadow DOM</h1>
+<p>The <code>Event.composedPath()</code> method in JavaScript returns an
+array of DOM nodes representing the exact hierarchy an event travels
+through during propagation, from the originating target up to the
+<code>Window</code> object. When dealing with Web Components, it serves
+as the primary mechanism to inspect event propagation across
+encapsulated Shadow DOM boundaries. This article explains how
+<code>composedPath()</code> handles event retargeting, distinguishes
+between open and closed shadow roots, and builds the complete
+propagation path across shadow boundaries.</p>
+<h2 id="understanding-event-retargeting-in-shadow-dom">Understanding
+Event Retargeting in Shadow DOM</h2>
+<p>By default, the Shadow DOM provides encapsulation so that internal
+implementation details of a Web Component remain hidden from the outer
+document. When an event fires on an element inside a shadow tree and
+bubbles out into the main DOM, the browser performs <strong>event
+retargeting</strong>.</p>
+<p>During retargeting, the <code>event.target</code> property is
+dynamically rewritten. To any event listener outside the custom element,
+<code>event.target</code> points to the host custom element rather than
+the internal shadow node where the interaction actually occurred.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Listener on the document</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;click&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">event</span><span class="op">.</span><span class="at">target</span>)<span class="op">;</span> <span class="co">// Output: &lt;my-button&gt; (the host element)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>While <code>event.target</code> maintains encapsulation by masking
+internal elements, developers often need access to the exact origin of
+the event. This is where <code>event.composedPath()</code> is
+required.</p>
+<h2 id="how-composedpath-traverses-boundaries">How
+<code>composedPath()</code> Traverses Boundaries</h2>
+<p>When invoked, <code>composedPath()</code> bypasses standard
+retargeting to construct an ordered array of every node the event
+traverses across both the light DOM and shadow trees.</p>
+<p>The path is constructed according to specific rules:</p>
+<ol type="1">
+<li><strong>Origin Identification</strong>: The path begins at the
+deepest node where the event was dispatched (the original target).</li>
+<li><strong>Shadow Tree Traversal</strong>: The event ascends through
+the internal nodes of the shadow tree up to the
+<code>ShadowRoot</code>.</li>
+<li><strong>Boundary Crossing</strong>: If the event has its
+<code>composed</code> property set to <code>true</code>, the event
+crosses the shadow boundary and continues to the host element.</li>
+<li><strong>Light DOM Traversal</strong>: The path continues upward from
+the host element through its ancestor elements in the light DOM,
+reaching <code>document</code> and finally <code>window</code>.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Given: &lt;my-element&gt; -&gt; #shadow-root -&gt; &lt;button&gt;Click me&lt;/button&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>button<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;click&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">event</span><span class="op">.</span><span class="fu">composedPath</span>())<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Output: [button, shadowRoot, my-element, body, html, document, Window]</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="the-role-of-the-composed-flag">The Role of the
+<code>composed</code> Flag</h2>
+<p>Not all events can cross shadow boundaries. An event's ability to be
+traced into the outer DOM depends on its <code>composed</code>
+initialization property:</p>
+<ul>
+<li><strong>Composed Events (<code>composed: true</code>)</strong>: Most
+standard UI events (such as <code>click</code>, <code>touchstart</code>,
+<code>keydown</code>) are composed. They cross shadow boundaries,
+allowing <code>composedPath()</code> to include both internal shadow
+nodes and external ancestors.</li>
+<li><strong>Uncomposed Events (<code>composed: false</code>)</strong>:
+Certain events (such as <code>mouseenter</code>,
+<code>mouseleave</code>, <code>load</code>, or custom events where
+<code>composed</code> is explicitly set to <code>false</code>) cannot
+cross shadow boundaries. For these events, propagation stops at the
+<code>ShadowRoot</code>, and <code>composedPath()</code> only contains
+nodes within the local shadow tree.</li>
+</ul>
+<h2 id="open-vs-closed-shadow-roots">Open vs. Closed Shadow Roots</h2>
+<p>The visibility of nodes within <code>composedPath()</code> is
+strictly determined by the <code>mode</code> of the shadow root:</p>
+<ul>
+<li><strong>Open Shadow DOM (<code>mode: 'open'</code>)</strong>: When a
+shadow root is created with <code>{ mode: 'open' }</code>, the traversal
+path includes all internal nodes and the <code>ShadowRoot</code> itself,
+regardless of where the listener is located.</li>
+<li><strong>Closed Shadow DOM (<code>mode: 'closed'</code>)</strong>:
+When a shadow root is created with <code>{ mode: 'closed' }</code>, the
+browser hides internal nodes from listeners defined outside the shadow
+tree. If <code>composedPath()</code> is called from a listener attached
+to an outer ancestor, the internal shadow nodes and the closed shadow
+root are excluded from the array; the path will appear to start directly
+at the host element. However, if <code>composedPath()</code> is called
+inside the closed shadow tree itself, the internal nodes remain visible
+in the returned array.</li>
+</ul>
+<h2 id="summary-of-path-construction">Summary of Path Construction</h2>
+<p>The <code>composedPath()</code> algorithm creates a linear snapshot
+of propagation by:</p>
+<ul>
+<li>Recording the dispatch target and each parent element in order.</li>
+<li>Crossing shadow boundaries if <code>composed: true</code>.</li>
+<li>Filtering out closed shadow nodes when evaluated from external
+scopes.</li>
+<li>Terminating at the root <code>Window</code> object.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

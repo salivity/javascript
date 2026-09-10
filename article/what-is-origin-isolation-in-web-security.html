@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Origin Isolation in Web Security? - javascript</title>
+    <meta name="description" content="Origin isolation is a browser security mechanism that allows web applications to isolate their execution context into a dedicated operating system process at the origin level rather than the broader site level. By default, modern browsers often group pag">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/what-is-origin-isolation-in-web-security">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Origin Isolation in Web Security? - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/what-is-origin-isolation-in-web-security" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Origin isolation is a browser security mechanism that allows web applications to isolate their execution context into a dedicated operating system process at the origin level rather than the broader site level. By default, modern browsers often group pag" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="what-is-origin-isolation-in-web-security">What Is Origin
+Isolation in Web Security?</h1>
+<p>Origin isolation is a browser security mechanism that allows web
+applications to isolate their execution context into a dedicated
+operating system process at the origin level rather than the broader
+site level. By default, modern browsers often group pages from the same
+registrable domain (eTLD+1) into a single process, creating shared
+memory and execution environments. This article explains how origin
+isolation works, how it is implemented via HTTP response headers, and
+how it bolsters security boundaries to prevent cross-origin data
+leakage, speculative execution attacks, and unauthorized DOM access in
+JavaScript environments.</p>
+<h3 id="the-problem-with-default-site-isolation">The Problem with
+Default Site Isolation</h3>
+<p>Browsers historically rely on the Same-Origin Policy (SOP) to control
+how documents and scripts interact. However, modern multi-process
+browser architectures generally implement <em>Site Isolation</em> rather
+than <em>Origin Isolation</em>.</p>
+<p>Under Site Isolation, processes are partitioned based on the "site"
+(e.g., <code>example.com</code>), meaning multiple distinct origins
+sharing the same base domain—such as <code>app.example.com</code> and
+<code>untrusted-user.example.com</code>—can still run within the same
+operating system rendering process. This shared environment creates
+potential vulnerabilities:</p>
+<ul>
+<li><strong>Speculative Execution Attacks:</strong> Hardware-level
+side-channel attacks like Spectre can allow malicious JavaScript on a
+compromised subdomain to read data from the memory space of another
+subdomain running in the same process.</li>
+<li><strong>Legacy DOM Relaxation:</strong> Historically, scripts could
+modify <code>document.domain</code> to allow synchronous script access
+between different subdomains, weakening access controls.</li>
+</ul>
+<h3 id="what-is-origin-isolation">What Is Origin Isolation?</h3>
+<p>Origin isolation refines the security boundary from the site level
+down to the exact origin (the combination of protocol, hostname, and
+port). When a web page opts into origin isolation, the browser assigns
+it to its own isolated agent cluster and, where supported, a separate
+operating system process.</p>
+<p>To enable origin isolation, a server sends the following HTTP
+response header:</p>
+<pre class="http"><code>Origin-Agent-Cluster: ?1</code></pre>
+<p>Setting <code>Origin-Agent-Cluster: ?1</code> signals to the browser
+that the origin requests its own dedicated resources, separating its
+JavaScript execution context completely from other subdomains of the
+same registrable domain.</p>
+<h3
+id="how-origin-isolation-strengthens-javascript-security-boundaries">How
+Origin Isolation Strengthens JavaScript Security Boundaries</h3>
+<h4 id="1-hardware-level-memory-partitioning">1. Hardware-Level Memory
+Partitioning</h4>
+<p>By forcing the origin into a dedicated OS process, memory addresses
+are strictly isolated by the operating system kernel. Even if a
+neighboring subdomain is compromised or runs malicious JavaScript
+attempting to exploit microarchitectural side-channels (Spectre,
+Meltdown), it cannot read memory buffers, authentication tokens, or
+private JavaScript variables belonging to the isolated origin.</p>
+<h4 id="2-disabling-synchronous-dom-access-via-documentdomain">2.
+Disabling Synchronous DOM Access via <code>document.domain</code></h4>
+<p>In an origin-isolated environment, relaxing the Same-Origin Policy
+via <code>document.domain</code> is permanently disabled. This ensures
+that no sibling subdomain can execute synchronous script-to-script
+interactions or manipulate the DOM directly, eliminating attack vectors
+based on unintended privilege escalation.</p>
+<h4 id="3-execution-thread-and-resource-isolation">3. Execution Thread
+and Resource Isolation</h4>
+<p>Running in an independent agent cluster provides distinct event loops
+and thread pools. Beyond security, this prevents CPU-intensive scripts
+or infinite loops running on one subdomain from blocking the JavaScript
+execution or UI responsiveness of the isolated origin.</p>
+<h4 id="4-safe-deployment-of-high-performance-apis">4. Safe Deployment
+of High-Performance APIs</h4>
+<p>Origin isolation works alongside cross-origin isolation policies
+(such as <code>Cross-Origin-Opener-Policy</code> and
+<code>Cross-Origin-Embedder-Policy</code>) to allow safe access to
+powerful JavaScript APIs like <code>SharedArrayBuffer</code> and
+high-resolution timers (<code>performance.now()</code>), which are
+otherwise restricted due to side-channel risks.</p>
+<h3 id="summary">Summary</h3>
+<p>Origin isolation addresses the gap between logical web origins and
+physical process boundaries. By using the
+<code>Origin-Agent-Cluster: ?1</code> header, developers restrict
+cross-subdomain interaction, eliminate legacy script relaxation
+vulnerabilities, and secure their JavaScript execution contexts against
+physical memory exposure.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

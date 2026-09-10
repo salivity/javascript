@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide to ImageBitmap and createImageBitmap in JS - javascript</title>
+    <meta name="description" content="This article explores the ImageBitmap interface and the createImageBitmap() factory method in JavaScript. It explains how standard image decoding can block the browser's main thread, how createImageBitmap() offloads expensive decoding tasks to background">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/guide-to-imagebitmap-and-createimagebitmap-in-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Guide to ImageBitmap and createImageBitmap in JS - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/guide-to-imagebitmap-and-createimagebitmap-in-js" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the ImageBitmap interface and the createImageBitmap() factory method in JavaScript. It explains how standard image decoding can block the browser's main thread, how createImageBitmap() offloads expensive decoding tasks to background" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="guide-to-imagebitmap-and-createimagebitmap-in-js">Guide to
+ImageBitmap and createImageBitmap in JS</h1>
+<p>This article explores the <code>ImageBitmap</code> interface and the
+<code>createImageBitmap()</code> factory method in JavaScript. It
+explains how standard image decoding can block the browser's main
+thread, how <code>createImageBitmap()</code> offloads expensive decoding
+tasks to background threads, and how developers can leverage this API
+alongside HTML5 Canvas, Web Workers, and WebGL for high-performance
+graphics rendering without UI stutter.</p>
+<hr />
+<h2 id="what-is-the-imagebitmap-interface">What is the ImageBitmap
+Interface?</h2>
+<p>The <code>ImageBitmap</code> interface represents a high-performance
+bitmap image that can be drawn to an HTML <code>&lt;canvas&gt;</code> or
+rendered via WebGL with minimal latency. It stores decoded, uncompressed
+pixel data in a format optimized directly for the GPU or rendering
+engine.</p>
+<p>Unlike traditional image elements, an <code>ImageBitmap</code> is a
+lightweight reference to raw pixel memory. It exposes only two read-only
+properties:</p>
+<ul>
+<li><code>width</code>: The width of the image in CSS pixels.</li>
+<li><code>height</code>: The height of the image in CSS pixels.</li>
+</ul>
+<p>It also provides a single method:</p>
+<ul>
+<li><code>close()</code>: Disposes of all graphical resources associated
+with the <code>ImageBitmap</code>, immediately freeing the underlying
+memory.</li>
+</ul>
+<hr />
+<h2 id="the-problem-with-main-thread-image-decoding">The Problem with
+Main-Thread Image Decoding</h2>
+<p>Historically, web developers have loaded images using the
+<code>HTMLImageElement</code> constructor (<code>new Image()</code>).
+While downloading the image file is asynchronous, decoding the
+compressed format (such as JPEG, PNG, or WebP) into raw pixel buffers
+often occurs on the browser's main UI thread when the image is first
+rendered or drawn to a canvas.</p>
+<p>Because decoding large or numerous images is computationally
+expensive, doing it on the main thread causes:</p>
+<ul>
+<li><strong>Frame drops and animation stutter (jank)</strong></li>
+<li><strong>Unresponsive user inputs</strong></li>
+<li><strong>Delayed render times</strong></li>
+</ul>
+<hr />
+<h2 id="how-createimagebitmap-decodes-images-off-thread">How
+createImageBitmap Decodes Images Off-Thread</h2>
+<p>The <code>createImageBitmap()</code> function solves this performance
+bottleneck by handling the decoding process asynchronously off the main
+thread.</p>
+<p>When you call <code>createImageBitmap()</code>, the browser hands off
+the parsing, color conversion, and decompression tasks to a background
+worker thread managed by the browser engine. The function immediately
+returns a <code>Promise</code> that resolves with the fully decoded
+<code>ImageBitmap</code> object only after the heavy computational work
+is finished.</p>
+<h3 id="supported-input-sources">Supported Input Sources</h3>
+<p><code>createImageBitmap()</code> accepts a variety of image
+sources:</p>
+<ul>
+<li><code>Blob</code> or <code>File</code></li>
+<li><code>ImageData</code></li>
+<li><code>HTMLImageElement</code></li>
+<li><code>HTMLCanvasElement</code></li>
+<li><code>HTMLVideoElement</code></li>
+<li><code>SVGImageElement</code></li>
+<li>Another <code>ImageBitmap</code></li>
+</ul>
+<hr />
+<h2 id="practical-implementation">Practical Implementation</h2>
+<h3 id="1-fetching-and-decoding-asynchronously">1. Fetching and Decoding
+Asynchronously</h3>
+<p>Here is how you can fetch a remote image, decode it in the
+background, and paint it to a canvas:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">loadAndDrawImage</span>(url<span class="op">,</span> canvas) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ctx <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getContext</span>(<span class="st">&#39;2d&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Fetch the raw binary data</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(url)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> blob <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">blob</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Decode the image off the main thread</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> imageBitmap <span class="op">=</span> <span class="cf">await</span> <span class="fu">createImageBitmap</span>(blob)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 3. Draw directly to canvas with zero decoding lag</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">drawImage</span>(imageBitmap<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 4. Free up memory once finished</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  imageBitmap<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-cropping-and-resizing-during-decoding">2. Cropping and
+Resizing During Decoding</h3>
+<p><code>createImageBitmap()</code> allows you to crop and transform
+images directly during the decode step, avoiding extra processing steps
+later:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">loadCroppedSprite</span>(blob) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Syntax: createImageBitmap(image, sx, sy, sw, sh, options)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> spriteBitmap <span class="op">=</span> <span class="cf">await</span> <span class="fu">createImageBitmap</span>(blob<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">64</span><span class="op">,</span> <span class="dv">64</span><span class="op">,</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">resizeWidth</span><span class="op">:</span> <span class="dv">128</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">resizeHeight</span><span class="op">:</span> <span class="dv">128</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">resizeQuality</span><span class="op">:</span> <span class="st">&#39;high&#39;</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">imageOrientation</span><span class="op">:</span> <span class="st">&#39;flipY&#39;</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">premultiplyAlpha</span><span class="op">:</span> <span class="st">&#39;premultiply&#39;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> spriteBitmap<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Key configuration options include:</p>
+<ul>
+<li><code>imageOrientation</code>: Specify whether to orient the image
+as-is (<code>'from-image'</code>) or flip it vertically
+(<code>'flipY'</code>).</li>
+<li><code>premultiplyAlpha</code>: Dictates alpha channel handling
+(<code>'none'</code>, <code>'premultiply'</code>, or
+<code>'default'</code>).</li>
+<li><code>colorSpaceConversion</code>: Enables or disables color space
+conversion (<code>'none'</code> or <code>'default'</code>).</li>
+<li><code>resizeWidth</code> / <code>resizeHeight</code>: Resizes the
+decoded bitmap during generation.</li>
+<li><code>resizeQuality</code>: Scaling algorithm
+(<code>'pixelated'</code>, <code>'low'</code>, <code>'medium'</code>, or
+<code>'high'</code>).</li>
+</ul>
+<hr />
+<h2 id="web-workers-and-true-parallelism">Web Workers and True
+Parallelism</h2>
+<p>One of the greatest advantages of <code>ImageBitmap</code> is that it
+implements the <code>Transferable</code> interface and is available in
+Web Worker contexts (<code>WorkerGlobalScope</code>).</p>
+<p>You can fetch, parse, and decode images entirely inside a Web
+Worker:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// worker.js</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> <span class="kw">async</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> imageUrl <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(imageUrl)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> blob <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">blob</span>()<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Decode inside the worker</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> imageBitmap <span class="op">=</span> <span class="cf">await</span> <span class="fu">createImageBitmap</span>(blob)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Transfer ownership to the main thread with zero memory copy overhead</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  self<span class="op">.</span><span class="fu">postMessage</span>({ imageBitmap }<span class="op">,</span> [imageBitmap])<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>On the main thread:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// main.js</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="st">&#39;worker.js&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { imageBitmap } <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ctx <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;canvas&#39;</span>)<span class="op">.</span><span class="fu">getContext</span>(<span class="st">&#39;2d&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Render without blocking the main UI</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">drawImage</span>(imageBitmap<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  imageBitmap<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="fu">postMessage</span>(<span class="st">&#39;https://example.com/asset.png&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<p>Alternatively, when combined with <code>OffscreenCanvas</code>, an
+entire graphics pipeline—from network request to decoding and
+rendering—can execute completely isolated from the UI thread.</p>
+<hr />
+<h2 id="memory-management">Memory Management</h2>
+<p>Because <code>ImageBitmap</code> stores uncompressed raster graphics,
+large images can consume substantial memory. Garbage collection will
+eventually clean up unused bitmaps, but timing is non-deterministic.</p>
+<p>To maintain optimal performance, explicitly release memory as soon as
+the bitmap is no longer required:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>imageBitmap<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span></code></pre></div>
+<p>After calling <code>close()</code>, the <code>ImageBitmap</code>
+becomes invalid, and any attempt to draw it will throw an
+<code>InvalidStateError</code>.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

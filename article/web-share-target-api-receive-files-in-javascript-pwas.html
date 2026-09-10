@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Share Target API: Receive Files in JavaScript PWAs - javascript</title>
+    <meta name="description" content="The Web Share Target API allows installed Progressive Web Apps (PWAs) to register with the host operating system as share targets, enabling them to receive content—including text, links, and files—shared from other native apps or web pages. This arti">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-share-target-api-receive-files-in-javascript-pwas">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Web Share Target API: Receive Files in JavaScript PWAs - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-share-target-api-receive-files-in-javascript-pwas" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Web Share Target API allows installed Progressive Web Apps (PWAs) to register with the host operating system as share targets, enabling them to receive content—including text, links, and files—shared from other native apps or web pages. This arti" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="web-share-target-api-receive-files-in-javascript-pwas">Web Share
+Target API: Receive Files in JavaScript PWAs</h1>
+<p>The Web Share Target API allows installed Progressive Web Apps (PWAs)
+to register with the host operating system as share targets, enabling
+them to receive content—including text, links, and files—shared from
+other native apps or web pages. This article explains what the Web Share
+Target API is, how to configure the Web App Manifest to accept shared
+files, and how to handle incoming file payloads using a JavaScript
+Service Worker.</p>
+<h2 id="what-is-the-web-share-target-api">What is the Web Share Target
+API?</h2>
+<p>The Web Share Target API is the receiving counterpart to the Web
+Share API. While the Web Share API allows a web app to trigger the
+native operating system's share sheet to send data, the Web Share Target
+API allows an installed PWA to appear in that share sheet as a
+destination.</p>
+<p>Once an app is installed, the operating system recognizes it as a
+potential handler for specific MIME types and file extensions. When a
+user shares a file from another application (such as a photo gallery,
+file manager, or native browser), the OS launches the PWA and routes the
+shared data to it.</p>
+<h2 id="step-1-registering-file-types-in-the-web-app-manifest">Step 1:
+Registering File Types in the Web App Manifest</h2>
+<p>To enable a PWA to receive files, you must define the
+<code>share_target</code> member inside the <code>manifest.json</code>
+file.</p>
+<p>Because files require binary data transfer, the share target
+configuration must use the <code>POST</code> method and the
+<code>multipart/form-data</code> encoding type.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;File Receiver PWA&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;short_name&quot;</span><span class="fu">:</span> <span class="st">&quot;FileReceiver&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;start_url&quot;</span><span class="fu">:</span> <span class="st">&quot;/&quot;</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;display&quot;</span><span class="fu">:</span> <span class="st">&quot;standalone&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;share_target&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;action&quot;</span><span class="fu">:</span> <span class="st">&quot;/handle-shared-file&quot;</span><span class="fu">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;method&quot;</span><span class="fu">:</span> <span class="st">&quot;POST&quot;</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;enctype&quot;</span><span class="fu">:</span> <span class="st">&quot;multipart/form-data&quot;</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;params&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;share_title&quot;</span><span class="fu">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;text&quot;</span><span class="fu">:</span> <span class="st">&quot;share_text&quot;</span><span class="fu">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;share_url&quot;</span><span class="fu">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;files&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;shared_files&quot;</span><span class="fu">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>          <span class="dt">&quot;accept&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;image/*&quot;</span><span class="ot">,</span> <span class="st">&quot;application/pdf&quot;</span><span class="ot">]</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="fu">}</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>      <span class="ot">]</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="key-configuration-fields">Key Configuration Fields:</h3>
+<ul>
+<li><strong><code>action</code></strong>: The URL endpoint within your
+app that handles the incoming share request.</li>
+<li><strong><code>method</code></strong>: Must be set to
+<code>"POST"</code> to support file uploads.</li>
+<li><strong><code>enctype</code></strong>: Must be set to
+<code>"multipart/form-data"</code>.</li>
+<li><strong><code>params.files</code></strong>: An array defining the
+form field name (<code>name</code>) and the supported MIME types or
+extensions (<code>accept</code>).</li>
+</ul>
+<h2 id="step-2-intercepting-shared-files-in-the-service-worker">Step 2:
+Intercepting Shared Files in the Service Worker</h2>
+<p>When the user selects your PWA from the share sheet, the browser
+issues a <code>POST</code> request to the URL specified in
+<code>action</code>. Because this request is not processed by a
+traditional web backend on a static/client-only PWA, a Service Worker
+must intercept the <code>fetch</code> event, extract the file data, and
+transfer it to the client application.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// service-worker.js</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;fetch&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> url <span class="op">=</span> <span class="kw">new</span> <span class="fu">URL</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span><span class="op">.</span><span class="at">url</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (url<span class="op">.</span><span class="at">pathname</span> <span class="op">===</span> <span class="st">&#39;/handle-shared-file&#39;</span> <span class="op">&amp;&amp;</span> <span class="bu">event</span><span class="op">.</span><span class="at">request</span><span class="op">.</span><span class="at">method</span> <span class="op">===</span> <span class="st">&#39;POST&#39;</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="fu">respondWith</span>(</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      (<span class="kw">async</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> formData <span class="op">=</span> <span class="cf">await</span> <span class="bu">event</span><span class="op">.</span><span class="at">request</span><span class="op">.</span><span class="fu">formData</span>()<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> files <span class="op">=</span> formData<span class="op">.</span><span class="fu">getAll</span>(<span class="st">&#39;shared_files&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Store the files temporarily (e.g., in IndexedDB or Cache API)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">await</span> <span class="fu">storeSharedFiles</span>(files)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Redirect the user to the processing page in the PWA</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> Response<span class="op">.</span><span class="fu">redirect</span>(<span class="st">&#39;/view-files&#39;</span><span class="op">,</span> <span class="dv">303</span>)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      })()</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">storeSharedFiles</span>(files) {</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Example: Persist files using IndexedDB or Cache Storage</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cache <span class="op">=</span> <span class="cf">await</span> caches<span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;shared-files-cache&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> file <span class="kw">of</span> files) {</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> cache<span class="op">.</span><span class="fu">put</span>(<span class="vs">`/shared/</span><span class="sc">${</span>file<span class="op">.</span><span class="at">name</span><span class="sc">}</span><span class="vs">`</span><span class="op">,</span> <span class="kw">new</span> <span class="fu">Response</span>(file))<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="step-3-accessing-the-shared-file-in-the-ui">Step 3: Accessing
+the Shared File in the UI</h2>
+<p>Once the Service Worker redirects to the destination page
+(<code>/view-files</code>), the application's client-side JavaScript can
+retrieve the cached files and render them to the user.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// app.js (running on /view-files)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;DOMContentLoaded&#39;</span><span class="op">,</span> <span class="kw">async</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cache <span class="op">=</span> <span class="cf">await</span> caches<span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;shared-files-cache&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> requests <span class="op">=</span> <span class="cf">await</span> cache<span class="op">.</span><span class="fu">keys</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> request <span class="kw">of</span> requests) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (request<span class="op">.</span><span class="at">url</span><span class="op">.</span><span class="fu">includes</span>(<span class="st">&#39;/shared/&#39;</span>)) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> cache<span class="op">.</span><span class="fu">match</span>(request)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> fileBlob <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">blob</span>()<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Process or display the file (e.g., create an Object URL)</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> fileUrl <span class="op">=</span> URL<span class="op">.</span><span class="fu">createObjectURL</span>(fileBlob)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> img <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElement</span>(<span class="st">&#39;img&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>      img<span class="op">.</span><span class="at">src</span> <span class="op">=</span> fileUrl<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="fu">appendChild</span>(img)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Clean up cache entry after retrieval</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>      <span class="cf">await</span> cache<span class="op">.</span><span class="fu">delete</span>(request)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="requirements-and-considerations">Requirements and
+Considerations</h2>
+<ul>
+<li><strong>Installation Required</strong>: The PWA must be installed on
+the user's device for the operating system to register it in the share
+menu.</li>
+<li><strong>HTTPS</strong>: The Web Share Target API requires a secure
+context (HTTPS).</li>
+<li><strong>MIME Type Accuracy</strong>: Ensure the <code>accept</code>
+attribute in the manifest accurately lists the MIME types your
+application supports, as unsupported types will be filtered out by the
+OS share dialog.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

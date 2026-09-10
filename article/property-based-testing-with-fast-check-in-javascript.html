@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property-Based Testing with fast-check in JavaScript - javascript</title>
+    <meta name="description" content="Property-based testing is a software testing methodology that validates software behavior against universal specifications across hundreds of automatically generated inputs rather than a handful of manually written examples. In the JavaScript ecosystem,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/property-based-testing-with-fast-check-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Property-Based Testing with fast-check in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/property-based-testing-with-fast-check-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Property-based testing is a software testing methodology that validates software behavior against universal specifications across hundreds of automatically generated inputs rather than a handful of manually written examples. In the JavaScript ecosystem," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="property-based-testing-with-fast-check-in-javascript">Property-Based
+Testing with fast-check in JavaScript</h1>
+<p>Property-based testing is a software testing methodology that
+validates software behavior against universal specifications across
+hundreds of automatically generated inputs rather than a handful of
+manually written examples. In the JavaScript ecosystem, the
+<strong>fast-check</strong> library serves as the industry standard for
+this approach. By utilizing configurable input generators called
+<em>arbitraries</em>, <code>fast-check</code> automatically generates
+diverse, randomized, and edge-case inputs to stress-test your code,
+while automatically "shrinking" any detected failures to the simplest
+possible counterexample for easy debugging.</p>
+<hr />
+<h3 id="what-is-property-based-testing">What Is Property-Based
+Testing?</h3>
+<p>Traditional unit tests are typically example-based: developers
+provide explicit inputs and assert expected outputs (e.g.,
+<code>expect(add(2, 2)).toBe(4)</code>). While effective for happy
+paths, this approach relies heavily on the tester's ability to
+anticipate edge cases such as empty arrays, negative numbers,
+non-standard unicode characters, or floating-point anomalies.</p>
+<p>Property-based testing (PBT) shifts the focus from specific examples
+to general system <em>invariants</em>—rules that must always hold true
+regardless of the input. For example:</p>
+<ul>
+<li><strong>Round-trip (serialization):</strong> Deserializing
+serialized data should always recreate the original object
+(<code>deserialize(serialize(x)) === x</code>).</li>
+<li><strong>Idempotence:</strong> Running an operation multiple times
+yields the same result as running it once
+(<code>sort(sort(arr)) === sort(arr)</code>).</li>
+<li><strong>Invariance:</strong> Sorting an array should never change
+its length.</li>
+</ul>
+<h3 id="how-fast-check-generates-test-cases">How fast-check Generates
+Test Cases</h3>
+<p>The <code>fast-check</code> framework automates property-based
+testing through three main phases: generation, assertion, and
+shrinking.</p>
+<h4 id="1-defining-inputs-with-arbitraries">1. Defining Inputs with
+Arbitraries</h4>
+<p>At the core of <code>fast-check</code> are
+<strong>arbitraries</strong> (<code>fc.Arbitrary</code>). An arbitrary
+defines the rules, types, and constraints for the data to generate.
+<code>fast-check</code> includes built-in primitives such as
+<code>fc.integer()</code>, <code>fc.string()</code>,
+<code>fc.boolean()</code>, <code>fc.date()</code>, and
+<code>fc.array()</code>, as well as composable combinators to generate
+complex data structures.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> fc <span class="im">from</span> <span class="st">&#39;fast-check&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// An arbitrary generating an object representing a user</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userArbitrary <span class="op">=</span> fc<span class="op">.</span><span class="fu">record</span>({</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">id</span><span class="op">:</span> fc<span class="op">.</span><span class="fu">uuid</span>()<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> fc<span class="op">.</span><span class="fu">string</span>({ <span class="dt">minLength</span><span class="op">:</span> <span class="dv">1</span> })<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">age</span><span class="op">:</span> fc<span class="op">.</span><span class="fu">integer</span>({ <span class="dt">min</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">max</span><span class="op">:</span> <span class="dv">120</span> })<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">email</span><span class="op">:</span> fc<span class="op">.</span><span class="fu">emailAddress</span>()</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="2-executing-properties-and-random-generation">2. Executing
+Properties and Random Generation</h4>
+<p>To run a test, you define a property using <code>fc.property()</code>
+and execute it via <code>fc.assert()</code>. By default,
+<code>fast-check</code> runs the assertion 100 times per test using
+distinct, pseudo-randomly generated datasets.</p>
+<p>The generation engine does not merely generate uniform random data;
+it deliberately biases generation toward common boundary values, such
+as:</p>
+<ul>
+<li><code>0</code>, <code>-1</code>, and <code>MAX_SAFE_INTEGER</code>
+for numbers.</li>
+<li>Empty strings, whitespace, and special unicode glyphs for
+strings.</li>
+<li>Empty arrays and deeply nested structures for collections.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> fc <span class="im">from</span> <span class="st">&#39;fast-check&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Testing that array reversal preserves length</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>fc<span class="op">.</span><span class="fu">assert</span>(</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  fc<span class="op">.</span><span class="fu">property</span>(fc<span class="op">.</span><span class="fu">array</span>(fc<span class="op">.</span><span class="fu">integer</span>())<span class="op">,</span> (arr) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> reversed <span class="op">=</span> [<span class="op">...</span>arr]<span class="op">.</span><span class="fu">reverse</span>()<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> reversed<span class="op">.</span><span class="at">length</span> <span class="op">===</span> arr<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span></code></pre></div>
+<h4 id="3-automatic-shrinking">3. Automatic Shrinking</h4>
+<p>The defining feature of <code>fast-check</code>'s generation pipeline
+is <strong>shrinking</strong>. When <code>fast-check</code> discovers an
+input that triggers an assertion error or an unhandled exception, the
+initial failing input is often complex (e.g., an array of 85 mixed
+positive and negative numbers).</p>
+<p>Instead of presenting this raw failure, <code>fast-check</code>
+systematically reduces the input step-by-step to isolate the root
+cause:</p>
+<ol type="1">
+<li>It reduces collections toward empty arrays or smaller lengths.</li>
+<li>It reduces numbers toward zero.</li>
+<li>It simplifies characters in strings toward basic ASCII.</li>
+</ol>
+<p>Once it finds the smallest input that still triggers the failure
+(e.g., <code>[-1]</code>), it halts and reports this minimal
+reproducible example, drastically reducing debugging time.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

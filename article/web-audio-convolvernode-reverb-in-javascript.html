@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Audio ConvolverNode Reverb in JavaScript - javascript</title>
+    <meta name="description" content="The Web Audio API's ConvolverNode provides a powerful way to simulate natural acoustic reverberation directly within web browsers using JavaScript. By utilizing a digital signal processing technique known as convolution, this node processes an incoming d">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-audio-convolvernode-reverb-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Web Audio ConvolverNode Reverb in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-audio-convolvernode-reverb-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Web Audio API's ConvolverNode provides a powerful way to simulate natural acoustic reverberation directly within web browsers using JavaScript. By utilizing a digital signal processing technique known as convolution, this node processes an incoming d" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="web-audio-convolvernode-reverb-in-javascript">Web Audio
+ConvolverNode Reverb in JavaScript</h1>
+<p>The Web Audio API's <code>ConvolverNode</code> provides a powerful
+way to simulate natural acoustic reverberation directly within web
+browsers using JavaScript. By utilizing a digital signal processing
+technique known as convolution, this node processes an incoming dry
+audio signal against an "impulse response" file—a pre-recorded acoustic
+profile of a physical space. This article explains the underlying
+acoustics behind convolution reverb, how the <code>ConvolverNode</code>
+calculates realistic acoustic reflections, and how to implement it
+efficiently in your JavaScript applications.</p>
+<h3 id="understanding-the-physics-impulse-responses">Understanding the
+Physics: Impulse Responses</h3>
+<p>To reproduce the acoustic environment of a specific space (such as a
+cathedral, tunnel, or recording studio), audio engineers capture an
+<strong>Impulse Response (IR)</strong>.</p>
+<p>An impulse is a sudden, transient burst of sound across all audible
+frequencies, such as a starter pistol, popped balloon, or a calibrated
+sine sweep. As the sound travels through the room, it reflects off
+walls, floors, and ceilings. Hard surfaces reflect high frequencies,
+while soft materials absorb them. The microphone captures both the
+direct sound and the thousands of subsequent reflections (early
+reflections and late diffuse decay). This recorded audio file is the
+impulse response: a complete mathematical fingerprint of how that
+physical environment alters sound over time.</p>
+<h3 id="the-mathematics-of-convolution">The Mathematics of
+Convolution</h3>
+<p>The <code>ConvolverNode</code> applies a mathematical operation
+called <strong>convolution</strong> to merge two distinct signals:</p>
+<ol type="1">
+<li><strong>The input signal (<span
+class="math inline">\(x[t]\)</span>):</strong> The dry audio you want to
+process (e.g., a synthesized tone or clean vocal).</li>
+<li><strong>The impulse response (<span
+class="math inline">\(h[t]\)</span>):</strong> The acoustic profile of
+the room.</li>
+</ol>
+<p>In discrete time, the output <span
+class="math inline">\(y[n]\)</span> is calculated by multiplying each
+sample of the input audio by every sample of the impulse response,
+summing the products over time:</p>
+<p><span class="math display">\[y[n] = \sum_{k=0}^{M} x[n - k] \cdot
+h[k]\]</span></p>
+<p>Because calculating this directly in the time domain is
+computationally expensive for long reverbs, the Web Audio API performs
+this calculation in the frequency domain using the Fast Fourier
+Transform (FFT). It multiplies the frequency spectra of the two signals
+and performs an Inverse FFT to return the audio to the time domain. This
+drastically reduces CPU load while maintaining low-latency playback.</p>
+<h3 id="implementing-convolvernode-in-javascript">Implementing
+ConvolverNode in JavaScript</h3>
+<p>Using the <code>ConvolverNode</code> involves initializing an
+<code>AudioContext</code>, fetching an IR audio file, decoding it into
+an <code>AudioBuffer</code>, and routing the audio graph.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Initialize AudioContext</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> audioCtx <span class="op">=</span> <span class="kw">new</span> (<span class="bu">window</span><span class="op">.</span><span class="at">AudioContext</span> <span class="op">||</span> <span class="bu">window</span><span class="op">.</span><span class="at">webkitAudioContext</span>)()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Create the ConvolverNode</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> convolver <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createConvolver</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Load the Impulse Response file</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">setupReverb</span>() {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;cathedral-impulse.wav&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> arrayBuffer <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">arrayBuffer</span>()<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Decode audio data into an AudioBuffer</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> decodedAudio <span class="op">=</span> <span class="cf">await</span> audioCtx<span class="op">.</span><span class="fu">decodeAudioData</span>(arrayBuffer)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Assign the impulse response to the convolver</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  convolver<span class="op">.</span><span class="at">buffer</span> <span class="op">=</span> decodedAudio<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co">// 4. Route the Audio Graph with a Wet/Dry mix</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> source <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createBufferSource</span>()<span class="op">;</span> <span class="co">// Or createMediaElementSource()</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dryGain <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createGain</span>()<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wetGain <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createGain</span>()<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="co">// Balance the direct sound and the reverb effect</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>dryGain<span class="op">.</span><span class="at">gain</span><span class="op">.</span><span class="at">value</span> <span class="op">=</span> <span class="fl">0.8</span><span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>wetGain<span class="op">.</span><span class="at">gain</span><span class="op">.</span><span class="at">value</span> <span class="op">=</span> <span class="fl">0.4</span><span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="co">// Direct (Dry) path</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>source<span class="op">.</span><span class="fu">connect</span>(dryGain)<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>dryGain<span class="op">.</span><span class="fu">connect</span>(audioCtx<span class="op">.</span><span class="at">destination</span>)<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="co">// Effect (Wet) path</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>source<span class="op">.</span><span class="fu">connect</span>(convolver)<span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>convolver<span class="op">.</span><span class="fu">connect</span>(wetGain)<span class="op">;</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>wetGain<span class="op">.</span><span class="fu">connect</span>(audioCtx<span class="op">.</span><span class="at">destination</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="why-convolution-outperforms-algorithmic-reverb">Why Convolution
+Outperforms Algorithmic Reverb</h3>
+<p>Traditional algorithmic reverbs generate artificial reflections using
+networks of delay lines, feedback loops, and comb or all-pass filters.
+While flexible and easy to parameterize, algorithmic reverbs often
+exhibit metallic artifacts or an unnatural sound because they
+approximate room geometry mathematically.</p>
+<p>In contrast, the <code>ConvolverNode</code>:</p>
+<ul>
+<li><strong>Captures Real-World Imperfections:</strong> Natural
+irregularities in surface geometry, air absorption, and complex
+multi-point reflections are inherently preserved in the IR sample.</li>
+<li><strong>Maintains Stereo Imaging:</strong> True stereo or
+multi-channel impulse responses preserve the interaural time differences
+(ITD) and interaural level differences (ILD) that the human ear uses to
+localize sound in a 3D space.</li>
+<li><strong>Is Highly Versatile:</strong> Beyond acoustic spaces,
+convolution can simulate the non-linear frequency resonance of guitar
+cabinets, vintage microphones, and hardware equalizers.</li>
+</ul>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<p>While efficient, <code>ConvolverNode</code> execution demands more
+memory and processing power than standard audio nodes. Long impulse
+responses (such as reverbs exceeding five seconds) require larger
+buffers and longer FFT computations. To ensure smooth performance across
+mobile and lower-end desktop devices, normalize impulse files, trim
+unnecessary silence from the end of the IR buffer, and maintain sensible
+audio sample rates.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical State Machines in JavaScript with XState - javascript</title>
+    <meta name="description" content="Managing complex state is one of the most challenging aspects of modern web development, often leading to unpredictable bugs and "spaghetti code." This article provides a clear introduction to statecharts—an extension of standard finite state machines">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/hierarchical-state-machines-in-javascript-with-xstate">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Hierarchical State Machines in JavaScript with XState - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/hierarchical-state-machines-in-javascript-with-xstate" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Managing complex state is one of the most challenging aspects of modern web development, often leading to unpredictable bugs and "spaghetti code." This article provides a clear introduction to statecharts—an extension of standard finite state machines" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="hierarchical-state-machines-in-javascript-with-xstate">Hierarchical
+State Machines in JavaScript with XState</h1>
+<p>Managing complex state is one of the most challenging aspects of
+modern web development, often leading to unpredictable bugs and
+"spaghetti code." This article provides a clear introduction to
+statecharts—an extension of standard finite state machines—and
+demonstrates how the XState library implements hierarchical (compound)
+state machines in JavaScript to create scalable, predictable, and robust
+application architectures.</p>
+<h2 id="what-is-a-statechart">What is a Statechart?</h2>
+<p>A traditional Finite State Machine (FSM) models a system that can
+exist in exactly one of a limited number of states at any given time.
+While FSMs work well for simple logic, complex applications suffer from
+the "state explosion problem," where adding a new variable or condition
+exponentially multiplies the total number of possible states.</p>
+<p>To solve this, computer scientist David Harel introduced
+<strong>statecharts</strong> in 1987. Statecharts extend FSMs by adding
+several powerful features:</p>
+<ul>
+<li><strong>Hierarchy:</strong> States can contain nested
+sub-states.</li>
+<li><strong>Orthogonality (Parallel states):</strong> A system can be in
+multiple states simultaneously across different domains.</li>
+<li><strong>History:</strong> A machine can remember its last active
+sub-state when re-entered.</li>
+<li><strong>Actions and Guards:</strong> Explicit side effects triggered
+on entry, exit, or transition, constrained by boolean conditions.</li>
+</ul>
+<h2 id="understanding-hierarchical-state-machines">Understanding
+Hierarchical State Machines</h2>
+<p>A hierarchical state machine (also called a compound state machine)
+organizes states into a tree-like parent-child structure. Instead of
+treating every condition as a completely independent top-level state, a
+parent state encompasses multiple sub-states.</p>
+<p>Key characteristics include:</p>
+<ul>
+<li><strong>Default Sub-state:</strong> When entering a compound state,
+the machine automatically transitions into a defined
+<code>initial</code> sub-state.</li>
+<li><strong>Event Bubbling:</strong> If an event occurs while in a
+sub-state and that sub-state does not handle the event, the event
+bubbles up to the parent state.</li>
+<li><strong>Common Transitions:</strong> A transition defined on a
+parent state applies to all of its child states, drastically reducing
+boilerplate logic.</li>
+</ul>
+<p>For example, an audio player might have an overall state of
+<code>active</code>, containing nested sub-states like
+<code>playing</code>, <code>paused</code>, and <code>buffering</code>. A
+<code>STOP</code> event defined on <code>active</code> will shut down
+the player regardless of whether it is currently playing or
+buffering.</p>
+<h2 id="implementing-hierarchical-states-in-xstate">Implementing
+Hierarchical States in XState</h2>
+<p>XState is an open-source library that brings statecharts to
+JavaScript and TypeScript. In XState, nested states are created simply
+by defining another <code>states</code> property inside a state
+node.</p>
+<p>Here is a practical implementation using XState:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { createMachine } <span class="im">from</span> <span class="st">&#39;xstate&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> audioPlayerMachine <span class="op">=</span> <span class="fu">createMachine</span>({</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">id</span><span class="op">:</span> <span class="st">&#39;audioPlayer&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">initial</span><span class="op">:</span> <span class="st">&#39;stopped&#39;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">states</span><span class="op">:</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stopped</span><span class="op">:</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">on</span><span class="op">:</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">PLAY</span><span class="op">:</span> <span class="st">&#39;active&#39;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">active</span><span class="op">:</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="co">// &#39;active&#39; is a compound state with its own initial child state</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">initial</span><span class="op">:</span> <span class="st">&#39;buffering&#39;</span><span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">states</span><span class="op">:</span> {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">buffering</span><span class="op">:</span> {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>          <span class="dt">on</span><span class="op">:</span> {</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>            <span class="dt">BUFFERED</span><span class="op">:</span> <span class="st">&#39;playing&#39;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>          }</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        }<span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">playing</span><span class="op">:</span> {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>          <span class="dt">on</span><span class="op">:</span> {</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>            <span class="dt">PAUSE</span><span class="op">:</span> <span class="st">&#39;paused&#39;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>          }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        }<span class="op">,</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>        <span class="dt">paused</span><span class="op">:</span> {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>          <span class="dt">on</span><span class="op">:</span> {</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>            <span class="dt">RESUME</span><span class="op">:</span> <span class="st">&#39;playing&#39;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>          }</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Event handled by the parent state, inherited by all children</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>      <span class="dt">on</span><span class="op">:</span> {</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>        <span class="dt">STOP</span><span class="op">:</span> <span class="st">&#39;stopped&#39;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="how-the-hierarchy-works-in-practice">How the Hierarchy Works in
+Practice</h3>
+<ol type="1">
+<li><strong>State Pathing:</strong> The machine's current state is
+represented as a nested object or string path. For instance, when
+initialized and receiving the <code>PLAY</code> event, the machine
+enters <code>active.buffering</code>.</li>
+<li><strong>Transition Inheritance:</strong> If the system is in
+<code>active.playing</code> and receives a <code>STOP</code> event, the
+child state has no <code>STOP</code> handler. The event bubbles to
+<code>active</code>, which transitions the entire machine back to
+<code>stopped</code>.</li>
+<li><strong>Explicit Targeting:</strong> Child states can target sibling
+states directly (<code>PAUSE: 'paused'</code>), or target outside states
+entirely.</li>
+</ol>
+<h2 id="why-use-hierarchical-states">Why Use Hierarchical States?</h2>
+<p>Implementing hierarchical state machines with XState provides
+distinct advantages over conventional state management:</p>
+<ul>
+<li><strong>Eliminates Impossible States:</strong> By nesting logic,
+components cannot be in conflicting states (such as being both
+<code>paused</code> and <code>stopped</code>).</li>
+<li><strong>Reduces Code Duplication:</strong> Global handlers (such as
+<code>LOGOUT</code>, <code>RESET</code>, or <code>CANCEL</code>) can be
+declared once on a parent state rather than repeated across dozens of
+independent states.</li>
+<li><strong>Visual Verification:</strong> XState machines can be
+inspected and visualized directly using the XState visualizer tools,
+allowing developers and designers to visually audit software logic
+before runtime execution.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

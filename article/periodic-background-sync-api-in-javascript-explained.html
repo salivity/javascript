@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Periodic Background Sync API in JavaScript Explained - javascript</title>
+    <meta name="description" content="The Periodic Background Sync API enables Progressive Web Apps (PWAs) to schedule recurring data synchronization tasks that run in the background, even when the web application is closed. This article covers what the Periodic Background Sync API is, how i">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/periodic-background-sync-api-in-javascript-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Periodic Background Sync API in JavaScript Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/periodic-background-sync-api-in-javascript-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Periodic Background Sync API enables Progressive Web Apps (PWAs) to schedule recurring data synchronization tasks that run in the background, even when the web application is closed. This article covers what the Periodic Background Sync API is, how i" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="periodic-background-sync-api-in-javascript-explained">Periodic
+Background Sync API in JavaScript Explained</h1>
+<p>The Periodic Background Sync API enables Progressive Web Apps (PWAs)
+to schedule recurring data synchronization tasks that run in the
+background, even when the web application is closed. This article covers
+what the Periodic Background Sync API is, how it works alongside service
+workers, the JavaScript implementation required to register and execute
+periodic tasks, and the specific browser constraints governing its
+execution.</p>
+<h2 id="what-is-the-periodic-background-sync-api">What is the Periodic
+Background Sync API?</h2>
+<p>The Periodic Background Sync API allows web applications to
+periodically fetch fresh data, such as news articles, weather updates,
+or feed content, in the background. Unlike the standard Background Sync
+API, which triggers a one-time sync as soon as network connectivity is
+restored, the Periodic Background Sync API triggers sync events at
+recurring intervals.</p>
+<p>This capability reduces load times by pre-fetching data, ensuring
+users see updated content immediately upon launching the
+application.</p>
+<h2 id="prerequisites-and-browser-requirements">Prerequisites and
+Browser Requirements</h2>
+<p>Because background execution consumes device battery and network
+data, browsers impose strict requirements before allowing periodic
+synchronization:</p>
+<ol type="1">
+<li><strong>PWA Installation:</strong> The application typically must be
+installed on the user's device as a PWA.</li>
+<li><strong>Site Engagement Score:</strong> Browsers (such as
+Chromium-based browsers) use a Site Engagement score to determine if the
+user interacts with the app frequently enough to justify background
+resource usage.</li>
+<li><strong>HTTPS:</strong> The site must be served over a secure HTTPS
+connection (or <code>localhost</code> for development).</li>
+<li><strong>Permissions:</strong> The user or browser must grant the
+<code>periodic-background-sync</code> permission.</li>
+</ol>
+<h2 id="how-javascript-schedules-recurring-tasks">How JavaScript
+Schedules Recurring Tasks</h2>
+<p>Scheduling a periodic task involves two main parts: requesting
+permission and registering the task in the main application script, and
+handling the event inside the service worker.</p>
+<h3 id="1-check-for-support-and-register-the-task">1. Check for Support
+and Register the Task</h3>
+<p>In your main application JavaScript file, verify that the browser
+supports the API, check permissions, and register a periodic sync tag
+with a minimum interval.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">registerPeriodicSync</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> registration <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">serviceWorker</span><span class="op">.</span><span class="at">ready</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Check if Periodic Background Sync is supported</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="st">&#39;periodicSync&#39;</span> <span class="kw">in</span> registration) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Check permission status</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> status <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">permissions</span><span class="op">.</span><span class="fu">query</span>({</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;periodic-background-sync&#39;</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (status<span class="op">.</span><span class="at">state</span> <span class="op">===</span> <span class="st">&#39;granted&#39;</span>) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="cf">try</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Register periodic sync with a tag and minimum interval (in milliseconds)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">await</span> registration<span class="op">.</span><span class="at">periodicSync</span><span class="op">.</span><span class="fu">register</span>(<span class="st">&#39;update-latest-news&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>          <span class="dt">minInterval</span><span class="op">:</span> <span class="dv">24</span> <span class="op">*</span> <span class="dv">60</span> <span class="op">*</span> <span class="dv">60</span> <span class="op">*</span> <span class="dv">1000</span><span class="op">,</span> <span class="co">// 24 hours</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Periodic background sync registered successfully.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      } <span class="cf">catch</span> (error) {</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Periodic background sync registration failed:&#39;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Periodic background sync permission not granted.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Periodic Background Sync is not supported by this browser.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-handle-the-event-in-the-service-worker">2. Handle the Event in
+the Service Worker</h3>
+<p>Once registered, the browser fires the <code>periodicsync</code>
+event inside your service worker based on the specified interval and
+device conditions.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// service-worker.js</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;periodicsync&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">tag</span> <span class="op">===</span> <span class="st">&#39;update-latest-news&#39;</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="fu">waitUntil</span>(<span class="fu">fetchAndCacheLatestNews</span>())<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">fetchAndCacheLatestNews</span>() {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/news/latest&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> data <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">json</span>()<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cache <span class="op">=</span> <span class="cf">await</span> caches<span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;news-cache-v1&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> cache<span class="op">.</span><span class="fu">put</span>(<span class="st">&#39;/api/news/latest&#39;</span><span class="op">,</span> <span class="kw">new</span> <span class="fu">Response</span>(<span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(data)))<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Background sync completed: News cache updated.&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (error) {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Failed to update news in background:&#39;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="managing-registered-tags">Managing Registered Tags</h2>
+<p>You can inspect and remove registered sync tasks using the
+<code>getTags()</code> and <code>unregister()</code> methods on the
+<code>periodicSync</code> manager.</p>
+<h3 id="retrieve-active-sync-tags">Retrieve Active Sync Tags</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> registration <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">serviceWorker</span><span class="op">.</span><span class="at">ready</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&#39;periodicSync&#39;</span> <span class="kw">in</span> registration) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> tags <span class="op">=</span> <span class="cf">await</span> registration<span class="op">.</span><span class="at">periodicSync</span><span class="op">.</span><span class="fu">getTags</span>()<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Active periodic sync tags:&#39;</span><span class="op">,</span> tags)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="unregister-a-sync-tag">Unregister a Sync Tag</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> registration <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">serviceWorker</span><span class="op">.</span><span class="at">ready</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&#39;periodicSync&#39;</span> <span class="kw">in</span> registration) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> registration<span class="op">.</span><span class="at">periodicSync</span><span class="op">.</span><span class="fu">unregister</span>(<span class="st">&#39;update-latest-news&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Periodic sync tag removed.&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="important-execution-behavior">Important Execution Behavior</h2>
+<p>The <code>minInterval</code> parameter is only a suggested minimum
+value. The browser does not guarantee exact timing like a traditional
+<code>setInterval</code> or server-side cron job. The actual execution
+frequency is dynamically calculated by the operating system and browser
+based on:</p>
+<ul>
+<li>The device's battery level and charging state.</li>
+<li>Current network conditions (e.g., whether the device is connected to
+Wi-Fi).</li>
+<li>How frequently the user opens the application.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

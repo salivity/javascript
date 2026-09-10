@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Engines Optimize Code Using Type Feedback - javascript</title>
+    <meta name="description" content="Modern JavaScript engines achieve near-native execution speeds by continuously profiling runtime data and compiling dynamically typed code into specialized machine instructions. This article explores the internal pipeline of JavaScript engines—specific">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-engines-optimize-code-using-type-feedback">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Engines Optimize Code Using Type Feedback - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-engines-optimize-code-using-type-feedback" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern JavaScript engines achieve near-native execution speeds by continuously profiling runtime data and compiling dynamically typed code into specialized machine instructions. This article explores the internal pipeline of JavaScript engines—specific" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-engines-optimize-code-using-type-feedback">How
+JavaScript Engines Optimize Code Using Type Feedback</h1>
+<p>Modern JavaScript engines achieve near-native execution speeds by
+continuously profiling runtime data and compiling dynamically typed code
+into specialized machine instructions. This article explores the
+internal pipeline of JavaScript engines—specifically how interpreters
+collect type feedback through inline caches, how Just-In-Time (JIT)
+optimizing compilers leverage this metadata to eliminate runtime
+overhead, and how deoptimization safeguards execution when type
+assumptions fail.</p>
+<h2 id="the-role-of-the-interpreter-and-type-profiling">The Role of the
+Interpreter and Type Profiling</h2>
+<p>JavaScript is a dynamically typed language, meaning variable types
+are determined at runtime rather than during compilation. When a script
+runs, the baseline interpreter (such as V8's Ignition or SpiderMonkey's
+Interpreter) converts the source code into bytecode and executes it.</p>
+<p>As the interpreter executes the bytecode, it monitors "hot"
+functions—code blocks that are called repeatedly. Alongside execution,
+the interpreter records the shapes of objects and the data types passed
+into operations via Feedback Vectors. This mechanism tracks:</p>
+<ul>
+<li>The primitive types passed to arithmetic operators (e.g.,
+<code>number</code> vs. <code>string</code> in an addition
+operation).</li>
+<li>The structural shapes (often called Hidden Classes, Shapes, or Maps)
+of objects accessed in property lookups.</li>
+</ul>
+<h2 id="inline-caches-ics">Inline Caches (ICs)</h2>
+<p>Inline Caches are the primary vehicle for recording and leveraging
+type feedback at specific bytecode locations. When a property access or
+operation occurs, the IC records the observed structure:</p>
+<ol type="1">
+<li><strong>Monomorphic:</strong> The operation has only ever
+encountered a single type or object shape. This is the ideal state for
+optimization.</li>
+<li><strong>Polymorphic:</strong> The operation has encountered a small,
+limited set of distinct types (typically between 2 and 4).</li>
+<li><strong>Megamorphic:</strong> The operation has encountered many
+different types. The engine gives up on specialization and falls back to
+a generic, slower lookup path.</li>
+</ol>
+<p>The feedback vector stores these states, creating a historical
+profile of the program's execution patterns.</p>
+<h2 id="speculative-optimization-by-the-jit-compiler">Speculative
+Optimization by the JIT Compiler</h2>
+<p>Once a function is deemed hot enough, the optimizing JIT compiler
+(such as V8's TurboFan or SpiderMonkey's WarpMonkey) takes the bytecode
+along with the accumulated type feedback. Instead of generating
+defensive machine code loaded with dynamic type checks, the compiler
+uses <strong>speculative optimization</strong>:</p>
+<ul>
+<li><strong>Type Specialization:</strong> If an addition operation
+(<code>+</code>) has only ever seen integers, the compiler replaces
+generic JS addition logic with a single CPU instruction for integer
+addition.</li>
+<li><strong>Eliminating Hidden Class Lookups:</strong> For monomorphic
+property accesses, the compiler calculates the fixed memory offset of
+the property directly, bypassing runtime dictionary or shape table
+lookups.</li>
+<li><strong>Function Inlining:</strong> Small functions with stable
+return types are inlined directly into the caller, eliminating function
+call overhead and exposing further optimization opportunities.</li>
+<li><strong>Dead Code Elimination:</strong> Branches of code guarded by
+type checks that the profiler determined are never reached are
+eliminated from the compiled output.</li>
+</ul>
+<h2 id="deoptimization-bailout">Deoptimization (Bailout)</h2>
+<p>Because JavaScript types can change at any moment, optimized machine
+code relies on built-in <strong>guards</strong>—minimal CPU checks that
+verify whether incoming data matches the profiled assumptions.</p>
+<p>If an assumption fails (for instance, a function optimized for
+integers receives a string), the compiled code triggers a
+<strong>deoptimization</strong> (or bailout). The engine discards the
+specialized machine code, updates the feedback vector to reflect the new
+type (moving the state to polymorphic or megamorphic), and safely
+restores the execution state back to the interpreter.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

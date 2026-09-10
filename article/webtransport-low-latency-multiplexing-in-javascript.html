@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebTransport: Low-Latency Multiplexing in JavaScript - javascript</title>
+    <meta name="description" content="This article provides an overview of how the WebTransport API delivers low-latency, bidirectional, and multiplexed client-server communication in modern web applications. You will learn the foundational architecture of WebTransport over HTTP/3 (QUIC), ho">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/webtransport-low-latency-multiplexing-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebTransport: Low-Latency Multiplexing in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/webtransport-low-latency-multiplexing-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the WebTransport API delivers low-latency, bidirectional, and multiplexed client-server communication in modern web applications. You will learn the foundational architecture of WebTransport over HTTP/3 (QUIC), ho" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="webtransport-low-latency-multiplexing-in-javascript">WebTransport:
+Low-Latency Multiplexing in JavaScript</h1>
+<p>This article provides an overview of how the WebTransport API
+delivers low-latency, bidirectional, and multiplexed client-server
+communication in modern web applications. You will learn the
+foundational architecture of WebTransport over HTTP/3 (QUIC), how it
+eliminates head-of-line blocking compared to WebSockets, how to utilize
+both reliable streams and unreliable datagrams in JavaScript, and the
+primary real-time use cases it enables.</p>
+<h2 id="what-is-webtransport">What Is WebTransport?</h2>
+<p>WebTransport is a modern web API designed for low-latency,
+bidirectional communication between a browser client and a server. It is
+built on top of HTTP/3 and the QUIC transport protocol, though it can
+also fall back to HTTP/2. Unlike traditional protocols like WebSockets
+or standard HTTP requests, WebTransport enables applications to send and
+receive data across multiple independent streams as well as through
+unreliable datagrams using a single transport connection.</p>
+<h2 id="how-webtransport-achieves-multiplexing-and-low-latency">How
+WebTransport Achieves Multiplexing and Low Latency</h2>
+<p>WebTransport achieves high performance and low latency through
+several underlying mechanisms provided by the QUIC protocol:</p>
+<h3 id="1-eliminating-head-of-line-blocking">1. Eliminating Head-of-Line
+Blocking</h3>
+<p>In TCP-based protocols like WebSockets, all messages share a single
+ordered queue. If a single packet is lost or delayed, the entire stream
+stalls until that packet is retransmitted and acknowledged. WebTransport
+solves this by allowing multiple independent streams over a single
+connection. If data on Stream A is delayed or dropped, Stream B
+continues processing without interruption.</p>
+<h3 id="2-support-for-unreliable-datagrams">2. Support for Unreliable
+Datagrams</h3>
+<p>WebTransport supports both reliable and unreliable data
+transmission:</p>
+<ul>
+<li><strong>Datagrams:</strong> Send data out-of-order and without
+delivery guarantees (similar to UDP). This provides the lowest possible
+latency for time-sensitive data, such as player positions in online
+gaming or live media telemetry, where dropped packets are preferable to
+delayed ones.</li>
+<li><strong>Streams:</strong> Provide reliable, ordered delivery over
+either unidirectional or bidirectional channels.</li>
+</ul>
+<h3 id="3-faster-connection-establishment">3. Faster Connection
+Establishment</h3>
+<p>Because WebTransport runs over QUIC, it combines the cryptographic
+handshake (TLS 1.3) and the transport handshake into a single step. This
+allows 1-RTT (round-trip time) or 0-RTT connection establishment,
+significantly reducing latency when opening a new session compared to
+TCP-based alternatives.</p>
+<h2 id="using-webtransport-in-javascript">Using WebTransport in
+JavaScript</h2>
+<p>WebTransport integrates natively with the JavaScript Web Streams API
+(<code>ReadableStream</code> and <code>WritableStream</code>), making it
+intuitive to handle asynchronous data pipelines.</p>
+<h3 id="connecting-to-a-server">Connecting to a Server</h3>
+<p>To establish a connection, instantiate the <code>WebTransport</code>
+object with an HTTPS URL and wait for the <code>ready</code>
+promise:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> transport <span class="op">=</span> <span class="kw">new</span> <span class="fu">WebTransport</span>(<span class="st">&quot;https://example.com:4433/webtransport&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> transport<span class="op">.</span><span class="at">ready</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;WebTransport connection established.&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>} <span class="cf">catch</span> (error) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&quot;Connection failed:&quot;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="sending-and-receiving-unreliable-datagrams">Sending and
+Receiving Unreliable Datagrams</h3>
+<p>Datagrams are ideal for low-overhead, discardable messages:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Sending a datagram</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> writer <span class="op">=</span> transport<span class="op">.</span><span class="at">datagrams</span><span class="op">.</span><span class="at">writable</span><span class="op">.</span><span class="fu">getWriter</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> data <span class="op">=</span> <span class="kw">new</span> <span class="bu">Uint8Array</span>([<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span>])<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> writer<span class="op">.</span><span class="fu">write</span>(data)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>writer<span class="op">.</span><span class="fu">releaseLock</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Receiving datagrams</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> reader <span class="op">=</span> transport<span class="op">.</span><span class="at">datagrams</span><span class="op">.</span><span class="at">readable</span><span class="op">.</span><span class="fu">getReader</span>()<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> (<span class="kw">true</span>) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { value<span class="op">,</span> done } <span class="op">=</span> <span class="cf">await</span> reader<span class="op">.</span><span class="fu">read</span>()<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (done) <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Received datagram:&quot;</span><span class="op">,</span> value)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="multiplexing-reliable-streams">Multiplexing Reliable
+Streams</h3>
+<p>You can create multiple independent unidirectional or bidirectional
+streams over the same connection:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Creating and writing to a bidirectional stream</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stream <span class="op">=</span> <span class="cf">await</span> transport<span class="op">.</span><span class="fu">createBidirectionalStream</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> streamWriter <span class="op">=</span> stream<span class="op">.</span><span class="at">writable</span><span class="op">.</span><span class="fu">getWriter</span>()<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> streamWriter<span class="op">.</span><span class="fu">write</span>(<span class="kw">new</span> <span class="fu">TextEncoder</span>()<span class="op">.</span><span class="fu">encode</span>(<span class="st">&quot;Hello Server&quot;</span>))<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> streamWriter<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Reading the response from the same stream</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> streamReader <span class="op">=</span> stream<span class="op">.</span><span class="at">readable</span><span class="op">.</span><span class="fu">getReader</span>()<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> (<span class="kw">true</span>) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { value<span class="op">,</span> done } <span class="op">=</span> <span class="cf">await</span> streamReader<span class="op">.</span><span class="fu">read</span>()<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (done) <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Stream response:&quot;</span><span class="op">,</span> <span class="kw">new</span> <span class="fu">TextDecoder</span>()<span class="op">.</span><span class="fu">decode</span>(value))<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="key-use-cases">Key Use Cases</h2>
+<ul>
+<li><strong>Cloud Gaming and Multiplayer Games:</strong> Sending
+real-time inputs and state updates via datagrams while handling critical
+transactions via reliable streams.</li>
+<li><strong>Live Streaming and Media Ingestion:</strong> Uploading video
+or audio chunks over separate streams without stalling playback during
+network jitter.</li>
+<li><strong>Real-Time Collaboration Tools:</strong> Synchronizing canvas
+actions or collaborative document edits across parallel channels.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

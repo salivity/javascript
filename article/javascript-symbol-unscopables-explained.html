@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Symbol.unscopables Explained - javascript</title>
+    <meta name="description" content="This article explores the purpose of the JavaScript Symbol.unscopables well-known symbol, explaining how it governs property access within legacy with statements. You will learn why ECMAScript introduced this symbol to maintain backward compatibility, ho">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-symbol-unscopables-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Symbol.unscopables Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-symbol-unscopables-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the purpose of the JavaScript Symbol.unscopables well-known symbol, explaining how it governs property access within legacy with statements. You will learn why ECMAScript introduced this symbol to maintain backward compatibility, ho" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-symbolunscopables-explained">JavaScript
+Symbol.unscopables Explained</h1>
+<p>This article explores the purpose of the JavaScript
+<code>Symbol.unscopables</code> well-known symbol, explaining how it
+governs property access within legacy <code>with</code> statements. You
+will learn why ECMAScript introduced this symbol to maintain backward
+compatibility, how it prevents modern standard library additions from
+breaking existing web applications, and how it is implemented in custom
+and built-in objects.</p>
+<h2 id="the-core-purpose-of-symbolunscopables">The Core Purpose of
+Symbol.unscopables</h2>
+<p>The <code>Symbol.unscopables</code> well-known symbol defines which
+object properties are excluded from lexical environment bindings created
+by a <code>with</code> statement. When an object evaluated inside a
+<code>with</code> block possesses a property keyed with
+<code>Symbol.unscopables</code>, the engine checks that associated
+object. If a property key on the unscopables object evaluates to a
+truthy value, that property is ignored by the <code>with</code> block
+and falls back to the surrounding scope.</p>
+<h2 id="the-web-compatibility-problem">The Web Compatibility
+Problem</h2>
+<p>JavaScript's <code>with</code> statement extends the scope chain by
+placing an object's properties directly into the local lexical
+environment. While simple in theory, this mechanism caused major
+compatibility issues when modern ECMAScript standards introduced new
+methods to built-in prototypes like <code>Array.prototype</code>.</p>
+<p>For example, older web libraries often contained code structures
+similar to this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">processItems</span>(values) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">with</span> (values) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Expected &#39;values&#39; to refer to the outer argument</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(values<span class="op">.</span><span class="at">length</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When ECMAScript 2015 introduced <code>Array.prototype.values</code>,
+any array passed into a <code>with</code> statement suddenly shadowed
+the outer variable <code>values</code> with the array's own
+<code>values()</code> iterator method. This unexpected scope change
+broke established websites.</p>
+<p>To resolve this issue without altering method names or breaking
+existing code, the ECMAScript committee created
+<code>Symbol.unscopables</code>.</p>
+<h2 id="default-unscopables-in-arrayprototype">Default Unscopables in
+Array.prototype</h2>
+<p><code>Array.prototype</code> is the primary built-in object that
+utilizes <code>Symbol.unscopables</code>. You can view the hidden
+properties directly in the console:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Array</span><span class="op">.</span><span class="at">prototype</span>[<span class="bu">Symbol</span><span class="op">.</span><span class="at">unscopables</span>])<span class="op">;</span></span></code></pre></div>
+<p>The resulting object contains boolean <code>true</code> values for
+methods added in modern ECMAScript versions:</p>
+<ul>
+<li><code>at</code></li>
+<li><code>copyWithin</code></li>
+<li><code>entries</code></li>
+<li><code>fill</code></li>
+<li><code>find</code></li>
+<li><code>findIndex</code></li>
+<li><code>findLast</code></li>
+<li><code>findLastIndex</code></li>
+<li><code>flat</code></li>
+<li><code>flatMap</code></li>
+<li><code>includes</code></li>
+<li><code>keys</code></li>
+<li><code>toReversed</code></li>
+<li><code>toSorted</code></li>
+<li><code>toSpliced</code></li>
+<li><code>values</code></li>
+</ul>
+<p>Because these properties map to <code>true</code>, code executing
+inside <code>with (array)</code> will bypass them and resolve to
+variables declared in the outer scope instead.</p>
+<h2 id="how-to-implement-symbolunscopables">How to Implement
+Symbol.unscopables</h2>
+<p>You can apply <code>Symbol.unscopables</code> to custom objects to
+hide specific properties from a <code>with</code> scope:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">role</span><span class="op">:</span> <span class="st">&quot;Admin&quot;</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  [<span class="bu">Symbol</span><span class="op">.</span><span class="at">unscopables</span>]<span class="op">:</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">role</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> role <span class="op">=</span> <span class="st">&quot;Guest&quot;</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> (user) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(name)<span class="op">;</span> <span class="co">// Outputs: &quot;Alice&quot; (resolved from user)</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(role)<span class="op">;</span> <span class="co">// Outputs: &quot;Guest&quot; (resolved from outer scope)</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Setting a property to <code>false</code> or omitting it allows normal
+resolution from the scoped object.</p>
+<h2 id="modern-relevance">Modern Relevance</h2>
+<p>The <code>with</code> statement is deprecated and strictly forbidden
+in JavaScript strict mode (<code>"use strict"</code>), which is active
+by default in all ECMAScript modules and class declarations. As a
+result, developers rarely need to implement
+<code>Symbol.unscopables</code> in modern applications. It remains in
+the language primarily as a compatibility safeguard, allowing the TC39
+committee to add new methods to built-in JavaScript objects without
+destabilizing older websites.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

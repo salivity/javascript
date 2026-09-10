@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chain of Responsibility and JavaScript Middleware - javascript</title>
+    <meta name="description" content="This article explores the Chain of Responsibility design pattern and demonstrates how modern JavaScript frameworks use it to implement middleware chaining. You will learn the core mechanics of the pattern, see how it facilitates modular request processin">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/chain-of-responsibility-and-javascript-middleware">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chain of Responsibility and JavaScript Middleware - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/chain-of-responsibility-and-javascript-middleware" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the Chain of Responsibility design pattern and demonstrates how modern JavaScript frameworks use it to implement middleware chaining. You will learn the core mechanics of the pattern, see how it facilitates modular request processin" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="chain-of-responsibility-and-javascript-middleware">Chain of
+Responsibility and JavaScript Middleware</h1>
+<p>This article explores the Chain of Responsibility design pattern and
+demonstrates how modern JavaScript frameworks use it to implement
+middleware chaining. You will learn the core mechanics of the pattern,
+see how it facilitates modular request processing in environments like
+Express.js, and examine a practical code implementation that illustrates
+passing control sequentially between independent handlers.</p>
+<h2 id="what-is-the-chain-of-responsibility-pattern">What is the Chain
+of Responsibility Pattern?</h2>
+<p>The Chain of Responsibility is a behavioral design pattern that
+allows a request to be passed along a pipeline of handlers. Upon
+receiving a request, each handler decides either to process the request,
+modify it, or pass it along to the next handler in the sequence.
+Alternatively, a handler can choose to halt the execution chain
+entirely—a behavior known as short-circuiting.</p>
+<p>The primary advantage of this pattern is decoupling: the sender of a
+request does not need to know which specific object will handle it, and
+individual processing units remain isolated, reusable, and
+single-purposed.</p>
+<h2 id="middleware-chaining-in-javascript">Middleware Chaining in
+JavaScript</h2>
+<p>In JavaScript, particularly within server-side environments like
+Express, Koa, or Redux, the Chain of Responsibility pattern is
+universally known as <strong>middleware chaining</strong>.</p>
+<p>In web servers, an incoming HTTP request must typically undergo
+several sequential steps:</p>
+<ol type="1">
+<li>Logging the request details.</li>
+<li>Parsing incoming JSON payloads or URL parameters.</li>
+<li>Authenticating and authorizing the user.</li>
+<li>Validating request data.</li>
+<li>Executing final route logic and returning a response.</li>
+</ol>
+<p>Rather than bundling all these concerns into a single, bloated route
+handler, middleware chaining splits these responsibilities across
+discrete functions.</p>
+<p>Each middleware typically receives three arguments: the request
+object (<code>req</code>), the response object (<code>res</code>), and a
+callback usually named <code>next</code>. The <code>next()</code>
+function acts as the trigger that advances execution to the subsequent
+handler in the chain.</p>
+<h3 id="short-circuiting-the-pipeline">Short-Circuiting the
+Pipeline</h3>
+<p>A key aspect of this pattern is conditional termination. If an
+authentication middleware verifies a token and finds it invalid, it does
+not invoke <code>next()</code>. Instead, it sends an HTTP 401 response
+directly to the client. This immediately terminates the chain, ensuring
+downstream handlers (such as database queries) are never executed
+unnecessarily.</p>
+<h2 id="practical-implementation-in-javascript">Practical Implementation
+in JavaScript</h2>
+<p>The following example demonstrates a simplified implementation of a
+middleware pipeline using the Chain of Responsibility pattern in native
+JavaScript:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Pipeline {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">middlewares</span> <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">use</span>(fn) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">middlewares</span><span class="op">.</span><span class="fu">push</span>(fn)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">execute</span>(context) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> index <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> next <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (index <span class="op">&lt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">middlewares</span><span class="op">.</span><span class="at">length</span>) {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> currentMiddleware <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">middlewares</span>[index<span class="op">++</span>]<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="fu">currentMiddleware</span>(context<span class="op">,</span> next)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">next</span>()<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="co">// Instantiate pipeline</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> app <span class="op">=</span> <span class="kw">new</span> <span class="fu">Pipeline</span>()<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="co">// Middleware 1: Logger</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">use</span>((ctx<span class="op">,</span> next) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`[LOG] Request to: </span><span class="sc">${</span>ctx<span class="op">.</span><span class="at">url</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">startTime</span> <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">next</span>()<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="co">// Middleware 2: Authentication Check</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">use</span>((ctx<span class="op">,</span> next) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>ctx<span class="op">.</span><span class="at">authenticated</span>) {</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;[AUTH] Access denied. Halting chain.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span> <span class="co">// Chain stops here</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;[AUTH] Access granted.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">next</span>()<span class="op">;</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="co">// Middleware 3: Final Handler</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">use</span>((ctx) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> duration <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>() <span class="op">-</span> ctx<span class="op">.</span><span class="at">startTime</span><span class="op">;</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`[HANDLER] Processing request. Completed in </span><span class="sc">${</span>duration<span class="sc">}</span><span class="vs">ms.`</span>)<span class="op">;</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a><span class="co">// Execute chain with unauthorized request</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;--- Test Run 1: Unauthorized ---&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">execute</span>({ <span class="dt">url</span><span class="op">:</span> <span class="st">&#39;/api/data&#39;</span><span class="op">,</span> <span class="dt">authenticated</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a><span class="co">// Execute chain with authorized request</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;</span><span class="sc">\n</span><span class="st">--- Test Run 2: Authorized ---&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">execute</span>({ <span class="dt">url</span><span class="op">:</span> <span class="st">&#39;/api/data&#39;</span><span class="op">,</span> <span class="dt">authenticated</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span></code></pre></div>
+<h2 id="benefits-of-the-pattern-in-javascript-applications">Benefits of
+the Pattern in JavaScript Applications</h2>
+<ul>
+<li><strong>Single Responsibility Principle:</strong> Each middleware
+function focuses on one isolated concern, making code easier to test and
+maintain.</li>
+<li><strong>Dynamic Composition:</strong> Middlewares can be reordered,
+inserted conditionally, or combined in varying arrangements depending on
+environment configurations or routes.</li>
+<li><strong>Maintainability:</strong> Shared operations, such as error
+handling, rate limiting, and CORS handling, can be written once and
+attached globally across an entire application.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

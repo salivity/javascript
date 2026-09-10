@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Istanbul Instruments Code for Test Coverage - javascript</title>
+    <meta name="description" content="Istanbul and its command-line interface nyc calculate JavaScript test coverage by intercepting and rewriting source code prior to execution, injecting tracking counters into every statement, function, and branch. This article breaks down the technical me">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-istanbul-instruments-code-for-test-coverage">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Istanbul Instruments Code for Test Coverage - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-istanbul-instruments-code-for-test-coverage" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Istanbul and its command-line interface nyc calculate JavaScript test coverage by intercepting and rewriting source code prior to execution, injecting tracking counters into every statement, function, and branch. This article breaks down the technical me" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-istanbul-instruments-code-for-test-coverage">How Istanbul
+Instruments Code for Test Coverage</h1>
+<p>Istanbul and its command-line interface <code>nyc</code> calculate
+JavaScript test coverage by intercepting and rewriting source code prior
+to execution, injecting tracking counters into every statement,
+function, and branch. This article breaks down the technical mechanics
+of Istanbul's instrumentation pipeline, covering Abstract Syntax Tree
+(AST) transformation, tracking variable injection, runtime execution
+tracking, and how these collected data points are translated into
+line-by-line coverage reports.</p>
+<h3 id="1-abstract-syntax-tree-ast-generation">1. Abstract Syntax Tree
+(AST) Generation</h3>
+<p>Before Istanbul can track execution, it must understand the structure
+of the target JavaScript file. It uses Babel parsers (specifically via
+<code>@babel/parser</code> within <code>istanbul-lib-instrument</code>)
+to convert raw source code into an Abstract Syntax Tree (AST).</p>
+<p>The AST represents JavaScript syntax as a deeply nested tree of
+nodes, such as <code>FunctionDeclaration</code>,
+<code>IfStatement</code>, <code>BinaryExpression</code>, and
+<code>ReturnStatement</code>. Each node contains precise metadata
+regarding its location in the original file, including starting and
+ending line and column numbers.</p>
+<h3 id="2-identifying-coverage-targets-and-metadata-creation">2.
+Identifying Coverage Targets and Metadata Creation</h3>
+<p>While traversing the AST, Istanbul identifies executable points of
+interest and categorizes them into four distinct categories:</p>
+<ul>
+<li><strong>Statements (<code>s</code>):</strong> Discrete instructions
+such as variable declarations, assignments, or returns.</li>
+<li><strong>Functions (<code>f</code>):</strong> Function declarations,
+arrow functions, and method definitions.</li>
+<li><strong>Branches (<code>b</code>):</strong> Conditional paths
+generated by <code>if/else</code> statements, ternary operators, logical
+operators (<code>||</code>, <code>&amp;&amp;</code>), and
+<code>switch</code> statements.</li>
+<li><strong>Lines:</strong> Derived directly from the statement and
+expression locations mapped in the source code.</li>
+</ul>
+<p>For each file, Istanbul constructs an internal metadata object that
+assigns a numeric index to every identified location. For example,
+statement <code>0</code> might map to line 4, columns 2 through 18.</p>
+<h3 id="3-code-injection-counter-insertion">3. Code Injection (Counter
+Insertion)</h3>
+<p>Once the coverage targets are indexed, Istanbul mutates the AST by
+injecting counter increments immediately before or within each target
+node.</p>
+<p>Consider this original function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">add</span>(a<span class="op">,</span> b) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>During transformation, Istanbul alters the code structure so that
+executing a line inherently updates an internal counter array.
+Conceptually, the instrumented output resembles the following:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">coverageTracker</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> coverageData <span class="op">=</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">path</span><span class="op">:</span> <span class="st">&quot;/path/to/file.js&quot;</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">statementMap</span><span class="op">:</span> { <span class="st">&quot;0&quot;</span><span class="op">:</span> { <span class="dt">start</span><span class="op">:</span> { <span class="dt">line</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="dt">column</span><span class="op">:</span> <span class="dv">2</span> }<span class="op">,</span> <span class="dt">end</span><span class="op">:</span> { <span class="dt">line</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="dt">column</span><span class="op">:</span> <span class="dv">15</span> } } }<span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">fnMap</span><span class="op">:</span> { <span class="st">&quot;0&quot;</span><span class="op">:</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;add&quot;</span><span class="op">,</span> <span class="dt">line</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">loc</span><span class="op">:</span> { <span class="dt">start</span><span class="op">:</span> { <span class="dt">line</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">column</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span> <span class="dt">end</span><span class="op">:</span> { <span class="dt">line</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span> <span class="dt">column</span><span class="op">:</span> <span class="dv">1</span> } } } }<span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">branchMap</span><span class="op">:</span> {}<span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">s</span><span class="op">:</span> { <span class="st">&quot;0&quot;</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">f</span><span class="op">:</span> { <span class="st">&quot;0&quot;</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">b</span><span class="op">:</span> {}</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> (<span class="bu">global</span><span class="op">.</span><span class="at">__coverage__</span> <span class="op">=</span> <span class="bu">global</span><span class="op">.</span><span class="at">__coverage__</span> <span class="op">||</span> {})[<span class="st">&quot;/path/to/file.js&quot;</span>] <span class="op">=</span> coverageData<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cov <span class="op">=</span> <span class="fu">coverageTracker</span>()<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">add</span>(a<span class="op">,</span> b) {</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  cov<span class="op">.</span><span class="at">f</span>[<span class="st">&quot;0&quot;</span>]<span class="op">++;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  cov<span class="op">.</span><span class="at">s</span>[<span class="st">&quot;0&quot;</span>]<span class="op">++;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Every time <code>add()</code> is called, <code>cov.f["0"]</code> and
+<code>cov.s["0"]</code> increment by one. If a block contains multiple
+statements or branches, individual counters are placed inside each
+conditional block to detect whether that specific path was
+traversed.</p>
+<h3 id="4-runtime-execution-and-data-collection">4. Runtime Execution
+and Data Collection</h3>
+<p>When test runners such as Mocha, Jest, or Node's native test runner
+execute the test suite, they run the instrumented version of the code
+rather than the raw source files.</p>
+<ol type="1">
+<li><strong>Initialization:</strong> As each instrumented file loads
+into memory, it registers its coverage tracking template onto a global
+object (typically <code>global.__coverage__</code>).</li>
+<li><strong>Execution:</strong> As tests call functions and evaluate
+conditions, the injected counters (<code>cov.s[id]++</code>,
+<code>cov.b[id][branchIndex]++</code>) increment synchronously.</li>
+<li><strong>Completion:</strong> When the test suite finishes, the
+<code>global.__coverage__</code> object contains absolute counts for
+every instrumented statement, function, and branch across all executed
+files.</li>
+</ol>
+<h3 id="5-calculating-line-coverage">5. Calculating Line Coverage</h3>
+<p>Because Istanbul injects counters at the AST statement and expression
+levels rather than the text line level, it computes line coverage
+through post-processing:</p>
+<ol type="1">
+<li>The reporter reads the <code>statementMap</code> to find which lines
+contain one or more statement IDs.</li>
+<li>It checks the execution counts for those statement IDs in the
+<code>s</code> counter table.</li>
+<li>If any statement mapped to a line has an execution count greater
+than zero, that line is marked as covered.</li>
+<li>If all statements residing on a line have a count of zero, the line
+is marked as uncovered.</li>
+</ol>
+<p>Finally, <code>nyc</code> compares the total number of executable
+lines against the number of hit lines to produce the final percentage
+and outputs the findings into terminal tables or formats like HTML,
+LCOV, and JSON.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

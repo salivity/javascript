@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow DOM CSS and Event Boundary Restrictions - javascript</title>
+    <meta name="description" content="The Shadow DOM provides robust encapsulation in web components by isolating a component's internal structure from the main document. This article explores the core boundary restrictions imposed by the Shadow DOM, focusing on how style encapsulation preve">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/shadow-dom-css-and-event-boundary-restrictions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Shadow DOM CSS and Event Boundary Restrictions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/shadow-dom-css-and-event-boundary-restrictions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Shadow DOM provides robust encapsulation in web components by isolating a component's internal structure from the main document. This article explores the core boundary restrictions imposed by the Shadow DOM, focusing on how style encapsulation preve" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="shadow-dom-css-and-event-boundary-restrictions">Shadow DOM CSS
+and Event Boundary Restrictions</h1>
+<p>The Shadow DOM provides robust encapsulation in web components by
+isolating a component's internal structure from the main document. This
+article explores the core boundary restrictions imposed by the Shadow
+DOM, focusing on how style encapsulation prevents CSS leakage in both
+directions and how event retargeting and propagation rules govern
+JavaScript event dispatching across shadow boundaries.</p>
+<h2 id="css-styling-boundary-restrictions">CSS Styling Boundary
+Restrictions</h2>
+<p>The primary purpose of the Shadow DOM's style boundary is scoping.
+Styles defined inside a shadow root do not leak out into the light DOM,
+and styles defined in the global document do not leak in. However,
+specific rules and exceptions govern how styles interact across this
+barrier.</p>
+<h3 id="global-style-isolation-and-inheritance">Global Style Isolation
+and Inheritance</h3>
+<ul>
+<li><strong>Style Scoping:</strong> Selectors in the main document
+cannot directly target elements inside a shadow root (e.g.,
+<code>div p</code> in global CSS will not style a <code>&lt;p&gt;</code>
+inside a shadow root).</li>
+<li><strong>Inherited Properties:</strong> Inheritable CSS
+properties—such as <code>color</code>, <code>font-family</code>,
+<code>line-height</code>, and <code>visibility</code>—traverse the
+shadow boundary from parent to child by default unless explicitly
+overridden inside the shadow tree.</li>
+</ul>
+<h3 id="piercing-the-style-boundary">Piercing the Style Boundary</h3>
+<p>To maintain encapsulation while allowing external customization,
+several mechanisms allow controlled style crossing:</p>
+<ul>
+<li><strong>CSS Custom Properties (Variables):</strong> CSS variables
+inherit across shadow boundaries, making them the standard method for
+theming web components (e.g., defining <code>--theme-color</code>
+globally and consuming it via <code>var(--theme-color)</code> inside the
+shadow root).</li>
+<li><strong>The <code>::part()</code> Pseudo-Element:</strong>
+Components can expose internal elements using the <code>part</code>
+attribute (e.g., <code>&lt;button part="submit-btn"&gt;</code>),
+allowing external stylesheets to target them via
+<code>custom-element::part(submit-btn)</code>.</li>
+<li><strong>The <code>:host</code> Pseudo-Class Selector:</strong> Used
+within the shadow root to target and style the custom element itself.
+Variations include <code>:host(selector)</code> for conditional styling
+and <code>:host-context(selector)</code> for context-aware styling based
+on ancestor elements.</li>
+<li><strong>The <code>::slotted()</code> Pseudo-Element:</strong> Allows
+the shadow root stylesheet to apply styles to elements distributed into
+a <code>&lt;slot&gt;</code>, though it can only target top-level slotted
+nodes and cannot select descendant elements of a slotted node.</li>
+</ul>
+<hr />
+<h2 id="javascript-event-dispatching-restrictions">JavaScript Event
+Dispatching Restrictions</h2>
+<p>JavaScript events interact with the Shadow DOM boundary through
+strict encapsulation rules to prevent internal implementation details
+from exposing themselves to the outer document.</p>
+<h3 id="event-retargeting">Event Retargeting</h3>
+<p>When an event originates inside a shadow root and bubbles up into the
+light DOM, it undergoes <strong>retargeting</strong>.</p>
+<ul>
+<li><strong><code>event.target</code> Adaptation:</strong> Inside the
+shadow root, <code>event.target</code> refers to the exact element that
+triggered the event. Once the event crosses the shadow boundary into the
+outer document, <code>event.target</code> is updated to point to the
+host element itself.</li>
+<li><strong>Encapsulation Protection:</strong> Retargeting ensures that
+external scripts cannot inadvertently rely on or manipulate internal
+shadow nodes.</li>
+</ul>
+<h3 id="composed-vs-non-composed-events">Composed vs. Non-Composed
+Events</h3>
+<p>Whether an event can cross the shadow boundary depends on its
+<code>composed</code> flag:</p>
+<ul>
+<li><strong><code>composed: true</code>:</strong> The event will cross
+the shadow root boundary into the light DOM and continue bubbling up the
+document tree. Most standard UI events (e.g., <code>click</code>,
+<code>mousedown</code>, <code>keydown</code>) are composed.</li>
+<li><strong><code>composed: false</code>:</strong> The event cannot
+leave the shadow root and is restricted entirely to the component's
+internal tree. Examples include <code>mouseenter</code>,
+<code>mouseleave</code>, <code>load</code>, and custom events where
+<code>composed</code> is not explicitly set to <code>true</code>.</li>
+</ul>
+<h3 id="dispatching-custom-events">Dispatching Custom Events</h3>
+<p>When dispatching a <code>CustomEvent</code> from within a shadow
+tree:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">this</span><span class="op">.</span><span class="fu">dispatchEvent</span>(<span class="kw">new</span> <span class="bu">CustomEvent</span>(<span class="st">&#39;custom-action&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bubbles</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">composed</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="co">// Required to cross the Shadow DOM boundary</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">detail</span><span class="op">:</span> { <span class="dt">key</span><span class="op">:</span> <span class="st">&#39;value&#39;</span> }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}))<span class="op">;</span></span></code></pre></div>
+<p>If <code>composed</code> is set to <code>false</code> (or omitted, as
+<code>false</code> is the default), listeners attached to the host
+element or any ancestor in the light DOM will never detect the
+event.</p>
+<h3 id="the-composedpath-method">The <code>composedPath()</code>
+Method</h3>
+<p>The <code>event.composedPath()</code> method returns an array of
+nodes through which the event traverses.</p>
+<ul>
+<li>In <strong>open</strong> shadow roots
+(<code>attachShadow({ mode: 'open' })</code>),
+<code>composedPath()</code> reveals the full array of elements,
+including nodes inside the shadow root.</li>
+<li>In <strong>closed</strong> shadow roots
+(<code>attachShadow({ mode: 'closed' })</code>), the internal nodes are
+excluded from the returned path outside the shadow boundary to prevent
+internal access.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

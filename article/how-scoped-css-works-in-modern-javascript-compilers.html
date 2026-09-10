@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Scoped CSS Works in Modern JavaScript Compilers - javascript</title>
+    <meta name="description" content="Scoped CSS prevents styles from leaking across components by restricting CSS rules to specific elements within a component's template. Modern JavaScript component compilers—such as those used in Vue, Svelte, and Angular—achieve this isolation during">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-scoped-css-works-in-modern-javascript-compilers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Scoped CSS Works in Modern JavaScript Compilers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-scoped-css-works-in-modern-javascript-compilers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Scoped CSS prevents styles from leaking across components by restricting CSS rules to specific elements within a component's template. Modern JavaScript component compilers—such as those used in Vue, Svelte, and Angular—achieve this isolation during" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-scoped-css-works-in-modern-javascript-compilers">How Scoped
+CSS Works in Modern JavaScript Compilers</h1>
+<p>Scoped CSS prevents styles from leaking across components by
+restricting CSS rules to specific elements within a component's
+template. Modern JavaScript component compilers—such as those used in
+Vue, Svelte, and Angular—achieve this isolation during the build phase
+by transforming both the stylesheet and the markup. The compiler
+generates a unique identifier, rewrites the CSS selectors to require
+this identifier, and annotates the corresponding DOM nodes so that only
+matching elements receive the styles.</p>
+<h3 id="1-generating-a-unique-identifier">1. Generating a Unique
+Identifier</h3>
+<p>The compilation process begins by assigning a deterministic, unique
+identifier to the component. Compilers typically generate a hash based
+on the component's file path, file contents, or a combination of
+both.</p>
+<p>Depending on the framework, this identifier is formatted as a custom
+attribute or a class suffix:</p>
+<ul>
+<li><strong>Vue:</strong> Adds a custom attribute such as
+<code>data-v-f3f3eg9</code>.</li>
+<li><strong>Svelte:</strong> Uses an internal class or attribute such as
+<code>svelte-1tky74x</code>.</li>
+<li><strong>CSS Modules:</strong> Generates a hashed class name such as
+<code>button_btn__d7a3e</code>.</li>
+</ul>
+<h3 id="2-parsing-and-transforming-the-css-ast">2. Parsing and
+Transforming the CSS AST</h3>
+<p>Once the identifier is established, the compiler parses the raw CSS
+into an Abstract Syntax Tree (AST) using tools like PostCSS or custom
+internal parsers. The compiler traverses every style rule and modifies
+the selectors.</p>
+<p>For attribute-based scoping (Vue and Svelte):</p>
+<ul>
+<li>A selector like <code>.btn { color: red; }</code> is transformed
+into <code>.btn[data-v-f3f3eg9] { color: red; }</code>.</li>
+<li>Complex selectors like <code>div &gt; p</code> are rewritten so that
+the scoping attribute is appended to the targeted selector:
+<code>div &gt; p[data-v-f3f3eg9]</code>.</li>
+</ul>
+<p>The compiler also looks for framework-specific escape hatches, such
+as <code>:deep()</code>, <code>::v-deep</code>, or
+<code>:global()</code>. When encountered, the parser stops appending the
+scope attribute to subsequent child selectors, allowing styles to pierce
+child components down the tree.</p>
+<h3 id="3-transforming-the-template-or-jsx">3. Transforming the Template
+or JSX</h3>
+<p>Concurrently, the compiler parses the component's template or JSX
+into its own AST. As it processes the HTML tags, it automatically
+injects the previously generated identifier into the element
+definitions.</p>
+<p>During this stage:</p>
+<ul>
+<li>An element written as
+<code>&lt;button class="btn"&gt;Click&lt;/button&gt;</code> is rewritten
+in the compiled JavaScript render function to output
+<code>&lt;button class="btn" data-v-f3f3eg9&gt;Click&lt;/button&gt;</code>.</li>
+<li>Child components rendered within the template generally do not
+receive the parent's attribute on their internal nodes, ensuring
+boundaries remain intact. However, the root node of a child component
+often inherits the parent's scope attribute to facilitate layout styling
+from the parent.</li>
+</ul>
+<h3 id="4-the-css-modules-alternative-identifier-renaming">4. The CSS
+Modules Alternative: Identifier Renaming</h3>
+<p>Unlike the attribute-selector approach used by Vue and Svelte, CSS
+Modules operates by directly rewriting class names rather than attaching
+HTML attributes.</p>
+<ol type="1">
+<li>The compiler parses the CSS and replaces every local class name with
+a unique identifier (e.g., <code>.title</code> becomes
+<code>.Header_title__x9a12</code>).</li>
+<li>The compiler exports a JavaScript object mapping the original class
+names to the generated names:
+<code>{ title: "Header_title__x9a12" }</code>.</li>
+<li>In the component logic, developers reference classes via this object
+(e.g., <code>element.className = styles.title</code>), ensuring that the
+runtime DOM classes match the renamed stylesheet rules.</li>
+</ol>
+<h3 id="5-bundling-and-injection">5. Bundling and Injection</h3>
+<p>After both the CSS and markup trees are transformed, the compiler
+outputs standard CSS and JavaScript. At runtime or during static asset
+generation, the modified CSS is either extracted into a static
+<code>.css</code> file or bundled into JavaScript modules that inject
+<code>&lt;style&gt;</code> tags into the document head when the
+component mounts. Because the CSS selectors now strictly match the
+generated attributes or renamed classes, styles remain isolated without
+requiring native browser features like the Shadow DOM.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

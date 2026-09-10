@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Lit Uses Tagged Template Literals - javascript</title>
+    <meta name="description" content="The Lit library enables the creation of fast, lightweight Web Components by using native JavaScript tagged template literals to manage rendering. Instead of relying on a resource-intensive virtual DOM, Lit pairs the standard html tag function with browse">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-lit-uses-tagged-template-literals">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Lit Uses Tagged Template Literals - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-lit-uses-tagged-template-literals" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Lit library enables the creation of fast, lightweight Web Components by using native JavaScript tagged template literals to manage rendering. Instead of relying on a resource-intensive virtual DOM, Lit pairs the standard html tag function with browse" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-lit-uses-tagged-template-literals">How Lit Uses Tagged
+Template Literals</h1>
+<p>The Lit library enables the creation of fast, lightweight Web
+Components by using native JavaScript tagged template literals to manage
+rendering. Instead of relying on a resource-intensive virtual DOM, Lit
+pairs the standard <code>html</code> tag function with browser-native
+HTML templates to identify dynamic content and surgically update only
+the DOM nodes that change. This article examines the mechanics behind
+tagged template literals in Lit, the separation of static structure from
+dynamic expressions, and the inner workings of Lit’s high-performance
+DOM update pipeline.</p>
+<h3 id="understanding-tagged-template-literals">Understanding Tagged
+Template Literals</h3>
+<p>Tagged template literals are a native JavaScript feature introduced
+in ES2015. When a tag function is prepended to a template literal—such
+as <code>html</code>`<div>${name}</div>`—JavaScript invokes the function
+with distinct arguments: an array of static string chunks and the
+evaluated values of the interpolation expressions.</p>
+<p>A critical performance characteristic of JavaScript engines is that
+the static strings array passed to a tag function maintains the exact
+same memory reference across multiple executions of the same code path.
+Lit relies on this referential identity to recognize whether a
+template's HTML structure has already been analyzed.</p>
+<h3 id="the-templateresult-object">The TemplateResult Object</h3>
+<p>When a Lit component executes its <code>render()</code> method,
+returning an <code>html</code>`...` expression does not directly produce
+DOM nodes or parse raw HTML strings. Instead, it generates a lightweight
+<code>TemplateResult</code> object.</p>
+<p>A <code>TemplateResult</code> stores two primary properties:</p>
+<ol type="1">
+<li>A reference to the static strings array.</li>
+<li>An array containing the current evaluated values of the dynamic
+expressions.</li>
+</ol>
+<p>Because creating this object involves no DOM manipulation and minimal
+memory allocation, re-running a component's <code>render()</code> method
+is extremely inexpensive.</p>
+<h3 id="first-render-native-template-preparation-and-parts">First
+Render: Native <code>&lt;template&gt;</code> Preparation and Parts</h3>
+<p>During the initial render of a <code>TemplateResult</code>, Lit
+prepares the DOM structure using the native HTML
+<code>&lt;template&gt;</code> element:</p>
+<ol type="1">
+<li><strong>HTML Assembly and Markers:</strong> Lit takes the static
+strings array and joins them together, inserting special internal
+comments or attribute placeholders where dynamic expressions occur.</li>
+<li><strong>Template Creation:</strong> This assembled string is parsed
+once by the browser into a native <code>&lt;template&gt;</code> element.
+The browser parses the HTML tree only once per unique template literal
+in your code.</li>
+<li><strong>Part Mapping:</strong> Lit traverses the
+<code>&lt;template&gt;</code>'s DOM tree to locate the placeholders. For
+each placeholder, it records the exact node and creates a "Part"
+instance (such as a <code>ChildPart</code>, <code>AttributePart</code>,
+or <code>BooleanAttributePart</code>). These Parts act as direct
+pointers to dynamic locations in the DOM.</li>
+<li><strong>Cloning and Value Assignment:</strong> Lit clones the
+template content using <code>document.importNode()</code>, binds the
+recorded Parts to the corresponding cloned nodes, and commits the
+initial dynamic values into those Parts.</li>
+</ol>
+<h3 id="subsequent-renders-targeted-dirty-checking">Subsequent Renders:
+Targeted Dirty Checking</h3>
+<p>When component state changes and triggers a re-render, Lit skips DOM
+creation entirely:</p>
+<ol type="1">
+<li>Lit checks the referential identity of the incoming
+<code>TemplateResult</code> strings array against the existing template.
+If they match, the structure is identical.</li>
+<li>Lit iterates through the array of dynamic values and performs a
+strict equality check (<code>===</code>) against the previous values
+stored in each Part.</li>
+<li>If an expression has not changed, Lit does nothing.</li>
+<li>If an expression has changed, the specific Part directly updates its
+target DOM node (e.g., modifying a text node's <code>data</code>
+property or calling <code>setAttribute()</code>).</li>
+</ol>
+<h3 id="virtual-dom-vs-lits-approach">Virtual DOM vs. Lit's
+Approach</h3>
+<p>Traditional virtual DOM libraries generate a full tree of JavaScript
+representations of the UI on every update and recursively diff that tree
+against the prior tree to calculate mutations. This process consumes
+memory and CPU cycles traversing both static and dynamic nodes.</p>
+<p>Lit completely bypasses virtual DOM diffing. By leveraging tagged
+template literals, Lit distinguishes static boilerplate from dynamic
+expressions at the language level. Static DOM is never re-inspected, and
+dynamic DOM updates occur through direct, localized mutations, resulting
+in minimal overhead and superior runtime efficiency for Web
+Components.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

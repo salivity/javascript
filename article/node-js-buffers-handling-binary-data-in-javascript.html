@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js Buffers: Handling Binary Data in JavaScript - javascript</title>
+    <meta name="description" content="This article provides a comprehensive overview of Node.js Buffers, the specialized data structure designed for handling raw binary data. You will learn why Buffers are necessary in JavaScript, how they interact with system memory outside the V8 engine, h">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/node-js-buffers-handling-binary-data-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Node.js Buffers: Handling Binary Data in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/node-js-buffers-handling-binary-data-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of Node.js Buffers, the specialized data structure designed for handling raw binary data. You will learn why Buffers are necessary in JavaScript, how they interact with system memory outside the V8 engine, h" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="nodejs-buffers-handling-binary-data-in-javascript">Node.js
+Buffers: Handling Binary Data in JavaScript</h1>
+<p>This article provides a comprehensive overview of Node.js Buffers,
+the specialized data structure designed for handling raw binary data.
+You will learn why Buffers are necessary in JavaScript, how they
+interact with system memory outside the V8 engine, how to create and
+manipulate them using built-in methods, and best practices for managing
+memory and performance in binary I/O operations.</p>
+<h2 id="what-is-a-nodejs-buffer">What is a Node.js Buffer?</h2>
+<p>JavaScript was originally designed for web browsers to handle simple
+strings, numbers, and DOM manipulation. It lacked a native mechanism to
+handle raw binary data streams directly. When Node.js was created for
+server-side development, handling TCP streams, reading binary files, and
+processing cryptographic data became essential requirements.</p>
+<p>A <code>Buffer</code> is a global class in Node.js that represents a
+fixed-length sequence of bytes allocated outside the V8 JavaScript
+engine's heap. In modern Node.js, the <code>Buffer</code> class is an
+implementation of the JavaScript <code>Uint8Array</code> TypedArray,
+optimized for performance and integrated deeply into Node.js core APIs
+like <code>fs</code>, <code>net</code>, and <code>crypto</code>.</p>
+<h2 id="why-buffers-are-necessary">Why Buffers Are Necessary</h2>
+<p>Standard JavaScript strings are encoded using UTF-16, where each
+character can take 2 or 4 bytes. Attempting to store raw binary formats
+(like JPEGs, zipped files, or raw network packets) inside standard
+strings leads to data corruption, improper character encoding
+translations, and significant memory overhead.</p>
+<p>Buffers solve this by:</p>
+<ul>
+<li>Storing bytes directly as 8-bit integers (values from 0 to
+255).</li>
+<li>Bypassing standard string encoding until explicitly requested.</li>
+<li>Providing zero-copy operations when dealing with streams and file
+I/O.</li>
+</ul>
+<h2 id="creating-buffers">Creating Buffers</h2>
+<p>Node.js provides three primary methods to allocate and create
+Buffers, replacing the deprecated <code>new Buffer()</code>
+constructor.</p>
+<h3 id="1-bufferallocsize-fill-encoding">1.
+<code>Buffer.alloc(size[, fill[, encoding]])</code></h3>
+<p>Allocates a specified number of bytes and initializes the memory with
+zeros (or a specified fill value). This is safe because it guarantees no
+leftover sensitive data from unallocated memory is exposed.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> buf <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">alloc</span>(<span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(buf)<span class="op">;</span> </span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &lt;Buffer 00 00 00 00 00 00 00 00 00 00&gt;</span></span></code></pre></div>
+<h3 id="2-bufferallocunsafesize">2.
+<code>Buffer.allocUnsafe(size)</code></h3>
+<p>Allocates memory faster than <code>Buffer.alloc()</code> because it
+does not zero-out the memory space. The allocated segment may contain
+old, sensitive data, making it critical to overwrite the entire buffer
+before reading.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unsafeBuf <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">allocUnsafe</span>(<span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(unsafeBuf)<span class="op">;</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &lt;Buffer ... random bytes from previous memory ...&gt;</span></span></code></pre></div>
+<h3 id="3-bufferfromarraystringbuffer-encoding">3.
+<code>Buffer.from(array|string|buffer[, encoding])</code></h3>
+<p>Creates a new buffer containing a copy of the provided data, such as
+an array of bytes, an existing buffer, or a string encoded in a specific
+format (e.g., <code>utf8</code>, <code>hex</code>,
+<code>base64</code>).</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> strBuf <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;Hello World&#39;</span><span class="op">,</span> <span class="st">&#39;utf8&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strBuf)<span class="op">;</span> </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &lt;Buffer 48 65 6c 6c 6f 20 57 6f 72 6c 64&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> byteBuf <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>([<span class="dv">72</span><span class="op">,</span> <span class="dv">101</span><span class="op">,</span> <span class="dv">108</span><span class="op">,</span> <span class="dv">108</span><span class="op">,</span> <span class="dv">111</span>])<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(byteBuf<span class="op">.</span><span class="fu">toString</span>())<span class="op">;</span> </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: Hello</span></span></code></pre></div>
+<h2 id="reading-and-modifying-buffers">Reading and Modifying
+Buffers</h2>
+<p>Buffers behave similarly to fixed-size arrays. You can access
+individual bytes via index notation, modify values directly, or convert
+binary data back to readable formats.</p>
+<h3 id="accessing-and-writing-bytes">Accessing and Writing Bytes</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> buf <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;Node&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Access byte at index 0 (ASCII code for &#39;N&#39; is 78)</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(buf[<span class="dv">0</span>])<span class="op">;</span> <span class="co">// 78</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Modify byte at index 0 (ASCII code for &#39;C&#39; is 67)</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>buf[<span class="dv">0</span>] <span class="op">=</span> <span class="dv">67</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(buf<span class="op">.</span><span class="fu">toString</span>())<span class="op">;</span> <span class="co">// &quot;Code&quot;</span></span></code></pre></div>
+<h3 id="converting-buffers-to-strings">Converting Buffers to
+Strings</h3>
+<p>You can convert a Buffer back to a string by specifying the desired
+encoding.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> buf <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;Node.js&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(buf<span class="op">.</span><span class="fu">toString</span>(<span class="st">&#39;utf8&#39;</span>))<span class="op">;</span>   <span class="co">// &quot;Node.js&quot;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(buf<span class="op">.</span><span class="fu">toString</span>(<span class="st">&#39;hex&#39;</span>))<span class="op">;</span>    <span class="co">// &quot;4e6f64652e6a73&quot;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(buf<span class="op">.</span><span class="fu">toString</span>(<span class="st">&#39;base64&#39;</span>))<span class="op">;</span> <span class="co">// &quot;Tm9kZS5qcw==&quot;</span></span></code></pre></div>
+<h2 id="buffers-and-binary-streams">Buffers and Binary Streams</h2>
+<p>Buffers are the backbone of Node.js streams. When reading files with
+the <code>fs</code> module or receiving data through HTTP requests,
+Node.js delivers data chunks as Buffer instances.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fs <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;fs&#39;</span>)<span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> readableStream <span class="op">=</span> fs<span class="op">.</span><span class="fu">createReadStream</span>(<span class="st">&#39;example.txt&#39;</span>)<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>readableStream<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;data&#39;</span><span class="op">,</span> (chunk) <span class="kw">=&gt;</span> {</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Received </span><span class="sc">${</span>chunk<span class="op">.</span><span class="at">length</span><span class="sc">}</span><span class="vs"> bytes of data.`</span>)<span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Buffer</span><span class="op">.</span><span class="fu">isBuffer</span>(chunk))<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Because Buffers represent fixed memory allocations, they allow
+Node.js applications to process large datasets chunk-by-chunk without
+exhausting system memory.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

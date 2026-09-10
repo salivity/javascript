@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript MutationRecord OldValue Explained - javascript</title>
+    <meta name="description" content="This article explores how the JavaScript MutationObserver API captures historical DOM states using the attributeOldValue configuration setting and the resulting oldValue property on MutationRecord objects. You will learn the difference between the config">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-mutationrecord-oldvalue-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript MutationRecord OldValue Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-mutationrecord-oldvalue-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the JavaScript MutationObserver API captures historical DOM states using the attributeOldValue configuration setting and the resulting oldValue property on MutationRecord objects. You will learn the difference between the config" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-mutationrecord-oldvalue-explained">JavaScript
+MutationRecord OldValue Explained</h1>
+<p>This article explores how the JavaScript
+<code>MutationObserver</code> API captures historical DOM states using
+the <code>attributeOldValue</code> configuration setting and the
+resulting <code>oldValue</code> property on <code>MutationRecord</code>
+objects. You will learn the difference between the configuration option
+and the output property, how they work in practice, and how to access
+previous attribute and text values during DOM mutations.</p>
+<h2 id="the-difference-between-attributeoldvalue-and-oldvalue">The
+Difference Between attributeOldValue and oldValue</h2>
+<p>In JavaScript's <code>MutationObserver</code> API,
+<code>attributeOldValue</code> and <code>oldValue</code> serve distinct
+roles in the process of tracking state changes:</p>
+<ul>
+<li><strong><code>attributeOldValue</code></strong> is a
+<strong>configuration boolean</strong> passed inside the options object
+to the <code>MutationObserver.observe()</code> method. It tells the
+browser whether to record the prior value of modified attributes.</li>
+<li><strong><code>oldValue</code></strong> is a <strong>read-only
+property</strong> on the resulting <code>MutationRecord</code> instance
+delivered to the observer's callback. It holds the string representation
+of the target's value before the mutation occurred.</li>
+</ul>
+<p>If you observe attributes without enabling
+<code>attributeOldValue</code>, the mutation will still be detected, but
+the <code>record.oldValue</code> property will evaluate to
+<code>null</code>.</p>
+<h2 id="configuring-attributeoldvalue">Configuring
+attributeOldValue</h2>
+<p>To inspect prior attribute values, you must pass
+<code>attributeOldValue: true</code> along with
+<code>attributes: true</code> (or an <code>attributeFilter</code> array)
+when calling <code>observe()</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> targetElement <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;#user-profile&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> observer <span class="op">=</span> <span class="kw">new</span> <span class="bu">MutationObserver</span>((mutationsList) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> mutation <span class="kw">of</span> mutationsList) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (mutation<span class="op">.</span><span class="at">type</span> <span class="op">===</span> <span class="st">&#39;attributes&#39;</span>) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Attribute changed: </span><span class="sc">${</span>mutation<span class="op">.</span><span class="at">attributeName</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Old value: </span><span class="sc">${</span>mutation<span class="op">.</span><span class="at">oldValue</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`New value: </span><span class="sc">${</span>mutation<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="fu">getAttribute</span>(mutation<span class="op">.</span><span class="at">attributeName</span>)<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>observer<span class="op">.</span><span class="fu">observe</span>(targetElement<span class="op">,</span> {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">attributes</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">attributeOldValue</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If the <code>class</code> attribute of <code>#user-profile</code>
+changes from <code>active</code> to <code>inactive</code>,
+<code>mutation.attributeName</code> will be <code>"class"</code>,
+<code>mutation.oldValue</code> will be <code>"active"</code>, and
+fetching the attribute directly from <code>mutation.target</code> yields
+<code>"inactive"</code>.</p>
+<h2 id="how-oldvalue-works-with-character-data">How oldValue Works with
+Character Data</h2>
+<p>The <code>oldValue</code> property is not exclusive to attribute
+changes; it also stores prior text content when observing text
+nodes.</p>
+<p>To capture the previous text of a <code>Text</code> or
+<code>Comment</code> node, use the <code>characterDataOldValue</code>
+configuration option alongside <code>characterData</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> textNode <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;#status-message&#39;</span>)<span class="op">.</span><span class="at">firstChild</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> textObserver <span class="op">=</span> <span class="kw">new</span> <span class="bu">MutationObserver</span>((mutations) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  mutations<span class="op">.</span><span class="fu">forEach</span>((record) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (record<span class="op">.</span><span class="at">type</span> <span class="op">===</span> <span class="st">&#39;characterData&#39;</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Previous text: </span><span class="sc">${</span>record<span class="op">.</span><span class="at">oldValue</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Current text: </span><span class="sc">${</span>record<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">data</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>textObserver<span class="op">.</span><span class="fu">observe</span>(textNode<span class="op">,</span> {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">characterData</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">characterDataOldValue</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="behavior-and-edge-cases">Behavior and Edge Cases</h2>
+<ul>
+<li><strong>Performance Overhead:</strong> Setting
+<code>attributeOldValue: true</code> forces the browser to allocate
+memory to clone the old string value for every observed attribute
+modification. Only enable it if your logic requires the previous
+state.</li>
+<li><strong>Missing Config:</strong> If <code>attributeOldValue</code>
+is set to <code>true</code>, the <code>attributes</code> option is
+automatically implied to be <code>true</code>, meaning you do not
+strictly have to declare <code>attributes: true</code>.</li>
+<li><strong>Value When Attributes Are Added:</strong> If an attribute is
+newly added to an element, it had no prior state, so
+<code>mutation.oldValue</code> will be <code>null</code>.</li>
+<li><strong>Value When Attributes Are Removed:</strong> If an attribute
+is removed via <code>removeAttribute()</code>,
+<code>mutation.oldValue</code> contains the value the attribute held
+immediately before deletion.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

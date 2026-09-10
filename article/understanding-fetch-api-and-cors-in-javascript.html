@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Fetch API and CORS in JavaScript - javascript</title>
+    <meta name="description" content="This article provides a comprehensive overview of the modern JavaScript Fetch API, explaining its core architecture and how it executes HTTP network requests. It specifically examines how the browser security model interacts with the Fetch API, detailing">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-fetch-api-and-cors-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Fetch API and CORS in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-fetch-api-and-cors-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the modern JavaScript Fetch API, explaining its core architecture and how it executes HTTP network requests. It specifically examines how the browser security model interacts with the Fetch API, detailing" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="understanding-fetch-api-and-cors-in-javascript">Understanding
+Fetch API and CORS in JavaScript</h1>
+<p>This article provides a comprehensive overview of the modern
+JavaScript Fetch API, explaining its core architecture and how it
+executes HTTP network requests. It specifically examines how the browser
+security model interacts with the Fetch API, detailing the mechanisms
+behind Cross-Origin Resource Sharing (CORS), preflight checks, request
+modes, and the configuration required to securely exchange data across
+different origins.</p>
+<hr />
+<h3 id="what-is-the-fetch-api">What is the Fetch API?</h3>
+<p>The Fetch API is a native JavaScript interface designed for accessing
+and manipulating HTTP pipeline components, such as requests and
+responses. Introduced as a modern replacement for
+<code>XMLHttpRequest</code>, Fetch is built around JavaScript Promises,
+offering a cleaner, more readable syntax for asynchronous network
+operations.</p>
+<p>A basic fetch request looks like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fetch</span>(<span class="st">&#39;https://api.example.com/data&#39;</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">then</span>(response <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>response<span class="op">.</span><span class="at">ok</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`HTTP error! Status: </span><span class="sc">${</span>response<span class="op">.</span><span class="at">status</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> response<span class="op">.</span><span class="fu">json</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">then</span>(data <span class="kw">=&gt;</span> <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(data))</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">catch</span>(error <span class="kw">=&gt;</span> <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Fetch error:&#39;</span><span class="op">,</span> error))<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3
+id="understanding-the-same-origin-policy-and-cross-origin-requests">Understanding
+the Same-Origin Policy and Cross-Origin Requests</h3>
+<p>Browsers enforce the <strong>Same-Origin Policy (SOP)</strong> to
+protect user data from malicious scripts. Two URLs share the same origin
+only if their <strong>protocol</strong>, <strong>domain (host)</strong>,
+and <strong>port</strong> match exactly.</p>
+<p>A request is considered <strong>cross-origin</strong> when a web page
+hosted on one origin (e.g., <code>https://frontend.com</code>) requests
+resources from a different origin (e.g.,
+<code>https://api.backend.com</code>). By default, SOP blocks scripts
+from reading responses sent from another origin unless the server
+explicitly grants permission via <strong>Cross-Origin Resource Sharing
+(CORS)</strong> headers.</p>
+<hr />
+<h3 id="how-the-fetch-api-handles-cross-origin-requests">How the Fetch
+API Handles Cross-Origin Requests</h3>
+<p>The Fetch API handles cross-origin requests by integrating directly
+with the browser's CORS mechanism. When a cross-origin request is
+triggered, the browser appends an <code>Origin</code> HTTP header
+indicating where the request initiated.</p>
+<pre class="http"><code>Origin: https://frontend.com</code></pre>
+<p>The target server must respond with appropriate CORS headers to
+authorize access. The most critical header is:</p>
+<pre class="http"><code>Access-Control-Allow-Origin: https://frontend.com</code></pre>
+<p><em>(or <code>*</code> to allow any domain, though wildcards cannot
+be used when sending user credentials).</em></p>
+<hr />
+<h3 id="fetch-request-modes">Fetch Request Modes</h3>
+<p>The Fetch API accepts a <code>mode</code> configuration property that
+defines how cross-origin requests are treated:</p>
+<ol type="1">
+<li><strong><code>cors</code> (Default):</strong> Enforces CORS
+validation. The browser expects valid CORS headers from the server. If
+the headers are missing or invalid, the request fails with a network
+error.</li>
+<li><strong><code>no-cors</code>:</strong> Limits the request to simple
+actions (like <code>GET</code> or <code>POST</code> with simple
+headers). JavaScript cannot access the response body or status code (the
+response type becomes <code>opaque</code>). This is primarily used for
+caching assets via Service Workers.</li>
+<li><strong><code>same-origin</code>:</strong> Rejects any request
+directed to a different origin immediately, preventing outgoing
+cross-origin network traffic.</li>
+</ol>
+<p>Example specifying the mode:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fetch</span>(<span class="st">&#39;https://api.backend.com/data&#39;</span><span class="op">,</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">method</span><span class="op">:</span> <span class="st">&#39;GET&#39;</span><span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">mode</span><span class="op">:</span> <span class="st">&#39;cors&#39;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="simple-requests-vs-preflighted-requests">Simple Requests vs.
+Preflighted Requests</h3>
+<p>The Fetch API distinguishes between two types of cross-origin
+requests:</p>
+<h4 id="1-simple-requests">1. Simple Requests</h4>
+<p>A request is treated as "simple" if:</p>
+<ul>
+<li>It uses methods like <code>GET</code>, <code>HEAD</code>, or
+<code>POST</code>.</li>
+<li>It only sets safe headers (e.g., <code>Accept</code>,
+<code>Accept-Language</code>, <code>Content-Language</code>).</li>
+<li>The <code>Content-Type</code> is limited to
+<code>application/x-www-form-urlencoded</code>,
+<code>multipart/form-data</code>, or <code>text/plain</code>.</li>
+</ul>
+<p>These requests are dispatched immediately with the
+<code>Origin</code> header attached.</p>
+<h4 id="2-preflighted-requests">2. Preflighted Requests</h4>
+<p>If a fetch request uses custom headers (e.g.,
+<code>Authorization</code>), HTTP methods other than standard ones
+(e.g., <code>PUT</code>, <code>DELETE</code>, <code>PATCH</code>), or a
+<code>Content-Type</code> of <code>application/json</code>, the browser
+automatically sends an <strong>OPTIONS</strong> preflight request
+first.</p>
+<p>The preflight request asks the server for permission before sending
+the actual request:</p>
+<pre class="http"><code>OPTIONS /data HTTP/1.1
+Origin: https://frontend.com
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: Content-Type, Authorization</code></pre>
+<p>The server must reply with corresponding approval headers:</p>
+<pre class="http"><code>Access-Control-Allow-Origin: https://frontend.com
+Access-Control-Allow-Methods: POST, GET, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization</code></pre>
+<p>Once confirmed, the browser executes the actual fetch call.</p>
+<hr />
+<h3 id="handling-credentials-in-cross-origin-fetch">Handling Credentials
+in Cross-Origin Fetch</h3>
+<p>By default, cross-origin fetch requests do not send or receive HTTP
+cookies, HTTP authentication, or client-side SSL certificates. To
+include credentials, set the <code>credentials</code> property:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fetch</span>(<span class="st">&#39;https://api.backend.com/user-profile&#39;</span><span class="op">,</span> {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">method</span><span class="op">:</span> <span class="st">&#39;GET&#39;</span><span class="op">,</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">credentials</span><span class="op">:</span> <span class="st">&#39;include&#39;</span> <span class="co">// Options: &#39;omit&#39;, &#39;same-origin&#39;, &#39;include&#39;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>When <code>credentials: 'include'</code> is used:</p>
+<ul>
+<li>The server must respond with
+<code>Access-Control-Allow-Credentials: true</code>.</li>
+<li>The server <strong>cannot</strong> use
+<code>Access-Control-Allow-Origin: *</code>; it must explicitly specify
+the requesting origin.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

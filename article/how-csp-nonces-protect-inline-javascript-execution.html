@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How CSP Nonces Protect Inline JavaScript Execution - javascript</title>
+    <meta name="description" content="Content Security Policy (CSP) nonces protect inline JavaScript execution by establishing a dynamic, cryptographic trust model between the web server and the browser. Instead of broadly allowing all inline scripts or maintaining complex hash lists, the se">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-csp-nonces-protect-inline-javascript-execution">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How CSP Nonces Protect Inline JavaScript Execution - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-csp-nonces-protect-inline-javascript-execution" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Content Security Policy (CSP) nonces protect inline JavaScript execution by establishing a dynamic, cryptographic trust model between the web server and the browser. Instead of broadly allowing all inline scripts or maintaining complex hash lists, the se" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-csp-nonces-protect-inline-javascript-execution">How CSP
+Nonces Protect Inline JavaScript Execution</h1>
+<p>Content Security Policy (CSP) nonces protect inline JavaScript
+execution by establishing a dynamic, cryptographic trust model between
+the web server and the browser. Instead of broadly allowing all inline
+scripts or maintaining complex hash lists, the server generates a
+unique, unpredictable token—a "number used once" (nonce)—for every HTTP
+response. Legitimate inline <code>&lt;script&gt;</code> tags must carry
+this exact token to execute. Consequently, if an attacker attempts to
+inject malicious inline script via Cross-Site Scripting (XSS), the
+browser automatically blocks the unauthorized code because it lacks the
+valid, per-request nonce.</p>
+<h3 id="the-threat-of-inline-javascript">The Threat of Inline
+JavaScript</h3>
+<p>Inline scripts are historically the primary attack vector for
+Cross-Site Scripting (XSS). Without specific safeguards, a web browser
+cannot distinguish between a legitimate inline script written by the
+application developer and an untrusted script injected by an attacker
+through user inputs, URL parameters, or compromised databases.</p>
+<p>Earlier CSP implementations relied heavily on the
+<code>'unsafe-inline'</code> directive, which effectively disables
+inline script protection, leaving applications vulnerable.</p>
+<h3 id="how-nonce-based-csp-works">How Nonce-Based CSP Works</h3>
+<p>Nonce-based execution follows a strict four-step lifecycle on every
+HTTP request:</p>
+<ol type="1">
+<li><strong>Generation:</strong> When a user requests a web page, the
+web server generates a cryptographically secure, random string (e.g., a
+base64-encoded 128-bit value).</li>
+<li><strong>Policy Delivery:</strong> The server includes this token in
+the HTTP response header:
+<pre class="http"><code>Content-Security-Policy: script-src &#39;nonce-EDNnf03nceIOfn39fn3e9h3sdfa&#39;</code></pre></li>
+<li><strong>Markup Injection:</strong> The server injects the identical
+token into the <code>nonce</code> attribute of all legitimate inline
+script elements within the rendered HTML:
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> nonce</span><span class="op">=</span><span class="st">&quot;EDNnf03nceIOfn39fn3e9h3sdfa&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Trusted application code executed.&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div></li>
+<li><strong>Browser Verification:</strong> As the browser parses the
+HTML, it compares the <code>nonce</code> attribute of each
+<code>&lt;script&gt;</code> tag against the value defined in the
+<code>Content-Security-Policy</code> header. If the values match, the
+browser executes the script; if the attribute is missing or mismatched,
+execution is halted immediately.</li>
+</ol>
+<h3 id="why-nonces-prevent-injected-attacks">Why Nonces Prevent Injected
+Attacks</h3>
+<ul>
+<li><strong>Unpredictability:</strong> Because the nonce is generated
+dynamically using a cryptographically secure pseudo-random number
+generator (CSPRNG), an attacker cannot guess the token in advance to
+include it in a stored or reflected payload.</li>
+<li><strong>Single-Request Scope:</strong> A nonce is valid only for the
+specific HTTP response in which it was sent. Reusing previous tokens or
+attempting replay attacks fails because a new token is minted for
+subsequent requests.</li>
+<li><strong>DOM Hiding:</strong> Modern browsers implement nonce-hiding
+mechanisms. Once parsed, the <code>nonce</code> content attribute is
+removed or hidden from the DOM to prevent attackers from reading it via
+script or CSS-based data exfiltration techniques before injecting
+further code.</li>
+</ul>
+<h3 id="implementation-essentials">Implementation Essentials</h3>
+<p>To maintain effective protection:</p>
+<ul>
+<li>Never reuse nonces across multiple HTTP requests or cache pages
+containing static nonces.</li>
+<li>Ensure all random tokens originate from a CSPRNG rather than
+standard pseudo-random functions like <code>Math.random()</code>.</li>
+<li>Combine the nonce directive with <code>'strict-dynamic'</code> in
+modern CSP (Level 3) setups to automatically propagate trust to scripts
+dynamically loaded by trusted inline scripts.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

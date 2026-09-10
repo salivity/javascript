@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How tRPC Works: Type Safety Without Code Generation - javascript</title>
+    <meta name="description" content="This article explains how tRPC achieves seamless, end-to-end type safety between client and server applications without relying on code generation, schema compilation, or intermediate build steps. By utilizing TypeScript's advanced type inference, static">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-trpc-works-type-safety-without-code-generation">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How tRPC Works: Type Safety Without Code Generation - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-trpc-works-type-safety-without-code-generation" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how tRPC achieves seamless, end-to-end type safety between client and server applications without relying on code generation, schema compilation, or intermediate build steps. By utilizing TypeScript's advanced type inference, static" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-trpc-works-type-safety-without-code-generation">How tRPC
+Works: Type Safety Without Code Generation</h1>
+<p>This article explains how tRPC achieves seamless, end-to-end type
+safety between client and server applications without relying on code
+generation, schema compilation, or intermediate build steps. By
+utilizing TypeScript's advanced type inference, static type exports, and
+JavaScript runtime Proxies, tRPC bridges the gap between backend logic
+and frontend consumption directly at compile time.</p>
+<h3 id="typescript-type-inference-at-the-core">TypeScript Type Inference
+at the Core</h3>
+<p>Traditional type-safe APIs (like GraphQL, gRPC, or OpenAPI-based
+tools) require an intermediate schema file and a build-step code
+generator to produce client-side SDKs and types. tRPC eliminates this
+step by treating your backend code itself as the single source of
+truth.</p>
+<p>When you define a procedure on a tRPC router, TypeScript
+automatically infers the input requirements and return types based on
+your validation schemas and resolver functions.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode typescript"><code class="sourceCode typescript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Server procedure definition</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> appRouter <span class="op">=</span> <span class="fu">router</span>({</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  getUser<span class="op">:</span> publicProcedure</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">input</span>(z<span class="op">.</span><span class="fu">object</span>({ id<span class="op">:</span> z<span class="op">.</span><span class="fu">string</span>() }))</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">query</span>(<span class="kw">async</span> ({ input }) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> { id<span class="op">:</span> input<span class="op">.</span><span class="at">id</span><span class="op">,</span> name<span class="op">:</span> <span class="st">&quot;Alice&quot;</span><span class="op">,</span> role<span class="op">:</span> <span class="st">&quot;admin&quot;</span> }<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    })<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Because TypeScript analyzes the implementation directly, it
+understands that <code>getUser</code> requires an object with a string
+<code>id</code> and returns an object containing an <code>id</code>,
+<code>name</code>, and <code>role</code>.</p>
+<h3 id="exporting-types-not-runtime-code">Exporting Types, Not Runtime
+Code</h3>
+<p>To expose these types to the frontend without leaking backend logic,
+secrets, or database connections, tRPC leverages TypeScript's
+<code>export type</code> syntax:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode typescript"><code class="sourceCode typescript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Export only the type definition of the router</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">export type</span> AppRouter <span class="op">=</span> <span class="kw">typeof</span> appRouter<span class="op">;</span></span></code></pre></div>
+<p>Because this statement exports only a type definition rather than an
+actual JavaScript object, the bundler completely strips it from the
+production JavaScript output. No server dependencies, environmental
+variables, or implementation details are packaged into the client
+bundle. The client receives a purely static contract of the server's
+capabilities.</p>
+<h3 id="the-javascript-proxy-architecture">The JavaScript Proxy
+Architecture</h3>
+<p>Without generated client files, how does the client know how to make
+calls? tRPC uses the runtime JavaScript <code>Proxy</code> object.</p>
+<p>When you instantiate a tRPC client, you pass the
+<code>AppRouter</code> type generic to the client creation function:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode typescript"><code class="sourceCode typescript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Client instantiation</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> trpc <span class="op">=</span> <span class="fu">createTRPCProxyClient</span><span class="op">&lt;</span>AppRouter<span class="op">&gt;</span>({</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  links<span class="op">:</span> [<span class="fu">httpBatchLink</span>({ url<span class="op">:</span> <span class="st">&#39;/api/trpc&#39;</span> })]<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>At runtime, <code>trpc</code> is a recursive Proxy. When you write
+<code>trpc.getUser.query({ id: "1" })</code>, the Proxy dynamically
+detects the property access paths (<code>getUser</code>) and the
+execution method (<code>query</code>). It intercepts this call and
+constructs a standard HTTP request to the corresponding endpoint (e.g.,
+<code>GET /api/trpc/getUser?input=...</code>).</p>
+<p>Simultaneously, TypeScript overlays the <code>AppRouter</code> type
+definitions directly on top of the Proxy. The IDE provides
+autocompletion and type checking for the procedure path, the input
+arguments, and the awaited return data, ensuring instant feedback if the
+backend schema changes.</p>
+<h3 id="runtime-validation-with-zod-or-valibot">Runtime Validation with
+Zod or Valibot</h3>
+<p>While TypeScript handles static compile-time safety, runtime network
+boundaries still require validation. tRPC integrates with validation
+libraries such as Zod, Valibot, or Superstruct.</p>
+<p>These parsers serve a dual purpose:</p>
+<ol type="1">
+<li><strong>Compile Time:</strong> TypeScript infers the exact input
+shapes from the parser, giving the client compiler-level errors if
+arguments are missing or malformed.</li>
+<li><strong>Runtime:</strong> The backend validates incoming network
+payloads before executing resolver logic, rejecting invalid HTTP
+requests immediately.</li>
+</ol>
+<h3 id="summary">Summary</h3>
+<p>tRPC avoids code generation by exploiting the fact that full-stack
+TypeScript projects share a common type system. By extracting inferred
+types directly from backend resolvers, exporting purely static router
+types, and pairing them with a dynamic client-side Proxy, tRPC delivers
+compile-time verification and rich developer tooling with zero
+generation steps.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

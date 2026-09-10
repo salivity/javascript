@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propagating Tracing Headers in Node.js Backends - javascript</title>
+    <meta name="description" content="Distributed tracing across microservices requires carrying contextual metadata, such as trace and span identifiers, through every hop of an execution path. In JavaScript backends, this process involves extracting tracing headers from inbound requests, pr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/propagating-tracing-headers-in-node-js-backends">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Propagating Tracing Headers in Node.js Backends - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/propagating-tracing-headers-in-node-js-backends" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Distributed tracing across microservices requires carrying contextual metadata, such as trace and span identifiers, through every hop of an execution path. In JavaScript backends, this process involves extracting tracing headers from inbound requests, pr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="propagating-tracing-headers-in-nodejs-backends">Propagating
+Tracing Headers in Node.js Backends</h1>
+<p>Distributed tracing across microservices requires carrying contextual
+metadata, such as trace and span identifiers, through every hop of an
+execution path. In JavaScript backends, this process involves extracting
+tracing headers from inbound requests, preserving that context across
+asynchronous execution using Node.js runtime primitives, and injecting
+updated headers into outbound network calls. Understanding this
+lifecycle enables developers to maintain end-to-end visibility and debug
+complex distributed systems effectively.</p>
+<h3 id="the-anatomy-of-tracing-headers">The Anatomy of Tracing
+Headers</h3>
+<p>Context propagation relies on standardized HTTP headers so different
+services can parse trace metadata uniformly. The industry standard is
+the W3C Trace Context specification, which defines two primary
+headers:</p>
+<ul>
+<li><strong><code>traceparent</code></strong>: A hyphen-separated string
+containing the specification version, a 16-byte global trace ID, an
+8-byte parent span ID, and 8-bit trace options (such as sampling
+flags).</li>
+<li><strong><code>tracestate</code></strong>: An optional
+comma-separated list of opaque key-value pairs used to pass
+vendor-specific routing and filtering metadata.</li>
+</ul>
+<p>Alternative formats like B3 (used by Zipkin) and Jaeger native
+headers function similarly by pairing a shared trace ID with localized
+span IDs.</p>
+<h3 id="async-context-preservation-in-nodejs">Async Context Preservation
+in Node.js</h3>
+<p>Before headers can be passed to subsequent microservices, the backend
+must keep the trace context accessible throughout the single-threaded,
+event-driven lifecycle of an asynchronous request. Node.js accomplishes
+this using the <code>AsyncLocalStorage</code> API from the core
+<code>async_hooks</code> module.</p>
+<p>When an incoming request arrives, the server initializes an
+<code>AsyncLocalStorage</code> store containing the parsed trace
+context. This store acts as thread-local storage for JavaScript,
+ensuring that nested promises, timers, and callbacks maintain access to
+the current trace context without needing to manually pass metadata
+through every function parameter.</p>
+<h3 id="inbound-extraction">Inbound Extraction</h3>
+<p>When a microservice receives an HTTP request, it runs an extraction
+routine—typically via framework middleware such as Express, Fastify, or
+NestJS interceptors:</p>
+<ol type="1">
+<li><strong>Header Parsing</strong>: The middleware reads the incoming
+headers (e.g., <code>traceparent</code>).</li>
+<li><strong>Context Deserialization</strong>: The extracted string is
+parsed into a recognized context object containing the trace ID and the
+parent span ID.</li>
+<li><strong>Span Initialization</strong>: The service creates a new
+local span. The extracted trace ID remains constant, the incoming span
+ID becomes the <code>parentSpanId</code>, and a new unique
+<code>spanId</code> is generated for the current service's work.</li>
+<li><strong>Context Activation</strong>: The runtime sets this newly
+generated span context as the active context within
+<code>AsyncLocalStorage</code>.</li>
+</ol>
+<p>If an incoming request lacks tracing headers, the service initializes
+a new trace by generating a fresh trace ID and root span ID.</p>
+<h3 id="outbound-injection">Outbound Injection</h3>
+<p>When the JavaScript service needs to make a downstream network call
+(via <code>fetch</code>, Axios, or the native <code>http</code> module),
+it must propagate the updated trace state:</p>
+<ol type="1">
+<li><strong>Context Retrieval</strong>: The HTTP client inspects
+<code>AsyncLocalStorage</code> to retrieve the currently active span
+context.</li>
+<li><strong>Header Generation</strong>: The context is serialized into
+standard propagation headers. The global trace ID is preserved, but the
+current service's active <code>spanId</code> is assigned as the new
+parent ID.</li>
+<li><strong>Header Injection</strong>: The serialized headers
+(<code>traceparent</code>, <code>tracestate</code>) are injected into
+the outbound HTTP request's headers.</li>
+<li><strong>Transmission</strong>: The downstream microservice receives
+the request and repeats the extraction process.</li>
+</ol>
+<h3 id="automated-vs-manual-propagation">Automated vs. Manual
+Propagation</h3>
+<p>Modern JavaScript architectures typically implement propagation via
+two approaches:</p>
+<ul>
+<li><strong>Automatic Instrumentation (OpenTelemetry)</strong>: The
+OpenTelemetry Node.js SDK automatically wraps core modules
+(<code>http</code>, <code>https</code>) and popular libraries (such as
+<code>express</code>, <code>pg</code>, and <code>axios</code>). It
+intercepts incoming and outgoing traffic, seamlessly managing
+<code>AsyncLocalStorage</code>, context extraction, span creation, and
+header injection with zero manual code changes.</li>
+<li><strong>Manual Instrumentation</strong>: For custom protocols,
+WebSockets, or message queues (like Kafka or RabbitMQ), developers
+manually call propagation APIs. Using the OpenTelemetry API, this
+involves calling
+<code>propagation.extract(context.active(), message.headers)</code> when
+receiving a message and
+<code>propagation.inject(context.active(), message.headers)</code>
+before publishing an event to a broker.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

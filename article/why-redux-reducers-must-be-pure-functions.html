@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Redux Reducers Must Be Pure Functions - javascript</title>
+    <meta name="description" content="In Redux, reducers are the foundational functions responsible for calculating the next state of an application based on the current state and an incoming action. To maintain a predictable and reliable architecture, Redux strictly mandates that reducers r">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/why-redux-reducers-must-be-pure-functions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Redux Reducers Must Be Pure Functions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/why-redux-reducers-must-be-pure-functions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Redux, reducers are the foundational functions responsible for calculating the next state of an application based on the current state and an incoming action. To maintain a predictable and reliable architecture, Redux strictly mandates that reducers r" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="why-redux-reducers-must-be-pure-functions">Why Redux Reducers
+Must Be Pure Functions</h1>
+<p>In Redux, reducers are the foundational functions responsible for
+calculating the next state of an application based on the current state
+and an incoming action. To maintain a predictable and reliable
+architecture, Redux strictly mandates that reducers remain pure
+functions free of side effects. This design constraint is essential for
+enabling efficient change detection, ensuring predictable state
+transitions, preventing race conditions, and unlocking powerful
+developer tooling like time-travel debugging.</p>
+<h3 id="what-makes-a-reducer-pure">What Makes a Reducer Pure?</h3>
+<p>A function is considered pure when it satisfies two core rules:</p>
+<ol type="1">
+<li><strong>Determinism:</strong> Given the same inputs, it must always
+return the exact same output.</li>
+<li><strong>No Side Effects:</strong> It must not cause any observable
+changes outside its scope, such as modifying global variables, making
+network requests, mutating input arguments, or interacting with browser
+storage.</li>
+</ol>
+<p>In JavaScript, a Redux reducer adheres to the signature
+<code>(previousState, action) =&gt; newState</code>. It should compute
+the next state solely from these two parameters and return a brand-new
+state object rather than mutating the existing one.</p>
+<h3 id="predictability-and-deterministic-behavior">Predictability and
+Deterministic Behavior</h3>
+<p>The primary benefit of Redux is predictable state management. When
+reducers are pure, you can track the entire life cycle of an application
+simply by looking at the sequence of dispatched actions. If a reducer
+read from an external source—like <code>Math.random()</code>,
+<code>Date.now()</code>, or an API endpoint—the state transition would
+become non-deterministic. Two executions with the same action could
+yield different outcomes, making it nearly impossible to reproduce bugs
+reliably or write straightforward unit tests.</p>
+<h3 id="reference-equality-and-efficient-rendering">Reference Equality
+and Efficient Rendering</h3>
+<p>React and Redux optimize performance through shallow equality checks
+(<code>===</code>). When state updates, UI bindings like
+<code>react-redux</code> compare the reference of the old state to the
+reference of the new state to decide if components need to
+re-render.</p>
+<p>If a reducer directly mutates the existing state object instead of
+returning a new one, the memory reference remains identical. As a
+result, the equality check evaluates to <code>true</code>, and connected
+components fail to detect the change, leading to stale or broken user
+interfaces. Conversely, creating fresh copies of only the modified state
+slices ensures that unaffected components skip unnecessary renders while
+updated components re-render instantly.</p>
+<h3 id="enabling-time-travel-debugging">Enabling Time-Travel
+Debugging</h3>
+<p>Redux DevTools and similar debugging utilities rely on maintaining an
+immutable log of past states. Whenever an action is dispatched, the dev
+tools save a reference to the resulting state. Because reducers produce
+new state objects without mutating the old ones, developers can step
+forward and backward through the application's history, cancel actions,
+or replay them. Mutating state in place destroys historical snapshots,
+effectively breaking the ability to inspect past states.</p>
+<h3 id="isolating-side-effects-to-middleware">Isolating Side Effects to
+Middleware</h3>
+<p>Redux does not forbid side effects; it simply dictates where they
+belong. Asynchronous operations, logging, and external interactions
+introduce latency and race conditions. If asynchronous operations were
+placed inside reducers, the order of state resolution would depend on
+network speeds rather than dispatch order.</p>
+<p>By keeping reducers pure, Redux isolates all side effects to the
+middleware layer (such as Redux Thunk or Redux Saga). Middleware handles
+the unpredictability of asynchronous events and dispatches standard,
+synchronous actions to the reducers only when data is ready. This
+separation of concerns keeps state calculation clean, robust, and
+completely decoupled from external dependencies.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

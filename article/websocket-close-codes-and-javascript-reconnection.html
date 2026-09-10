@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Close Codes and JavaScript Reconnection - javascript</title>
+    <meta name="description" content="This article provides a practical overview of WebSocket close codes and outlines effective JavaScript strategies for handling network reconnections. You will learn the meaning of standard and custom WebSocket status codes, how the browser captures connec">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/websocket-close-codes-and-javascript-reconnection">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebSocket Close Codes and JavaScript Reconnection - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/websocket-close-codes-and-javascript-reconnection" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a practical overview of WebSocket close codes and outlines effective JavaScript strategies for handling network reconnections. You will learn the meaning of standard and custom WebSocket status codes, how the browser captures connec" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="websocket-close-codes-and-javascript-reconnection">WebSocket
+Close Codes and JavaScript Reconnection</h1>
+<p>This article provides a practical overview of WebSocket close codes
+and outlines effective JavaScript strategies for handling network
+reconnections. You will learn the meaning of standard and custom
+WebSocket status codes, how the browser captures connection
+terminations, and how to implement resilient reconnection logic using
+exponential backoff and jitter to keep real-time applications
+stable.</p>
+<hr />
+<h2 id="understanding-websocket-close-codes">Understanding WebSocket
+Close Codes</h2>
+<p>When a WebSocket connection terminates, the endpoint initiating the
+closure sends a 16-bit integer known as a close code, optionally
+accompanied by a human-readable reason string. These codes categorize
+why a connection was closed, allowing the client to determine whether it
+should attempt to reconnect or abort completely.</p>
+<p>WebSocket close codes are categorized into specific numeric
+ranges:</p>
+<ul>
+<li><strong>0–999:</strong> Reserved and unused.</li>
+<li><strong>1000–2999:</strong> Defined by the WebSocket protocol
+standard (RFC 6455).</li>
+<li><strong>3000–3999:</strong> Reserved for libraries, frameworks, and
+standardized specifications.</li>
+<li><strong>4000–4999:</strong> Reserved for private use by
+applications.</li>
+</ul>
+<h3 id="common-standard-close-codes">Common Standard Close Codes</h3>
+<ul>
+<li><strong>1000 (Normal Closure):</strong> The connection successfully
+completed its purpose. Reconnection is usually not required.</li>
+<li><strong>1001 (Going Away):</strong> An endpoint is terminating the
+connection because it is navigating away (e.g., a browser tab closing)
+or the server is shutting down.</li>
+<li><strong>1002 (Protocol Error):</strong> The connection terminated
+due to a protocol violation.</li>
+<li><strong>1003 (Unsupported Data):</strong> An endpoint received a
+data type it cannot accept (e.g., binary instead of text).</li>
+<li><strong>1006 (Abnormal Closure):</strong> A reserved code indicating
+the connection dropped unexpectedly without sending a close frame (e.g.,
+network drop, dropped TCP connection, or server crash). This code cannot
+be set manually and is generated by the client environment.</li>
+<li><strong>1008 (Policy Violation):</strong> The connection was
+terminated because an endpoint violated a general policy (often used for
+authentication or authorization failures).</li>
+<li><strong>1011 (Internal Server Error):</strong> The server
+encountered an unexpected condition that prevented it from fulfilling
+the request.</li>
+</ul>
+<hr />
+<h2 id="capturing-close-events-in-javascript">Capturing Close Events in
+JavaScript</h2>
+<p>JavaScript provides the <code>WebSocket.prototype.onclose</code>
+event listener to monitor when a connection ends. The event object
+contains three primary properties:</p>
+<ol type="1">
+<li><code>event.code</code>: The integer status code.</li>
+<li><code>event.reason</code>: A string explaining the closure reason
+sent by the peer.</li>
+<li><code>event.wasClean</code>: A boolean indicating whether the
+connection closed via a clean closing handshake (<code>true</code>) or
+abruptly (<code>false</code>).</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> socket <span class="op">=</span> <span class="kw">new</span> <span class="bu">WebSocket</span>(<span class="st">&#39;wss://example.com/ws&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>socket<span class="op">.</span><span class="at">onclose</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Closed with code: </span><span class="sc">${</span><span class="bu">event</span><span class="op">.</span><span class="at">code</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Reason: </span><span class="sc">${</span><span class="bu">event</span><span class="op">.</span><span class="at">reason</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Clean closure: </span><span class="sc">${</span><span class="bu">event</span><span class="op">.</span><span class="at">wasClean</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<hr />
+<h2 id="javascript-reconnection-strategies">JavaScript Reconnection
+Strategies</h2>
+<p>A naive reconnection strategy that reconnects instantly or at fixed
+intervals can overwhelm servers during outages (the "thundering herd"
+problem). Robust client architectures use conditional logic based on
+close codes, exponential backoff, and jitter.</p>
+<h3 id="1-conditional-reconnection-based-on-codes">1. Conditional
+Reconnection Based on Codes</h3>
+<p>Not all closures should trigger a reconnect:</p>
+<ul>
+<li><strong>Do not reconnect:</strong> Code <code>1000</code>
+(intentional disconnect), <code>1008</code> (invalid credentials), or
+custom authentication failure codes (e.g., <code>4001</code>).</li>
+<li><strong>Do reconnect:</strong> Code <code>1006</code> (network
+loss), <code>1001</code> (server restart), or any temporary server
+error.</li>
+</ul>
+<h3 id="2-exponential-backoff-with-jitter">2. Exponential Backoff with
+Jitter</h3>
+<p>Exponential backoff progressively increases the delay between
+reconnection attempts by multiplying the wait time by a factor (usually
+2) after each failed attempt, up to a defined maximum. Adding "jitter"
+introduces randomness to spread out reconnect requests from multiple
+clients across a time window.</p>
+<p><span class="math display">\[\text{Delay} = \min(\text{maxDelay},
+\text{baseDelay} \times 2^{\text{attempts}}) +
+\text{randomJitter}\]</span></p>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>The following pattern demonstrates a complete WebSocket client with
+conditional reconnection, exponential backoff, and jitter:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ResilientWebSocket {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(url) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">url</span> <span class="op">=</span> url<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">reconnectAttempts</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">baseDelay</span> <span class="op">=</span> <span class="dv">1000</span><span class="op">;</span> <span class="co">// 1 second</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">maxDelay</span> <span class="op">=</span> <span class="dv">30000</span><span class="op">;</span>  <span class="co">// 30 seconds</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">maxAttempts</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">isExplicitlyClosed</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">connect</span>()<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">connect</span>() {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">isExplicitlyClosed</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">WebSocket</span>(<span class="kw">this</span><span class="op">.</span><span class="at">url</span>)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span><span class="op">.</span><span class="at">onopen</span> <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Connected to server&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">reconnectAttempts</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Reset attempts on success</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span><span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Message received:&#39;</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span>)<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span><span class="op">.</span><span class="at">onclose</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">isExplicitlyClosed</span>) {</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Connection closed intentionally. Not reconnecting.&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Do not reconnect on normal closure or authentication failure</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">code</span> <span class="op">===</span> <span class="dv">1000</span> <span class="op">||</span> <span class="bu">event</span><span class="op">.</span><span class="at">code</span> <span class="op">===</span> <span class="dv">1008</span>) {</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="vs">`Connection closed with code </span><span class="sc">${</span><span class="bu">event</span><span class="op">.</span><span class="at">code</span><span class="sc">}</span><span class="vs">. No retry.`</span>)<span class="op">;</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">scheduleReconnect</span>()<span class="op">;</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span><span class="op">.</span><span class="at">onerror</span> <span class="op">=</span> (error) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;WebSocket encountered an error:&#39;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>      <span class="co">// onerror is usually followed immediately by onclose</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scheduleReconnect</span>() {</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">reconnectAttempts</span> <span class="op">&gt;=</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxAttempts</span>) {</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Max reconnection attempts reached. Halting.&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Exponential backoff calculation</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> exponentialDelay <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">maxDelay</span><span class="op">,</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">baseDelay</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(<span class="dv">2</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">reconnectAttempts</span>)</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Add jitter (random value between 0 and 1000ms)</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> jitter <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">1000</span><span class="op">;</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> delay <span class="op">=</span> exponentialDelay <span class="op">+</span> jitter<span class="op">;</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">reconnectAttempts</span><span class="op">++;</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Reconnecting in </span><span class="sc">${</span><span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(delay)<span class="sc">}</span><span class="vs">ms (Attempt </span><span class="sc">${</span><span class="kw">this</span><span class="op">.</span><span class="at">reconnectAttempts</span><span class="sc">}</span><span class="vs">)`</span>)<span class="op">;</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>    <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">connect</span>()<span class="op">;</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span> delay)<span class="op">;</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>  <span class="fu">close</span>() {</span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">isExplicitlyClosed</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">socket</span>) {</span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">socket</span><span class="op">.</span><span class="fu">close</span>(<span class="dv">1000</span><span class="op">,</span> <span class="st">&#39;Client closed connection&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> client <span class="op">=</span> <span class="kw">new</span> <span class="fu">ResilientWebSocket</span>(<span class="st">&#39;wss://example.com/socket&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h2 id="integrating-browser-network-events">Integrating Browser Network
+Events</h2>
+<p>In browser environments, you can optimize reconnection strategies
+further by listening to network state changes using
+<code>window.addEventListener</code>:</p>
+<ul>
+<li><strong><code>online</code> event:</strong> When network
+connectivity is restored after an outage, trigger an immediate
+connection attempt instead of waiting for a long backoff timer to
+expire.</li>
+<li><strong><code>offline</code> event:</strong> Pause reconnection
+timers while the device has no internet access to conserve client
+resources.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

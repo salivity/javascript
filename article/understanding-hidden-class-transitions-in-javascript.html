@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Hidden Class Transitions in JavaScript - javascript</title>
+    <meta name="description" content="JavaScript engines optimize dynamic property access by utilizing internal structures known as hidden classes or shapes. This article explores how hidden classes work, how property modifications trigger shape transitions, and why mismatched object shapes">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-hidden-class-transitions-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Hidden Class Transitions in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-hidden-class-transitions-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript engines optimize dynamic property access by utilizing internal structures known as hidden classes or shapes. This article explores how hidden classes work, how property modifications trigger shape transitions, and why mismatched object shapes" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="understanding-hidden-class-transitions-in-javascript">Understanding
+Hidden Class Transitions in JavaScript</h1>
+<p>JavaScript engines optimize dynamic property access by utilizing
+internal structures known as hidden classes or shapes. This article
+explores how hidden classes work, how property modifications trigger
+shape transitions, and why mismatched object shapes lead to inline cache
+misses that severely degrade JavaScript execution performance.</p>
+<h2 id="the-role-of-hidden-classes-in-javascript">The Role of Hidden
+Classes in JavaScript</h2>
+<p>JavaScript is a dynamically typed language where objects can change
+their structure at runtime. Unlike statically typed languages like C++
+or Java, where the memory layout of an object is fixed at compile time,
+JavaScript objects can have properties added, modified, or removed on
+the fly.</p>
+<p>To achieve near-native performance, modern JavaScript engines (such
+as V8 in Chrome and Node.js, SpiderMonkey in Firefox, and JavaScriptCore
+in Safari) create internal data structures called <strong>Hidden
+Classes</strong> (also referred to as "Shapes" or "Maps").</p>
+<p>A hidden class tracks:</p>
+<ul>
+<li>The property names an object contains.</li>
+<li>The memory offset where each property's value is stored.</li>
+<li>Pointers to transition targets when new properties are added.</li>
+</ul>
+<p>When a property is accessed (e.g., <code>user.name</code>), the
+engine uses the hidden class to look up the fixed offset in memory
+rather than performing an expensive dynamic dictionary lookup.</p>
+<h2 id="how-hidden-class-transitions-work">How Hidden Class Transitions
+Work</h2>
+<p>When an empty object is created, it starts with an initial, empty
+hidden class (e.g., <code>C0</code>). Every time a property is added,
+the engine creates a new hidden class and creates a <strong>transition
+path</strong> linking the previous class to the new one.</p>
+<p>Consider the following execution:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> point <span class="op">=</span> {}<span class="op">;</span>        <span class="co">// Associated with Shape C0</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>point<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span>            <span class="co">// Transitions to Shape C1 (has &#39;x&#39; at offset 0)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>point<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">20</span><span class="op">;</span>            <span class="co">// Transitions to Shape C2 (has &#39;x&#39; at offset 0, &#39;y&#39; at offset 1)</span></span></code></pre></div>
+<p>If another object undergoes the exact same property assignments in
+the exact same order:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> point2 <span class="op">=</span> {}<span class="op">;</span>       <span class="co">// Associated with Shape C0</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>point2<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">5</span><span class="op">;</span>            <span class="co">// Transitions to existing Shape C1</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>point2<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">15</span><span class="op">;</span>           <span class="co">// Transitions to existing Shape C2</span></span></code></pre></div>
+<p>Both <code>point</code> and <code>point2</code> end up sharing the
+identical final hidden class (<code>C2</code>).</p>
+<h2 id="why-mismatched-object-shapes-occur">Why Mismatched Object Shapes
+Occur</h2>
+<p>A shape mismatch happens when objects that are conceptually identical
+possess different hidden classes. This is typically caused by:</p>
+<ol type="1">
+<li><p><strong>Different Property Initialization Order:</strong></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> objA <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>objA<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>objA<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Shape path: C0 -&gt; C1 (x) -&gt; C2 (x, y)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> objB <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>objB<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>objB<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// Shape path: C0 -&gt; C3 (y) -&gt; C4 (y, x)</span></span></code></pre></div>
+<p>Even though <code>objA</code> and <code>objB</code> have the same
+properties, their internal shapes (<code>C2</code> and <code>C4</code>)
+are completely different because the insertion order diverged.</p></li>
+<li><p><strong>Conditional Property Assignments:</strong> Adding
+properties inside conditional blocks creates diverging branches in the
+transition tree.</p></li>
+<li><p><strong>Use of the <code>delete</code> Operator:</strong>
+Deleting a property changes the shape entirely and often forces the
+engine to abandon hidden class optimizations altogether, dropping the
+object into a slow "dictionary mode."</p></li>
+</ol>
+<h2 id="how-mismatched-shapes-slow-down-javascript">How Mismatched
+Shapes Slow Down JavaScript</h2>
+<p>The primary performance penalty of mismatched shapes stems from how
+engines optimize property access using <strong>Inline Caches
+(ICs)</strong>.</p>
+<p>When a function accesses a property on an object, the engine caches
+the object's shape and the corresponding memory offset directly at the
+call site. Future invocations are optimized depending on the state of
+the Inline Cache:</p>
+<ul>
+<li><strong>Monomorphic (Fastest):</strong> The function consistently
+encounters objects with the exact same hidden class. The engine executes
+a single shape check and immediately loads the value from the cached
+memory offset.</li>
+<li><strong>Polymorphic (Moderate):</strong> The function encounters a
+small number of distinct shapes (typically up to 4). The engine checks
+the shape against a short list of known classes.</li>
+<li><strong>Megamorphic (Slowest):</strong> The function encounters many
+different shapes. The engine abandons inline caching and falls back to
+an unoptimized, generic hash-table lookup.</li>
+</ul>
+<h3 id="the-cost-of-megamorphism">The Cost of Megamorphism</h3>
+<p>When functions receive objects with mismatched shapes:</p>
+<ul>
+<li><strong>Inline Caches Blow Up:</strong> Call sites transition from
+monomorphic to megamorphic states.</li>
+<li><strong>Compiler Deoptimization:</strong> The JIT (Just-In-Time)
+compiler must generate guard checks for each potential shape, increasing
+machine code size and execution time.</li>
+<li><strong>Loss of Speculative Optimizations:</strong> The optimizing
+compiler (e.g., V8's TurboFan) can no longer inline property accesses or
+optimize away dead code based on predictable types.</li>
+</ul>
+<h2 id="writing-shape-friendly-code">Writing Shape-Friendly Code</h2>
+<p>To ensure maximum execution speed and maintain monomorphic inline
+caches:</p>
+<ul>
+<li><strong>Initialize all properties in constructors or object
+literals:</strong> Define all expected keys at creation time rather than
+dynamically assigning them later.</li>
+<li><strong>Maintain consistent initialization order:</strong> Always
+assign object properties in the exact same sequence across your
+codebase.</li>
+<li><strong>Avoid <code>delete</code>:</strong> Set unused properties to
+<code>null</code> or <code>undefined</code> instead of using the
+<code>delete</code> keyword to prevent objects from falling into slow
+dictionary mode.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript NodeFilter Filters DOM Elements - javascript</title>
+    <meta name="description" content="The JavaScript NodeFilter interface provides a mechanism for screening and selecting specific nodes during DOM tree traversal using traversal objects like TreeWalker and NodeIterator. By evaluating individual nodes against custom criteria, NodeFilter dic">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-nodefilter-filters-dom-elements">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript NodeFilter Filters DOM Elements - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-nodefilter-filters-dom-elements" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The JavaScript NodeFilter interface provides a mechanism for screening and selecting specific nodes during DOM tree traversal using traversal objects like TreeWalker and NodeIterator. By evaluating individual nodes against custom criteria, NodeFilter dic" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-nodefilter-filters-dom-elements">How JavaScript
+NodeFilter Filters DOM Elements</h1>
+<p>The JavaScript <code>NodeFilter</code> interface provides a mechanism
+for screening and selecting specific nodes during DOM tree traversal
+using traversal objects like <code>TreeWalker</code> and
+<code>NodeIterator</code>. By evaluating individual nodes against custom
+criteria, <code>NodeFilter</code> dictates whether a node should be
+accepted into the traversal results, completely rejected along with its
+descendants, or bypassed while leaving its child nodes eligible for
+inspection. This article explains how <code>NodeFilter</code> operates,
+the role of its filtering constants, and how it directs traversal
+behavior in the DOM.</p>
+<h3 id="dom-traversal-apis-and-nodefilter-setup">DOM Traversal APIs and
+NodeFilter Setup</h3>
+<p>DOM traversal uses two primary factory methods on the
+<code>document</code> object: <code>document.createTreeWalker()</code>
+and <code>document.createNodeIterator()</code>. Both accept a
+<code>NodeFilter</code> as their optional fourth argument (or third in
+standard implementations).</p>
+<p>A <code>NodeFilter</code> can be implemented either as an object
+containing an <code>acceptNode(node)</code> method or as a standalone
+function that accepts the current <code>Node</code> being traversed.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Function implementation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> filterFunction <span class="op">=</span> (node) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> node<span class="op">.</span><span class="at">classList</span><span class="op">.</span><span class="fu">contains</span>(<span class="st">&#39;target&#39;</span>) </span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">?</span> <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">FILTER_ACCEPT</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">FILTER_SKIP</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Object implementation</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> filterObject <span class="op">=</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">acceptNode</span>(node) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> node<span class="op">.</span><span class="at">tagName</span> <span class="op">===</span> <span class="st">&#39;DIV&#39;</span> </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="op">?</span> <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">FILTER_ACCEPT</span> </span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="op">:</span> <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">FILTER_SKIP</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="pre-filtering-with-whattoshow">Pre-Filtering with
+<code>whatToShow</code></h3>
+<p>Before the <code>NodeFilter</code> logic runs, the traversal API
+applies an initial coarse filter defined by the <code>whatToShow</code>
+bitmask parameter (such as <code>NodeFilter.SHOW_ELEMENT</code> or
+<code>NodeFilter.SHOW_TEXT</code>).</p>
+<p>If a node matches the <code>whatToShow</code> mask, it is passed to
+the custom filter. If it fails the <code>whatToShow</code> mask, the
+engine automatically skips it or its children according to internal
+rules, without executing your <code>acceptNode</code> callback.</p>
+<h3 id="filter-return-values-and-tree-traversal-control">Filter Return
+Values and Tree Traversal Control</h3>
+<p>Inside the <code>acceptNode()</code> method, you evaluate the passed
+node and return one of three unsigned short integer constants defined on
+the <code>NodeFilter</code> interface:</p>
+<ol type="1">
+<li><p><strong><code>NodeFilter.FILTER_ACCEPT</code> (Value:
+1):</strong><br />
+The node matches the criteria. The iterator or tree walker stops on this
+node and returns it to the caller.</p></li>
+<li><p><strong><code>NodeFilter.FILTER_REJECT</code> (Value:
+2):</strong><br />
+The node does not match. Its behavior depends on the traversal
+engine:</p>
+<ul>
+<li><strong>In <code>TreeWalker</code>:</strong> Rejects the current
+node <strong>and</strong> prevents the walker from descending into any
+of its child nodes, pruning that entire branch from the traversal.</li>
+<li><strong>In <code>NodeIterator</code>:</strong> Because
+<code>NodeIterator</code> represents a flat list rather than a
+hierarchy, <code>FILTER_REJECT</code> simply skips this individual node.
+It behaves identically to <code>FILTER_SKIP</code>.</li>
+</ul></li>
+<li><p><strong><code>NodeFilter.FILTER_SKIP</code> (Value:
+3):</strong><br />
+The node itself is rejected, but its descendants remain eligible for
+traversal:</p>
+<ul>
+<li><strong>In <code>TreeWalker</code>:</strong> The walker skips the
+current node but still visits its children.</li>
+<li><strong>In <code>NodeIterator</code>:</strong> The iterator skips
+this individual node and proceeds to the next node in document
+order.</li>
+</ul></li>
+</ol>
+<h3 id="execution-example">Execution Example</h3>
+<p>The distinction between <code>FILTER_SKIP</code> and
+<code>FILTER_REJECT</code> makes <code>NodeFilter</code> powerful for
+complex DOM operations. For instance, you can ignore structural wrapper
+elements while still extracting data from elements nested within
+them:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> walker <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createTreeWalker</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">document</span><span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">SHOW_ELEMENT</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">acceptNode</span>(node) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Prune hidden subtrees entirely</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (node<span class="op">.</span><span class="at">hidden</span> <span class="op">||</span> node<span class="op">.</span><span class="fu">getAttribute</span>(<span class="st">&#39;aria-hidden&#39;</span>) <span class="op">===</span> <span class="st">&#39;true&#39;</span>) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">FILTER_REJECT</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Accept specific data items</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (node<span class="op">.</span><span class="fu">matches</span>(<span class="st">&#39;li.user-item&#39;</span>)) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">FILTER_ACCEPT</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Skip structural containers, but continue looking inside them</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="bu">NodeFilter</span><span class="op">.</span><span class="at">FILTER_SKIP</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> currentNode <span class="op">=</span> walker<span class="op">.</span><span class="fu">nextNode</span>()<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> (currentNode) {</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(currentNode)<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  currentNode <span class="op">=</span> walker<span class="op">.</span><span class="fu">nextNode</span>()<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By returning explicit instructions to the traversal engine,
+<code>NodeFilter</code> isolates parsing logic from navigation
+algorithms, producing efficient and fine-grained DOM queries.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

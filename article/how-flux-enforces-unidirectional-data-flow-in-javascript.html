@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Flux Enforces Unidirectional Data Flow in JavaScript - javascript</title>
+    <meta name="description" content="This article explains how the Flux architectural pattern implements and enforces unidirectional data flow to manage state predictably in JavaScript applications. By breaking down the interactions between Flux's four core components—Actions, the Dispatc">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-flux-enforces-unidirectional-data-flow-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Flux Enforces Unidirectional Data Flow in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-flux-enforces-unidirectional-data-flow-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Flux architectural pattern implements and enforces unidirectional data flow to manage state predictably in JavaScript applications. By breaking down the interactions between Flux's four core components—Actions, the Dispatc" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-flux-enforces-unidirectional-data-flow-in-javascript">How
+Flux Enforces Unidirectional Data Flow in JavaScript</h1>
+<p>This article explains how the Flux architectural pattern implements
+and enforces unidirectional data flow to manage state predictably in
+JavaScript applications. By breaking down the interactions between
+Flux's four core components—Actions, the Dispatcher, Stores, and
+Views—it details how strict boundaries, centralized dispatching, and
+read-only state prevent the unpredictable data cascades common in
+traditional Model-View-Controller (MVC) implementations.</p>
+<h3 id="the-problem-with-bidirectional-flow">The Problem with
+Bidirectional Flow</h3>
+<p>In traditional MVC architectures with two-way data binding, views can
+update models, and models can update views or other models. As an
+application scales, these relationships form complex, interconnected
+webs. A single user interaction can trigger a cascade of changes that
+make it difficult to determine the source of a bug, predict application
+state, or reproduce errors reliably.</p>
+<h3 id="the-flux-solution-the-single-direction-loop">The Flux Solution:
+The Single-Direction Loop</h3>
+<p>Flux resolves state unpredictability by enforcing a strict, one-way
+cycle:</p>
+<p><code>Action -&gt; Dispatcher -&gt; Store -&gt; View -&gt; (Action)</code></p>
+<p>Data never moves backward, and no component can bypass this
+pipeline.</p>
+<h3 id="core-components-and-enforcement-mechanisms">Core Components and
+Enforcement Mechanisms</h3>
+<h4 id="1-actions">1. Actions</h4>
+<p>Actions are plain JavaScript objects containing a <code>type</code>
+property and relevant payload data. They represent explicit intentions
+to change state, triggered by user interactions, network responses, or
+scheduled events.</p>
+<ul>
+<li><strong>Enforcement:</strong> Actions do not manipulate state
+directly. They can only describe an event and pass data to the
+Dispatcher.</li>
+</ul>
+<h4 id="2-the-centralized-dispatcher">2. The Centralized Dispatcher</h4>
+<p>The Dispatcher functions as the central traffic controller of the
+entire application. It is a singleton with no business logic of its own;
+its sole purpose is to receive Actions and broadcast them to all
+registered Stores.</p>
+<ul>
+<li><strong>Enforcement:</strong> The Dispatcher prevents cascading
+updates by strictly forbidding the dispatching of a new action while an
+existing action is currently being processed. It also provides
+mechanisms like <code>waitFor()</code>, allowing stores to declare
+explicit update dependencies without directly communicating with one
+another.</li>
+</ul>
+<h4 id="3-stores">3. Stores</h4>
+<p>Stores contain the application state and business logic. Unlike
+models in MVC, a Store does not map to a single database entity;
+instead, it manages the domain state for an entire section of the
+application.</p>
+<ul>
+<li><strong>Enforcement:</strong> Stores have no public setters.
+External components cannot modify a Store's state directly. The only way
+state updates occur is when the Store handles an Action broadcasted by
+the Dispatcher. Once a Store completes its internal state mutation, it
+emits a change event notifying the Views.</li>
+</ul>
+<h4 id="4-views-controller-views">4. Views (Controller-Views)</h4>
+<p>Views (typically built using libraries like React) render the UI
+based on the state provided by Stores. Top-level components, often
+called Controller-Views, subscribe to Store change events, retrieve
+updated state, and pass it down the component tree via read-only
+props.</p>
+<ul>
+<li><strong>Enforcement:</strong> If a user interacts with the UI (e.g.,
+clicking a button), the View cannot mutate the Store directly. Instead,
+it must construct an Action and pass it to the Dispatcher, re-initiating
+the unidirectional cycle from the very beginning.</li>
+</ul>
+<h3 id="why-this-structure-prevents-state-bugs">Why This Structure
+Prevents State Bugs</h3>
+<p>By locking the state mutation pipeline into a single direction, Flux
+creates deterministic applications:</p>
+<ul>
+<li><strong>Predictability:</strong> Every state change originates from
+an explicit, traceable Action.</li>
+<li><strong>Controlled Side Effects:</strong> Because the Dispatcher
+blocks concurrent dispatches, side effects and race conditions are
+minimized.</li>
+<li><strong>Separation of Concerns:</strong> Views remain purely
+declarative renderers of state, while Stores remain isolated containers
+of business logic, eliminating hidden interdependencies across the
+codebase.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

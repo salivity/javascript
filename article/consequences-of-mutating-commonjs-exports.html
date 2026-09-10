@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consequences of Mutating CommonJS Exports - javascript</title>
+    <meta name="description" content="In CommonJS (CJS) JavaScript environments like Node.js, mutating exports or module.exports directly can introduce subtle, hard-to-trace bugs across an application. Because CommonJS handles exports via object references and caches module evaluations, impr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/consequences-of-mutating-commonjs-exports">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Consequences of Mutating CommonJS Exports - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/consequences-of-mutating-commonjs-exports" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In CommonJS (CJS) JavaScript environments like Node.js, mutating exports or module.exports directly can introduce subtle, hard-to-trace bugs across an application. Because CommonJS handles exports via object references and caches module evaluations, impr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="consequences-of-mutating-commonjs-exports">Consequences of
+Mutating CommonJS Exports</h1>
+<p>In CommonJS (CJS) JavaScript environments like Node.js, mutating
+<code>exports</code> or <code>module.exports</code> directly can
+introduce subtle, hard-to-trace bugs across an application. Because
+CommonJS handles exports via object references and caches module
+evaluations, improper mutation can silently break the link between
+<code>exports</code> and <code>module.exports</code>, fail to propagate
+updated values to consumers, cause race conditions in circular
+dependencies, and pollute global module caches. Understanding how
+CommonJS passes values and manages module objects is essential to
+avoiding these pitfalls.</p>
+<h2 id="severing-the-exports-alias-reference">Severing the
+<code>exports</code> Alias Reference</h2>
+<p>At the start of every CommonJS module execution, Node.js provides a
+shorthand variable named <code>exports</code> that points to the same
+object in memory as <code>module.exports</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Internal setup before module runs</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">var</span> module <span class="op">=</span> { <span class="dt">exports</span><span class="op">:</span> {} }<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">var</span> exports <span class="op">=</span> module<span class="op">.</span><span class="at">exports</span><span class="op">;</span></span></code></pre></div>
+<p>When you reassign <code>exports</code> directly (e.g.,
+<code>exports = { foo: 'bar' }</code>), you overwrite the local variable
+rather than modifying the actual object that Node.js returns to
+consumers. The <code>require()</code> function always returns
+<code>module.exports</code>. Reassigning <code>exports</code> severs
+this reference, causing the module to export an empty object
+(<code>{}</code>) instead of your intended interface.</p>
+<p>To change the root export object, you must always assign directly to
+<code>module.exports</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Incorrect: Returns {} to the consumer</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>exports <span class="op">=</span> <span class="kw">function</span>() { <span class="op">...</span> }<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Correct: Returns the function</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>module<span class="op">.</span><span class="at">exports</span> <span class="op">=</span> <span class="kw">function</span>() { <span class="op">...</span> }<span class="op">;</span></span></code></pre></div>
+<h2 id="lack-of-live-bindings-for-primitives">Lack of Live Bindings for
+Primitives</h2>
+<p>Unlike ECMAScript Modules (ESM), which use live bindings, CommonJS
+exports values by copy when dealing with primitives (strings, numbers,
+booleans).</p>
+<p>If a module exports a primitive variable and later mutates its
+internal copy, the imported value in other files remains unchanged:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// counter.js</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> count <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">increment</span>() { count<span class="op">++;</span> }</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>module<span class="op">.</span><span class="at">exports</span> <span class="op">=</span> { count<span class="op">,</span> increment }<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// app.js</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { count<span class="op">,</span> increment } <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;./counter&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">increment</span>()<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(count)<span class="op">;</span> <span class="co">// Still prints 0</span></span></code></pre></div>
+<p>Because <code>count</code> was evaluated and copied onto the export
+object at the time <code>require()</code> was called, internal mutations
+do not update the consumer's variable.</p>
+<h2 id="cache-pollution-and-shared-state-bugs">Cache Pollution and
+Shared State Bugs</h2>
+<p>When a module exports an object, array, or class instance, any
+consumer that modifies properties on that exported object will mutate
+the cached instance in memory.</p>
+<p>Node.js caches the result of <code>require()</code> in
+<code>require.cache</code>. As a consequence:</p>
+<ul>
+<li><strong>Global side effects:</strong> A mutation made by one file
+instantly affects every other file that imports the same module.</li>
+<li><strong>Test suite leakage:</strong> Unit tests that mutate imported
+module properties can bleed state into subsequent tests, creating
+non-deterministic test failures.</li>
+<li><strong>Race conditions:</strong> Asynchronous operations modifying
+shared export properties concurrently can lead to unpredictable
+application states.</li>
+</ul>
+<h2 id="circular-dependency-failures">Circular Dependency Failures</h2>
+<p>CommonJS resolves circular dependencies by returning the partially
+evaluated <code>module.exports</code> object when an unresolved loop is
+encountered.</p>
+<p>If Module A requires Module B, and Module B requires Module A before
+Module A has finished setting up its exports, Module B receives an
+incomplete object. If you mutate or overwrite
+<code>module.exports</code> later in the execution cycle, the previously
+resolved references in Module B will not point to the new exports,
+resulting in <code>undefined</code> errors at runtime.</p>
+<h2 id="best-practices-to-avoid-mutation-issues">Best Practices to Avoid
+Mutation Issues</h2>
+<p>To maintain predictable behavior in CommonJS modules:</p>
+<ul>
+<li><strong>Treat exports as immutable:</strong> Avoid modifying
+properties on imported modules from consumer files.</li>
+<li><strong>Use functions or getter methods:</strong> If a module needs
+to expose dynamic or updating state, export a function (e.g.,
+<code>getCount()</code>) or an object getter rather than a raw
+primitive.</li>
+<li><strong>Explicitly assign to <code>module.exports</code>:</strong>
+When replacing the export value entirely, always target
+<code>module.exports</code> to prevent breaking the shorthand
+reference.</li>
+<li><strong>Consider migrating to ES Modules:</strong> ESM native live
+bindings and strict read-only imports eliminate many reference-mutation
+issues inherent to CommonJS.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

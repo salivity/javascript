@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript setTimeout String Security Risks - javascript</title>
+    <meta name="description" content="Using strings as arguments in JavaScript's setTimeout function triggers dynamic code evaluation, posing severe security vulnerabilities predominantly centered around Cross-Site Scripting (XSS). This article breaks down how passing strings to setTimeout m">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-settimeout-string-security-risks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript setTimeout String Security Risks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-settimeout-string-security-risks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Using strings as arguments in JavaScript's setTimeout function triggers dynamic code evaluation, posing severe security vulnerabilities predominantly centered around Cross-Site Scripting (XSS). This article breaks down how passing strings to setTimeout m" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-settimeout-string-security-risks">JavaScript
+setTimeout String Security Risks</h1>
+<p>Using strings as arguments in JavaScript's <code>setTimeout</code>
+function triggers dynamic code evaluation, posing severe security
+vulnerabilities predominantly centered around Cross-Site Scripting
+(XSS). This article breaks down how passing strings to
+<code>setTimeout</code> mimics the dangerous behavior of
+<code>eval()</code>, exposes web applications to arbitrary code
+execution, bypasses defensive boundaries, and outlines the secure
+alternatives developers must implement.</p>
+<h3 id="the-mechanism-dynamic-code-evaluation">The Mechanism: Dynamic
+Code Evaluation</h3>
+<p>In JavaScript, the <code>setTimeout</code> method can accept either a
+function reference or a string as its first argument. When provided with
+a string, the runtime evaluates the string as executable code once the
+timer expires:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Dangerous pattern</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">setTimeout</span>(<span class="st">&quot;doSomething()&quot;</span><span class="op">,</span> <span class="dv">1000</span>)<span class="op">;</span></span></code></pre></div>
+<p>Under the hood, the browser's JavaScript engine converts this string
+into runnable instructions using the same underlying mechanics as the
+<code>eval()</code> function. This process is known as dynamic code
+execution.</p>
+<h3 id="the-primary-threat-cross-site-scripting-xss">The Primary Threat:
+Cross-Site Scripting (XSS)</h3>
+<p>The most critical danger of passing strings to
+<code>setTimeout</code> arises when dynamic data or user-supplied input
+is concatenated into the string:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable to injection</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userInput <span class="op">=</span> location<span class="op">.</span><span class="at">hash</span><span class="op">.</span><span class="fu">substring</span>(<span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">setTimeout</span>(<span class="st">&quot;handleUser(&#39;&quot;</span> <span class="op">+</span> userInput <span class="op">+</span> <span class="st">&quot;&#39;)&quot;</span><span class="op">,</span> <span class="dv">1000</span>)<span class="op">;</span></span></code></pre></div>
+<p>If an attacker injects malicious payload syntax, such as
+<code>'); stealCookies(); //</code>, the application executes unintended
+JavaScript in the victim's browser session. The consequences of this
+injection include:</p>
+<ul>
+<li><strong>Session Hijacking:</strong> Attackers can read sensitive
+authentication tokens, session IDs, and cookies not protected by
+<code>HttpOnly</code>.</li>
+<li><strong>Data Exfiltration:</strong> Attackers can read DOM contents,
+sensitive form fields, and private user data, transmitting them to
+external servers.</li>
+<li><strong>Malicious Actions on Behalf of the User:</strong> Attackers
+can perform unauthorized actions, such as changing account credentials
+or triggering financial transactions.</li>
+</ul>
+<h3 id="conflict-with-content-security-policy-csp">Conflict with Content
+Security Policy (CSP)</h3>
+<p>Modern web security relies heavily on Content Security Policy (CSP)
+to mitigate XSS attacks. A robust CSP restricts the execution of
+untrusted scripts by disallowing dynamic evaluation by default.</p>
+<p>Passing strings to <code>setTimeout</code> requires the policy to
+include the <code>unsafe-eval</code> directive in its
+<code>script-src</code> rules:</p>
+<pre class="http"><code>Content-Security-Policy: script-src &#39;self&#39; &#39;unsafe-eval&#39;;</code></pre>
+<p>Enabling <code>'unsafe-eval'</code> substantially weakens an
+application's security posture, negating one of CSP's most powerful
+protections and exposing the application to a broader class of injection
+attacks across the entire codebase.</p>
+<h3 id="secondary-concerns-performance-and-maintainability">Secondary
+Concerns: Performance and Maintainability</h3>
+<p>Beyond direct security exploits, string-based execution causes
+operational problems:</p>
+<ul>
+<li><strong>No Compiler Optimization:</strong> JavaScript engines like
+V8 cannot optimize dynamic strings ahead of time, leading to degraded
+performance.</li>
+<li><strong>Scope Creep:</strong> Code evaluated via strings executes in
+the global execution context, potentially overwriting global variables
+or exposing internal application states unintentionally.</li>
+<li><strong>Debugging Complexity:</strong> Stack traces from dynamically
+evaluated strings are notoriously difficult to trace, obscuring the
+original source of runtime errors.</li>
+</ul>
+<h3 id="safe-implementation-alternatives">Safe Implementation
+Alternatives</h3>
+<p>Dynamic string execution in <code>setTimeout</code> is completely
+unnecessary. Modern JavaScript provides safer, standard mechanisms to
+execute timed code and pass arguments:</p>
+<p><strong>1. Pass an Anonymous or Arrow Function:</strong></p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">handleUser</span>(userInput)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> <span class="dv">1000</span>)<span class="op">;</span></span></code></pre></div>
+<p><strong>2. Pass Function Arguments Directly to
+<code>setTimeout</code>:</strong></p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">setTimeout</span>(handleUser<span class="op">,</span> <span class="dv">1000</span><span class="op">,</span> userInput)<span class="op">;</span></span></code></pre></div>
+<p>Using function references ensures that user input is treated strictly
+as data rather than executable code, eliminating the risk of code
+injection and maintaining compliance with strict security policies.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Server-Driven UI Passes Schemas to JavaScript - javascript</title>
+    <meta name="description" content="Server-driven UI (SDUI) architecture allows backend services to control the structure, styling, and behavior of a frontend interface by transmitting declarative layout schemas directly to client-side JavaScript. Instead of relying on hardcoded client com">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-server-driven-ui-passes-schemas-to-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Server-Driven UI Passes Schemas to JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-server-driven-ui-passes-schemas-to-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Server-driven UI (SDUI) architecture allows backend services to control the structure, styling, and behavior of a frontend interface by transmitting declarative layout schemas directly to client-side JavaScript. Instead of relying on hardcoded client com" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-server-driven-ui-passes-schemas-to-javascript">How
+Server-Driven UI Passes Schemas to JavaScript</h1>
+<p>Server-driven UI (SDUI) architecture allows backend services to
+control the structure, styling, and behavior of a frontend interface by
+transmitting declarative layout schemas directly to client-side
+JavaScript. Instead of relying on hardcoded client component
+hierarchies, the server serializes UI definitions—typically via
+structured JSON or GraphQL payloads—over standard network protocols. The
+client JavaScript application then parses this schema, maps abstract
+component definitions to a local component registry, and dynamically
+renders the user interface in real time.</p>
+<h3 id="1-schema-definition-and-structure">1. Schema Definition and
+Structure</h3>
+<p>The server constructs the UI using a standardized data format,
+universally represented as a nested JSON tree. This schema decouples the
+data model from presentation logic while specifying exactly how
+components should be arranged and configured.</p>
+<p>A typical SDUI schema object contains:</p>
+<ul>
+<li><strong><code>type</code> / <code>component</code></strong>: The
+identifier matching a corresponding frontend component (e.g.,
+<code>"Carousel"</code>, <code>"Button"</code>,
+<code>"Banner"</code>).</li>
+<li><strong><code>id</code></strong>: A unique key for UI
+reconciliation, accessibility, and state tracking.</li>
+<li><strong><code>props</code> / <code>attributes</code></strong>:
+Visual properties such as text, colors, layout alignment, and
+margins.</li>
+<li><strong><code>children</code></strong>: An array of nested schema
+objects that define child elements.</li>
+<li><strong><code>actions</code></strong>: Definitions for user
+interactions (e.g., navigation events, analytic triggers, or API
+calls).</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;Card&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;card-101&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;props&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;elevation&quot;</span><span class="fu">:</span> <span class="dv">2</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;padding&quot;</span><span class="fu">:</span> <span class="st">&quot;16px&quot;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;children&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;Text&quot;</span><span class="fu">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;props&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="st">&quot;Special Promotion&quot;</span><span class="fu">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;variant&quot;</span><span class="fu">:</span> <span class="st">&quot;headline&quot;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;Button&quot;</span><span class="fu">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;props&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Claim Offer&quot;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>      <span class="fu">},</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;action&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;NAVIGATE&quot;</span><span class="fu">,</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;payload&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;/offers/claim&quot;</span> <span class="fu">}</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="2-network-transport-and-delivery">2. Network Transport and
+Delivery</h3>
+<p>The backend passes the generated schema to the client runtime through
+standard network communication layers:</p>
+<ul>
+<li><strong>RESTful APIs</strong>: The client issues an HTTP
+<code>GET</code> or <code>POST</code> request upon navigation, receiving
+the layout payload tailored to the user's context, authentication state,
+or feature flags.</li>
+<li><strong>GraphQL</strong>: The client queries specific UI fragments,
+allowing it to request both business data and dynamic layout schemas
+within a unified request.</li>
+<li><strong>WebSockets / Server-Sent Events (SSE)</strong>: For live
+interfaces, the server streams real-time schema diffs or layout
+replacements directly to the active client session.</li>
+</ul>
+<h3 id="3-client-component-registry-mapping">3. Client Component
+Registry Mapping</h3>
+<p>The core of the client-side JavaScript architecture is the component
+registry—a lookup table mapping incoming schema <code>type</code>
+strings to actual frontend components (e.g., React, Vue, Svelte, or
+native Web Components).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Button <span class="im">from</span> <span class="st">&#39;./components/Button&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> Card <span class="im">from</span> <span class="st">&#39;./components/Card&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">Text</span> <span class="im">from</span> <span class="st">&#39;./components/Text&#39;</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> COMPONENT_REGISTRY <span class="op">=</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  Button<span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  Card<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">Text</span><span class="op">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="4-schema-parsing-and-dynamic-rendering">4. Schema Parsing and
+Dynamic Rendering</h3>
+<p>Once the JSON payload arrives, the client processes the node tree
+recursively. A recursive rendering engine reads each node, validates it,
+and instantiates the target component from the registry with the
+provided properties.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">RenderNode</span>({ node }) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> Component <span class="op">=</span> COMPONENT_REGISTRY[node<span class="op">.</span><span class="at">type</span>]<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>Component) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="vs">`Unsupported component type: </span><span class="sc">${</span>node<span class="op">.</span><span class="at">type</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> renderedChildren <span class="op">=</span> node<span class="op">.</span><span class="at">children</span> </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">?</span> node<span class="op">.</span><span class="at">children</span><span class="op">.</span><span class="fu">map</span>(child <span class="kw">=&gt;</span> <span class="op">&lt;</span>RenderNode key<span class="op">=</span>{child<span class="op">.</span><span class="at">id</span>} node<span class="op">=</span>{child} <span class="op">/&gt;</span>)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> (</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">&lt;</span>Component {<span class="op">...</span>node<span class="op">.</span><span class="at">props</span>} action<span class="op">=</span>{node<span class="op">.</span><span class="at">action</span>}<span class="op">&gt;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      {renderedChildren}</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">&lt;/</span>Component<span class="op">&gt;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="5-action-and-state-binding">5. Action and State Binding</h3>
+<p>The client-side JavaScript infrastructure intercepts declarative
+action definitions contained in the schema and binds them to local
+execution handlers.</p>
+<p>When a user triggers an event (like a click), the client resolves the
+action metadata via an action dispatcher:</p>
+<ul>
+<li><strong>Navigation Actions</strong>: Handled by the client-side
+router without a full page reload.</li>
+<li><strong>API Requests</strong>: Dispatched to update server state,
+which can respond with a new UI schema fragment.</li>
+<li><strong>Local State Updates</strong>: Processed through client-side
+state managers (e.g., Redux, Zustand) to toggle local visibility, input
+forms, or animations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

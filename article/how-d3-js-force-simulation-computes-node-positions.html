@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How D3.js Force Simulation Computes Node Positions - javascript</title>
+    <meta name="description" content="This article examines the computational mechanics of the D3.js force-directed graph (d3-force), detailing how it calculates node positions step by step. It covers the underlying physics model based on velocity Verlet integration, the role of individual f">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-d3-js-force-simulation-computes-node-positions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How D3.js Force Simulation Computes Node Positions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-d3-js-force-simulation-computes-node-positions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines the computational mechanics of the D3.js force-directed graph (d3-force), detailing how it calculates node positions step by step. It covers the underlying physics model based on velocity Verlet integration, the role of individual f" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-d3js-force-simulation-computes-node-positions">How D3.js
+Force Simulation Computes Node Positions</h1>
+<p>This article examines the computational mechanics of the D3.js
+force-directed graph (<code>d3-force</code>), detailing how it
+calculates node positions step by step. It covers the underlying physics
+model based on velocity Verlet integration, the role of individual force
+functions such as charge and link constraints, the purpose of the
+cooling parameter (<code>alpha</code>), and the step-by-step execution
+cycle that updates coordinates on every simulation tick.</p>
+<h3 id="the-physics-model-velocity-verlet-integration">The Physics
+Model: Velocity Verlet Integration</h3>
+<p>At the heart of the D3.js force simulation is a simplified form of
+Verlet numerical integration. Instead of calculating exact continuous
+differential equations, the simulation advances in discrete time steps
+(ticks).</p>
+<p>Each node in the simulation maintains four primary properties:</p>
+<ul>
+<li><code>x</code>, <code>y</code>: Current Cartesian coordinates.</li>
+<li><code>vx</code>, <code>vy</code>: Current velocity vector
+components.</li>
+</ul>
+<p>During each iteration, forces do not instantly alter a node's
+position directly. Instead, forces modify the velocity vector
+(<code>vx</code>, <code>vy</code>). Once all active forces have
+contributed their accelerations to the velocity, the velocity is added
+to the node's position:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>node<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> node<span class="op">.</span><span class="at">vx</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>node<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> node<span class="op">.</span><span class="at">vy</span><span class="op">;</span></span></code></pre></div>
+<p>To prevent the simulation from oscillating endlessly, D3 applies a
+friction factor known as <code>velocityDecay</code> (defaulting to
+approximately 0.6). At the end of each tick, velocities are scaled
+down:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>node<span class="op">.</span><span class="at">vx</span> <span class="op">*=</span> velocityDecay<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>node<span class="op">.</span><span class="at">vy</span> <span class="op">*=</span> velocityDecay<span class="op">;</span></span></code></pre></div>
+<h3 id="force-accumulation">Force Accumulation</h3>
+<p>Forces in D3 are modular functions that inspect the state of all
+nodes and mutate their <code>vx</code> and <code>vy</code> values based
+on physical rules. The primary forces include:</p>
+<ol type="1">
+<li><strong>Many-Body Force (<code>d3.forceManyBody</code>)</strong>:
+Simulates electrostatic repulsion or attraction between all pairs of
+nodes. To avoid an <span class="math inline">\(O(n^2)\)</span>
+computational bottleneck, D3 employs a Barnes-Hut quadtree. This spatial
+partitioning groups distant clusters of nodes into single center-of-mass
+approximations, reducing computation time to <span
+class="math inline">\(O(n \log n)\)</span>.</li>
+<li><strong>Link Force (<code>d3.forceLink</code>)</strong>: Acts like a
+geometric spring between connected nodes. It computes the distance
+between source and target nodes, compares it to a specified target
+distance, and adjusts the velocities of both nodes along the joining
+axis proportional to the difference.</li>
+<li><strong>Collision Force (<code>d3.forceCollide</code>)</strong>:
+Prevents node overlap by treating nodes as circles. It uses a quadtree
+to detect intersecting bounds and applies opposing impulses to push
+colliding nodes apart.</li>
+<li><strong>Centering Force (<code>d3.forceCenter</code>)</strong>:
+Computes the mean position of all nodes and translates them uniformly so
+the graph's center of mass aligns with a designated target point,
+without altering internal relative distances.</li>
+</ol>
+<h3 id="the-cooling-schedule-alpha">The Cooling Schedule
+(<code>alpha</code>)</h3>
+<p>To ensure the simulation eventually stabilizes into an equilibrium,
+D3 uses an annealing parameter called <code>alpha</code>.</p>
+<ul>
+<li><strong>Initialization</strong>: <code>alpha</code> typically starts
+at <code>1</code>.</li>
+<li><strong>Decay Rate</strong>: With every tick, <code>alpha</code> is
+adjusted using the formula: <span class="math display">\[\alpha
+\leftarrow \alpha + (\alpha_{target} - \alpha) \times
+\alpha_{decay}\]</span> By default, <span
+class="math inline">\(\alpha_{target}\)</span> is <code>0</code> and
+<span class="math inline">\(\alpha_{decay}\)</span> is roughly
+<code>0.0228</code>.</li>
+<li><strong>Scaling Forces</strong>: Every force scales its applied
+acceleration by the current value of <code>alpha</code>. High
+<code>alpha</code> allows nodes to move rapidly across large distances,
+while low <code>alpha</code> fine-tunes local layouts.</li>
+<li><strong>Termination</strong>: When <code>alpha</code> drops below a
+predefined threshold (<code>alphaMin</code>, default
+<code>0.001</code>), the simulation halts its timer and stops firing
+updates.</li>
+</ul>
+<h3 id="the-step-by-step-simulation-tick">The Step-by-Step Simulation
+Tick</h3>
+<p>When running in the browser via an internal timer (using
+<code>requestAnimationFrame</code>), the simulation executes the
+following sequence on every tick:</p>
+<ol type="1">
+<li><strong>Advance Alpha</strong>: Recalculate the current
+<code>alpha</code> based on the decay schedule. If
+<code>alpha &lt; alphaMin</code>, stop the simulation.</li>
+<li><strong>Apply Forces</strong>: Iterate through every registered
+force plugin in sequence. Each force recalculates its math and adds
+acceleration offsets to <code>node.vx</code> and
+<code>node.vy</code>.</li>
+<li><strong>Dampen Velocity</strong>: Multiply <code>node.vx</code> and
+<code>node.vy</code> by <code>velocityDecay</code>.</li>
+<li><strong>Update Coordinates</strong>: Add velocities to positions
+(<code>x += vx</code>, <code>y += vy</code>).</li>
+<li><strong>Enforce Fixed Nodes</strong>: If a node has <code>fx</code>
+or <code>fy</code> defined (used for dragging or pinning), its
+coordinates are overwritten with these fixed values, and its velocity is
+set to zero.</li>
+<li><strong>Dispatch Event</strong>: Emit the <code>tick</code> event so
+that rendering logic (SVG or Canvas) can sync visual elements to the
+newly computed <code>x</code> and <code>y</code> properties.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

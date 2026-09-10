@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB Object Stores and Indexes in JavaScript - javascript</title>
+    <meta name="description" content="IndexedDB is a powerful, low-level API for client-side storage that allows web applications to store significant amounts of structured data, including files and blobs. This article covers how IndexedDB organizes data using object stores—the equivalent">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/indexeddb-object-stores-and-indexes-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="IndexedDB Object Stores and Indexes in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/indexeddb-object-stores-and-indexes-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="IndexedDB is a powerful, low-level API for client-side storage that allows web applications to store significant amounts of structured data, including files and blobs. This article covers how IndexedDB organizes data using object stores—the equivalent" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="indexeddb-object-stores-and-indexes-in-javascript">IndexedDB
+Object Stores and Indexes in JavaScript</h1>
+<p>IndexedDB is a powerful, low-level API for client-side storage that
+allows web applications to store significant amounts of structured data,
+including files and blobs. This article covers how IndexedDB organizes
+data using object stores—the equivalent of tables in relational
+databases—and how it utilizes indexes to enable high-performance
+querying and sorting of stored JavaScript objects.</p>
+<h2 id="the-indexeddb-architecture-hierarchy">The IndexedDB Architecture
+Hierarchy</h2>
+<p>At its core, IndexedDB follows a distinct hierarchical structure:</p>
+<ol type="1">
+<li><strong>Database:</strong> The highest level of organization. An
+application can have multiple databases, identified by name and
+version.</li>
+<li><strong>Object Stores:</strong> The primary storage mechanism within
+a database, holding individual data records.</li>
+<li><strong>Records:</strong> Individual JavaScript objects or primitive
+values stored within an object store.</li>
+<li><strong>Indexes:</strong> Specialized structures tied to an object
+store that enable querying records by specific object properties.</li>
+</ol>
+<h2 id="object-stores-the-foundation-of-storage">Object Stores: The
+Foundation of Storage</h2>
+<p>An object store holds records as key-value pairs, where the value is
+typically a JavaScript object. Unlike relational database tables, object
+stores are schema-less; records within the same store do not need to
+share the same structure.</p>
+<h3 id="key-paths-and-key-generators">Key Paths and Key Generators</h3>
+<p>Every record in an object store must have a unique primary key.
+IndexedDB handles keys in two main ways:</p>
+<ul>
+<li><strong>In-line Keys (Key Path):</strong> The key is stored as a
+property directly inside the JavaScript object (e.g.,
+<code>keyPath: 'id'</code>).</li>
+<li><strong>Out-of-line Keys:</strong> The key is stored separately from
+the value, passed explicitly during data insertion.</li>
+<li><strong>Auto-Incrementing Keys
+(<code>autoIncrement: true</code>):</strong> IndexedDB automatically
+assigns a sequentially increasing integer as the key for every new
+record.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Creating an object store in the onupgradeneeded event</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> request <span class="op">=</span> indexedDB<span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;AppDatabase&#39;</span><span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onupgradeneeded</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create an object store with an in-line auto-incrementing key</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> userStore <span class="op">=</span> db<span class="op">.</span><span class="fu">createObjectStore</span>(<span class="st">&#39;users&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">keyPath</span><span class="op">:</span> <span class="st">&#39;id&#39;</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">autoIncrement</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="indexes-enabling-efficient-lookups">Indexes: Enabling Efficient
+Lookups</h2>
+<p>By default, an object store only allows direct retrieval of records
+using the primary key. To query or filter data based on other properties
+within stored objects, you must create <strong>indexes</strong>.</p>
+<p>An index is a specialized lookup table created on a specific property
+(or array of properties) of the objects held in an object store.</p>
+<h3 id="creating-an-index">Creating an Index</h3>
+<p>Indexes must be created within the <code>onupgradeneeded</code>
+lifecycle event using the <code>createIndex</code> method:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onupgradeneeded</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> userStore <span class="op">=</span> db<span class="op">.</span><span class="fu">createObjectStore</span>(<span class="st">&#39;users&#39;</span><span class="op">,</span> { <span class="dt">keyPath</span><span class="op">:</span> <span class="st">&#39;id&#39;</span><span class="op">,</span> <span class="dt">autoIncrement</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create an index for unique email lookups</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  userStore<span class="op">.</span><span class="fu">createIndex</span>(<span class="st">&#39;email_idx&#39;</span><span class="op">,</span> <span class="st">&#39;email&#39;</span><span class="op">,</span> { <span class="dt">unique</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create an index for querying by role (non-unique)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  userStore<span class="op">.</span><span class="fu">createIndex</span>(<span class="st">&#39;role_idx&#39;</span><span class="op">,</span> <span class="st">&#39;role&#39;</span><span class="op">,</span> { <span class="dt">unique</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="index-configuration-options">Index Configuration Options</h3>
+<ul>
+<li><strong><code>unique</code>:</strong> When set to <code>true</code>,
+the index rejects any new records containing a duplicate value for the
+indexed property.</li>
+<li><strong><code>multiEntry</code>:</strong> When set to
+<code>true</code> on an array property, IndexedDB creates an individual
+index entry for each item in the array, allowing queries against any
+element contained within it.</li>
+</ul>
+<h2 id="querying-data-via-object-stores-vs-indexes">Querying Data via
+Object Stores vs. Indexes</h2>
+<p>Interacting with data requires opening a transaction on the target
+object store:</p>
+<h3 id="1-direct-lookup-by-primary-key">1. Direct Lookup by Primary
+Key</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> transaction <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>([<span class="st">&#39;users&#39;</span>]<span class="op">,</span> <span class="st">&#39;readonly&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> store <span class="op">=</span> transaction<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;users&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> getRequest <span class="op">=</span> store<span class="op">.</span><span class="fu">get</span>(<span class="dv">1</span>)<span class="op">;</span> <span class="co">// Retrieves user with id = 1</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>getRequest<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(getRequest<span class="op">.</span><span class="at">result</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="2-lookup-using-an-index">2. Lookup Using an Index</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> transaction <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>([<span class="st">&#39;users&#39;</span>]<span class="op">,</span> <span class="st">&#39;readonly&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> store <span class="op">=</span> transaction<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;users&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> emailIndex <span class="op">=</span> store<span class="op">.</span><span class="fu">index</span>(<span class="st">&#39;email_idx&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> queryRequest <span class="op">=</span> emailIndex<span class="op">.</span><span class="fu">get</span>(<span class="st">&#39;alex@example.com&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>queryRequest<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(queryRequest<span class="op">.</span><span class="at">result</span>)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="3-range-queries-and-cursors">3. Range Queries and Cursors</h3>
+<p>For retrieving multiple records matching a condition, indexes can be
+paired with <code>IDBKeyRange</code> and cursors:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> transaction <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>([<span class="st">&#39;users&#39;</span>]<span class="op">,</span> <span class="st">&#39;readonly&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> store <span class="op">=</span> transaction<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;users&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> roleIndex <span class="op">=</span> store<span class="op">.</span><span class="fu">index</span>(<span class="st">&#39;role_idx&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Query all users where role is &quot;admin&quot;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> range <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">only</span>(<span class="st">&#39;admin&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cursorRequest <span class="op">=</span> roleIndex<span class="op">.</span><span class="fu">openCursor</span>(range)<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>cursorRequest<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cursor <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (cursor) {</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(cursor<span class="op">.</span><span class="at">value</span>)<span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    cursor<span class="op">.</span><span class="fu">continue</span>()<span class="op">;</span> <span class="co">// Move to next record</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="summary">Summary</h2>
+<p>IndexedDB structures data by decoupling primary storage (object
+stores) from query access patterns (indexes). Object stores preserve
+structured JavaScript data via primary keys, while indexes project
+secondary keys onto that data, allowing fast, filtered, and sorted
+retrieval directly on the client side.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

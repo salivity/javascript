@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Shaking Classes with Pure Comment Annotations - javascript</title>
+    <meta name="description" content="JavaScript bundlers and minifiers frequently struggle to determine whether instantiating a class produces side effects, often forcing them to retain unused objects in production bundles. Pure comment annotations—primarily written as /#PURE/—explicitl">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/tree-shaking-classes-with-pure-comment-annotations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tree Shaking Classes with Pure Comment Annotations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/tree-shaking-classes-with-pure-comment-annotations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript bundlers and minifiers frequently struggle to determine whether instantiating a class produces side effects, often forcing them to retain unused objects in production bundles. Pure comment annotations—primarily written as /#PURE/—explicitl" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="tree-shaking-classes-with-pure-comment-annotations">Tree Shaking
+Classes with Pure Comment Annotations</h1>
+<p>JavaScript bundlers and minifiers frequently struggle to determine
+whether instantiating a class produces side effects, often forcing them
+to retain unused objects in production bundles. Pure comment
+annotations—primarily written as <code>/*#__PURE__*/</code>—explicitly
+signal to minification tools that an instantiation has no side effects
+and can be safely deleted if its resulting instance is never referenced.
+This guide explains why minifiers treat class instantiations
+conservatively, how pure annotations resolve that ambiguity, and how to
+use them to eliminate dead code.</p>
+<h3 id="the-side-effect-problem-in-javascript-classes">The Side Effect
+Problem in JavaScript Classes</h3>
+<p>Dead code elimination (tree shaking) relies on static analysis to
+detect and remove code that does not impact the application's runtime
+behavior. When a minifier encounters an unused variable, it evaluates
+whether the expression assigned to that variable causes side effects. A
+primitive value like <code>const x = 5;</code> is easily recognized as
+side-effect-free, so the minifier safely removes it.</p>
+<p>Class instantiations present a major challenge. When a class is
+instantiated with the <code>new</code> keyword:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Logger {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">window</span><span class="op">.</span><span class="at">activeLogger</span> <span class="op">=</span> <span class="kw">this</span><span class="op">;</span> <span class="co">// Side effect</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unusedLogger <span class="op">=</span> <span class="kw">new</span> <span class="fu">Logger</span>()<span class="op">;</span></span></code></pre></div>
+<p>Because the constructor can execute arbitrary JavaScript—such as
+modifying global variables, attaching DOM event listeners, or triggering
+network requests—the minifier cannot safely assume the instantiation is
+benign. Even if <code>unusedLogger</code> is never read again, removing
+<code>new Logger()</code> could break application behavior.
+Consequently, tools like Terser, esbuild, and Rollup retain the
+instantiation by default.</p>
+<h3 id="how-pure-comment-annotations-work">How Pure Comment Annotations
+Work</h3>
+<p>A pure comment annotation is an instruction placed immediately before
+a function call or class instantiation that informs the compiler the
+operation has no external side effects:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unusedInstance <span class="op">=</span> <span class="co">/*#__PURE__*/</span> <span class="kw">new</span> <span class="fu">MyClass</span>()<span class="op">;</span></span></code></pre></div>
+<p>When a minifier encounters <code>/*#__PURE__*/</code>, it
+assumes:</p>
+<ol type="1">
+<li>Evaluating the constructor only affects the newly created
+instance.</li>
+<li>The constructor does not modify outside variables, globals, or
+external state.</li>
+<li>If the reference holding the instance is unused, the entire
+statement can be discarded without altering program execution.</li>
+</ol>
+<p>If <code>unusedInstance</code> is not used elsewhere in the module,
+the minifier drops the assignment and instantiation entirely.
+Furthermore, if no other parts of the codebase reference
+<code>MyClass</code>, the entire class declaration can be removed as
+well, compounding bundle size savings.</p>
+<h3 id="compiler-and-transpiler-integration">Compiler and Transpiler
+Integration</h3>
+<p>Modern compilation pipelines frequently insert pure annotations
+automatically. When Babel, TypeScript, or SWC down-level modern ES6
+classes into older functional patterns, they generate wrapper functions
+(Immediately Invoked Function Expressions, or IIFEs). These compilers
+automatically prepend <code>/*#__PURE__*/</code> to those IIFEs so that
+downstream minifiers know the resulting class definitions are safe to
+remove if unused.</p>
+<p>For developers authoring libraries or application-level code,
+applying <code>/*#__PURE__*/</code> manually before class instantiations
+that serve as singletons, default configurations, or registry entries
+ensures consumers do not pay a bundle size penalty for features they
+import but never invoke.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

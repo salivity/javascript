@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB Key Ranges: bound, only, and lowerBound - javascript</title>
+    <meta name="description" content="IndexedDB uses the IDBKeyRange interface to restrict cursor iterations and queries over object stores and indexes to specific subsets of data. This article explains the technical differences between three core methods used to construct these ranges: IDBK">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/indexeddb-key-ranges-bound-only-and-lowerbound">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="IndexedDB Key Ranges: bound, only, and lowerBound - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/indexeddb-key-ranges-bound-only-and-lowerbound" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="IndexedDB uses the IDBKeyRange interface to restrict cursor iterations and queries over object stores and indexes to specific subsets of data. This article explains the technical differences between three core methods used to construct these ranges: IDBK" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="indexeddb-key-ranges-bound-only-and-lowerbound">IndexedDB Key
+Ranges: bound, only, and lowerBound</h1>
+<p>IndexedDB uses the <code>IDBKeyRange</code> interface to restrict
+cursor iterations and queries over object stores and indexes to specific
+subsets of data. This article explains the technical differences between
+three core methods used to construct these ranges:
+<code>IDBKeyRange.only()</code>, <code>IDBKeyRange.lowerBound()</code>,
+and <code>IDBKeyRange.bound()</code>, focusing on how they define
+boundaries, handle inclusivity, and shape query results.</p>
+<h2 id="idbkeyrangeonly">IDBKeyRange.only()</h2>
+<p>The <code>IDBKeyRange.only(value)</code> method defines a range that
+matches a single, exact key value. It functions essentially like a
+strict equality operator (<code>===</code>) against indexed records.</p>
+<ul>
+<li><strong>Parameters:</strong> Takes a single argument representing
+the exact key value to match.</li>
+<li><strong>Boundaries:</strong> Both the lower and upper limits are
+identical and strictly closed (inclusive).</li>
+<li><strong>Behavior:</strong> When passed to an index or store method
+(such as <code>openCursor()</code> or <code>getAll()</code>), it will
+only retrieve records matching that specific key.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches only records where the key equals &quot;user_123&quot;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> range <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">only</span>(<span class="st">&quot;user_123&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="idbkeyrangelowerbound">IDBKeyRange.lowerBound()</h2>
+<p>The <code>IDBKeyRange.lowerBound(lower, [isOpen])</code> method
+defines a range with a designated minimum threshold, but no upper limit.
+It operates like a "greater than" or "greater than or equal to"
+condition.</p>
+<ul>
+<li><strong>Parameters:</strong> Accepts the minimum key value
+(<code>lower</code>) and an optional boolean (<code>isOpen</code>,
+defaulting to <code>false</code>).</li>
+<li><strong>Boundaries:</strong>
+<ul>
+<li>If <code>isOpen</code> is <code>false</code> (default), the boundary
+is inclusive (<code>key &gt;= lower</code>).</li>
+<li>If <code>isOpen</code> is <code>true</code>, the boundary is
+exclusive (<code>key &gt; lower</code>).</li>
+<li>There is no upper limit; the query evaluates through the highest key
+in the collection.</li>
+</ul></li>
+<li><strong>Behavior:</strong> It retrieves all records starting from
+the lower bound through the end of the sorted dataset.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches all records where the key is greater than or equal to 18</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> inclusiveRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">lowerBound</span>(<span class="dv">18</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches all records where the key is strictly greater than 18</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> exclusiveRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">lowerBound</span>(<span class="dv">18</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="idbkeyrangebound">IDBKeyRange.bound()</h2>
+<p>The
+<code>IDBKeyRange.bound(lower, upper, [lowerOpen], [upperOpen])</code>
+method specifies an interval with both a minimum and a maximum limit. It
+allows fine-grained control over bounded subsets of data.</p>
+<ul>
+<li><strong>Parameters:</strong>
+<ul>
+<li><code>lower</code>: The lower boundary key value.</li>
+<li><code>upper</code>: The upper boundary key value.</li>
+<li><code>lowerOpen</code>: Optional boolean (default
+<code>false</code>). If <code>true</code>, the lower bound is
+exclusive.</li>
+<li><code>upperOpen</code>: Optional boolean (default
+<code>false</code>). If <code>true</code>, the upper bound is
+exclusive.</li>
+</ul></li>
+<li><strong>Boundaries:</strong> Capable of forming closed, open, or
+half-open intervals. By default, both endpoints are included
+(<code>lower &lt;= key &lt;= upper</code>).</li>
+<li><strong>Behavior:</strong> Matches only records whose keys reside
+strictly between the two bounds based on the specified inclusivity
+flags.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches records where 10 &lt;= key &lt;= 50 (closed interval)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> closedRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>(<span class="dv">10</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches records where 10 &lt; key &lt; 50 (open interval)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> openRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>(<span class="dv">10</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches records where 10 &lt;= key &lt; 50 (half-open interval)</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> halfOpenRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>(<span class="dv">10</span><span class="op">,</span> <span class="dv">50</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="summary-of-differences">Summary of Differences</h2>
+<ul>
+<li><strong>Scope of Limits:</strong> <code>only()</code> sets both ends
+to the same value; <code>lowerBound()</code> sets only the bottom limit
+with no top limit; <code>bound()</code> defines distinct lower and upper
+limits.</li>
+<li><strong>Boundary Exclusivity:</strong> <code>only()</code> cannot
+exclude its boundary value. Both <code>lowerBound()</code> and
+<code>bound()</code> provide boolean arguments to make boundaries
+exclusive.</li>
+<li><strong>Use Cases:</strong> Use <code>only()</code> for single-point
+lookups, <code>lowerBound()</code> for open-ended queries starting at a
+minimum value (e.g., timestamps after a certain date), and
+<code>bound()</code> for constrained ranges (e.g., records created
+within a specific month or numbers within a specific range).</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

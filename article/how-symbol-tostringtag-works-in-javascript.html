@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Symbol.toStringTag Works in JavaScript - javascript</title>
+    <meta name="description" content="Symbol.toStringTag is a built-in well-known JavaScript symbol used to customize the string description returned by Object.prototype.toString(). By assigning a string value to this symbol on an object or class prototype, developers can replace the default">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-symbol-tostringtag-works-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Symbol.toStringTag Works in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-symbol-tostringtag-works-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Symbol.toStringTag is a built-in well-known JavaScript symbol used to customize the string description returned by Object.prototype.toString(). By assigning a string value to this symbol on an object or class prototype, developers can replace the default" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-symboltostringtag-works-in-javascript">How
+Symbol.toStringTag Works in JavaScript</h1>
+<p><code>Symbol.toStringTag</code> is a built-in well-known JavaScript
+symbol used to customize the string description returned by
+<code>Object.prototype.toString()</code>. By assigning a string value to
+this symbol on an object or class prototype, developers can replace the
+default generic tag—such as <code>"[object Object]"</code>—with a custom
+tag like <code>"[object MyCustomClass]"</code>. This article explains
+how the default string tagging mechanism works, how to implement
+<code>Symbol.toStringTag</code> in objects and classes, and how
+JavaScript uses it internally for type identification.</p>
+<h2 id="the-default-behavior-of-objectprototypetostring">The Default
+Behavior of Object.prototype.toString</h2>
+<p>In JavaScript, invoking
+<code>Object.prototype.toString.call(value)</code> is a classic method
+used to reliably inspect an object's internal <code>[[Class]]</code> or
+type.</p>
+<p>By default, built-in types produce recognizable tags:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">toString</span><span class="op">.</span><span class="fu">call</span>([<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span>])<span class="op">;</span> <span class="co">// &quot;[object Array]&quot;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">toString</span><span class="op">.</span><span class="fu">call</span>(<span class="kw">new</span> <span class="bu">Map</span>())<span class="op">;</span>  <span class="co">// &quot;[object Map]&quot;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">toString</span><span class="op">.</span><span class="fu">call</span>(<span class="kw">new</span> <span class="bu">Date</span>())<span class="op">;</span> <span class="co">// &quot;[object Date]&quot;</span></span></code></pre></div>
+<p>However, user-defined objects and class instances resolve to a
+generic tag by default:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> User {}</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> <span class="kw">new</span> <span class="fu">User</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">toString</span><span class="op">.</span><span class="fu">call</span>(user))<span class="op">;</span> <span class="co">// &quot;[object Object]&quot;</span></span></code></pre></div>
+<h2 id="how-symboltostringtag-overrides-the-default-tag">How
+Symbol.toStringTag Overrides the Default Tag</h2>
+<p>When <code>Object.prototype.toString()</code> executes, it checks
+whether the target object contains a property keyed by
+<code>Symbol.toStringTag</code>. If the property exists and its value is
+a string, <code>Object.prototype.toString()</code> uses that string
+inside the brackets instead of the default <code>"Object"</code>.</p>
+<h3 id="using-symboltostringtag-with-plain-objects">Using
+Symbol.toStringTag with Plain Objects</h3>
+<p>You can define <code>Symbol.toStringTag</code> directly on an object
+literal:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> customConfig <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  [<span class="bu">Symbol</span><span class="op">.</span><span class="at">toStringTag</span>]<span class="op">:</span> <span class="st">&quot;AppConfig&quot;</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">apiUrl</span><span class="op">:</span> <span class="st">&quot;https://api.example.com&quot;</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">toString</span><span class="op">.</span><span class="fu">call</span>(customConfig))<span class="op">;</span> </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &quot;[object AppConfig]&quot;</span></span></code></pre></div>
+<h3 id="using-symboltostringtag-with-classes">Using Symbol.toStringTag
+with Classes</h3>
+<p>When working with ES6 classes, the standard practice is to implement
+<code>Symbol.toStringTag</code> as a getter on the class prototype:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DatabaseConnection {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span> [<span class="bu">Symbol</span><span class="op">.</span><span class="at">toStringTag</span>]() {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">&quot;DatabaseConnection&quot;</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> db <span class="op">=</span> <span class="kw">new</span> <span class="fu">DatabaseConnection</span>()<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">toString</span><span class="op">.</span><span class="fu">call</span>(db))<span class="op">;</span> </span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &quot;[object DatabaseConnection]&quot;</span></span></code></pre></div>
+<h2 id="built-in-usage-in-javascript">Built-In Usage in JavaScript</h2>
+<p>Modern JavaScript engines use <code>Symbol.toStringTag</code>
+internally across many built-in APIs to standardize their type
+descriptions:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Math</span>[<span class="bu">Symbol</span><span class="op">.</span><span class="at">toStringTag</span>])<span class="op">;</span>                  <span class="co">// &quot;Math&quot;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Promise</span><span class="op">.</span><span class="fu">resolve</span>()[<span class="bu">Symbol</span><span class="op">.</span><span class="at">toStringTag</span>])<span class="op">;</span>    <span class="co">// &quot;Promise&quot;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="kw">new</span> <span class="bu">Set</span>()[<span class="bu">Symbol</span><span class="op">.</span><span class="at">toStringTag</span>])<span class="op">;</span>            <span class="co">// &quot;Set&quot;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">toString</span><span class="op">.</span><span class="fu">call</span>(<span class="kw">new</span> <span class="bu">Set</span>()))<span class="op">;</span> <span class="co">// &quot;[object Set]&quot;</span></span></code></pre></div>
+<h2 id="key-considerations">Key Considerations</h2>
+<ul>
+<li><strong>Type Safety:</strong> The value assigned to
+<code>Symbol.toStringTag</code> must be a string. If a non-string value
+(such as a number or boolean) is assigned, it will be ignored, and
+<code>Object.prototype.toString()</code> will fall back to the default
+tag.</li>
+<li><strong>Debugging and Logging:</strong> Customizing
+<code>Symbol.toStringTag</code> improves readability during debugging
+and enhances custom type-checking utilities across different execution
+contexts (such as iframes or Node.js VM contexts) where the
+<code>instanceof</code> operator can sometimes fail.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

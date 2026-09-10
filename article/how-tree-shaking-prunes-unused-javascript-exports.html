@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Tree Shaking Prunes Unused JavaScript Exports - javascript</title>
+    <meta name="description" content="Tree shaking is a dead-code elimination technique used by modern JavaScript bundlers to optimize bundle size by discarding unused code. This article explains the underlying mechanics of tree shaking, focusing on how static ES module syntax enables static">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-tree-shaking-prunes-unused-javascript-exports">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Tree Shaking Prunes Unused JavaScript Exports - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-tree-shaking-prunes-unused-javascript-exports" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tree shaking is a dead-code elimination technique used by modern JavaScript bundlers to optimize bundle size by discarding unused code. This article explains the underlying mechanics of tree shaking, focusing on how static ES module syntax enables static" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-tree-shaking-prunes-unused-javascript-exports">How Tree
+Shaking Prunes Unused JavaScript Exports</h1>
+<p>Tree shaking is a dead-code elimination technique used by modern
+JavaScript bundlers to optimize bundle size by discarding unused code.
+This article explains the underlying mechanics of tree shaking, focusing
+on how static ES module syntax enables static analysis, how bundlers
+traverse Abstract Syntax Trees (ASTs) to map dependency graphs, and how
+unreachable exports are identified and stripped during the build
+process.</p>
+<h2 id="the-role-of-static-es-module-syntax">The Role of Static ES
+Module Syntax</h2>
+<p>Tree shaking relies entirely on the static nature of ECMAScript
+Modules (ESM), defined by <code>import</code> and <code>export</code>
+statements. Unlike CommonJS (<code>require()</code> and
+<code>module.exports</code>), which allows dynamic module loading at
+runtime inside conditions or functions, ESM statements must appear at
+the top level of a file.</p>
+<p>Because the module structure is completely deterministic, a bundler
+does not need to execute the JavaScript code to determine what is being
+exported and imported. The relationships between modules are fully
+resolved ahead of time during compilation.</p>
+<h2 id="parsing-modules-into-abstract-syntax-trees-ast">Parsing Modules
+into Abstract Syntax Trees (AST)</h2>
+<p>When a bundler—such as Rollup, Webpack, or Esbuild—processes a
+project, it begins by parsing each source file into an Abstract Syntax
+Tree (AST). An AST is a tree representation of the syntactic structure
+of the source code.</p>
+<p>During AST generation, the parser specifically looks for:</p>
+<ul>
+<li><code>ExportNamedDeclaration</code> and
+<code>ExportDefaultDeclaration</code> nodes to catalog every export a
+module provides.</li>
+<li><code>ImportDeclaration</code> and <code>ImportSpecifier</code>
+nodes to record which identifiers are requested by consuming
+modules.</li>
+</ul>
+<p>By converting code into an AST, the bundler transforms raw text into
+queryable nodes, allowing it to trace individual variable and function
+names across module boundaries.</p>
+<h2
+id="constructing-the-dependency-graph-and-reachability-analysis">Constructing
+the Dependency Graph and Reachability Analysis</h2>
+<p>Once ASTs are generated, the bundler builds a global module graph
+starting from the configured entry point (e.g., <code>index.js</code>).
+It performs reachability analysis using graph traversal algorithms:</p>
+<ol type="1">
+<li><strong>Marking Live Bindings:</strong> The bundler starts at the
+entry point and marks all imported variables as "live" or
+"referenced."</li>
+<li><strong>Recursive Traversal:</strong> It follows these references
+into the imported modules, marking the corresponding export statements
+and any internal identifiers they depend on.</li>
+<li><strong>Isolating Unreferenced Exports:</strong> Any export
+statement in the graph that is never marked as a live reference remains
+flagged as unused.</li>
+</ol>
+<p>If a module exports three functions (<code>add</code>,
+<code>subtract</code>, <code>multiply</code>) but the consuming module
+only imports <code>add</code>, the graph marks <code>subtract</code> and
+<code>multiply</code> as unreferenced symbols.</p>
+<h2 id="handling-side-effects">Handling Side Effects</h2>
+<p>A primary challenge in tree shaking is side effects—code that
+modifies global state or performs an action simply by being imported
+(e.g., polyfills or modifying <code>window</code>).</p>
+<p>Bundlers analyze whether an unreferenced export or file has side
+effects:</p>
+<ul>
+<li><strong>Package Configuration:</strong> Developers use the
+<code>"sideEffects": false</code> field in <code>package.json</code> to
+explicitly declare that a package contains no side effects, allowing
+entire unused files to be dropped immediately.</li>
+<li><strong>Manual Annotations:</strong> Bundlers recognize annotations
+like <code>/*#__PURE__*/</code> on function calls, informing the parser
+that a function call does not produce side effects and can be safely
+discarded if its return value is unused.</li>
+</ul>
+<h2 id="code-rewriting-and-dead-code-elimination-dce">Code Rewriting and
+Dead Code Elimination (DCE)</h2>
+<p>Once the static analysis identifies unused exports and verifies
+side-effect safety, the pruning happens in two stages:</p>
+<ol type="1">
+<li><strong>Unlinking Exports:</strong> The bundler rewrites the module
+code, removing the <code>export</code> designation from unused variables
+and functions so they become local, unreferenced declarations.</li>
+<li><strong>Minification and Removal:</strong> The bundler passes the
+processed bundle to a minifier (such as Terser or Esbuild). The minifier
+detects these unreferenced local variables and drops them from the final
+production output via standard Dead Code Elimination.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

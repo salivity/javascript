@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Implements BigInt for Large Numbers - javascript</title>
+    <meta name="description" content="JavaScript's BigInt primitive allows developers to represent and manipulate integers beyond the safe limit of the standard Number type ($2^{53} - 1$). While standard numbers use 64-bit double-precision floating-point format (IEEE 754), JavaScript engines">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-implements-bigint-for-large-numbers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Implements BigInt for Large Numbers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-implements-bigint-for-large-numbers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript's BigInt primitive allows developers to represent and manipulate integers beyond the safe limit of the standard Number type ($2^{53} - 1$). While standard numbers use 64-bit double-precision floating-point format (IEEE 754), JavaScript engines" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-implements-bigint-for-large-numbers">How
+JavaScript Implements BigInt for Large Numbers</h1>
+<p>JavaScript's <code>BigInt</code> primitive allows developers to
+represent and manipulate integers beyond the safe limit of the standard
+<code>Number</code> type (<span class="math inline">\(2^{53} -
+1\)</span>). While standard numbers use 64-bit double-precision
+floating-point format (IEEE 754), JavaScript engines like V8 and
+SpiderMonkey implement <code>BigInt</code> using arbitrary-precision
+arithmetic (often called "bignum"). This architecture splits large
+values across dynamically allocated arrays of machine-word integers and
+uses specialized algorithms to compute results across those
+segments.</p>
+<h2 id="the-memory-representation-digits-and-limbs">The Memory
+Representation: Digits and Limbs</h2>
+<p>Standard CPU registers operate on fixed bit-widths (typically 32-bit
+or 64-bit). Because a <code>BigInt</code> can have virtually unlimited
+magnitude, the engine cannot store it in a single hardware register.</p>
+<p>Instead, JavaScript engines allocate an internal data structure
+containing:</p>
+<ul>
+<li><strong>A sign bit:</strong> Indicates whether the number is
+positive or negative.</li>
+<li><strong>A length indicator:</strong> Tracks the number of chunks
+currently in use.</li>
+<li><strong>An array of "digits" (or "limbs"):</strong> The raw numeric
+value stored in base <span class="math inline">\(2^{32}\)</span> (on
+32-bit platforms) or base <span class="math inline">\(2^{64}\)</span>
+(on 64-bit platforms).</li>
+</ul>
+<p>For example, on a 64-bit architecture, a number requiring 128 bits is
+stored as two consecutive 64-bit integers. If an operation exceeds the
+capacity of the current limbs, the engine dynamically reallocates memory
+to add another limb.</p>
+<h2 id="heap-allocation-and-immutability">Heap Allocation and
+Immutability</h2>
+<p>Unlike primitive <code>Number</code> values, which engines can often
+store inline directly on the stack or inside CPU registers,
+<code>BigInt</code> instances are typically heap-allocated objects under
+the hood.</p>
+<p>Despite being stored on the heap like objects, <code>BigInt</code>
+retains primitive semantics in JavaScript:</p>
+<ul>
+<li><strong>Immutability:</strong> Every arithmetic operation creates a
+completely new <code>BigInt</code> structure rather than mutating
+existing limbs.</li>
+<li><strong>Garbage Collection:</strong> Intermediate
+<code>BigInt</code> values generated during complex computations must be
+collected by the JavaScript garbage collector once they fall out of
+scope.</li>
+</ul>
+<p>Some engines apply small-integer optimizations. When a
+<code>BigInt</code> value fits inside standard pointer bits (using
+pointer tagging techniques), engines can avoid a full heap allocation,
+though many implementations keep all <code>BigInt</code> representations
+unified on the heap for consistency.</p>
+<h2 id="arithmetic-implementation">Arithmetic Implementation</h2>
+<p>Because the hardware CPU does not have instructions for
+arbitrary-precision math, JavaScript engines implement arithmetic using
+multi-precision algorithms:</p>
+<ul>
+<li><strong>Addition and Subtraction:</strong> The engine iterates
+through the limbs from least significant to most significant, applying
+standard bitwise addition while tracking and carrying the overflow bit
+to the next limb.</li>
+<li><strong>Multiplication:</strong> For smaller <code>BigInt</code>
+values, engines generally use the standard schoolbook multiplication
+algorithm (<span class="math inline">\(O(n^2)\)</span>). As numbers grow
+larger, engines switch to asymptotically faster algorithms, such as
+Karatsuba multiplication (<span
+class="math inline">\(O(n^{1.58})\)</span>), to reduce compute
+time.</li>
+<li><strong>Division and Modulo:</strong> Implemented using
+multi-precision division algorithms, such as Knuth’s Algorithm D, which
+iteratively estimates quotient digits and normalizes remainders across
+limbs.</li>
+</ul>
+<h2 id="performance-trade-offs">Performance Trade-Offs</h2>
+<p>Because <code>BigInt</code> relies on software-level emulation rather
+than direct hardware instructions, its operations are significantly
+slower than standard 64-bit floats or 32-bit integers. The overhead
+comes from dynamic memory management, cache misses associated with
+pointer-chasing on the heap, and multi-step loop execution for
+multi-limb arithmetic.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

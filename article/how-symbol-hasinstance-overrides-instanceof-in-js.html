@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Symbol.hasInstance Overrides instanceof in JS - javascript</title>
+    <meta name="description" content="In JavaScript, the instanceof operator traditionally verifies if an object inherits from a constructor's prototype chain. With the introduction of ES6, JavaScript exposed the Symbol.hasInstance well-known symbol, allowing developers to directly customize">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-symbol-hasinstance-overrides-instanceof-in-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Symbol.hasInstance Overrides instanceof in JS - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-symbol-hasinstance-overrides-instanceof-in-js" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript, the instanceof operator traditionally verifies if an object inherits from a constructor's prototype chain. With the introduction of ES6, JavaScript exposed the Symbol.hasInstance well-known symbol, allowing developers to directly customize" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-symbolhasinstance-overrides-instanceof-in-js">How
+Symbol.hasInstance Overrides instanceof in JS</h1>
+<p>In JavaScript, the <code>instanceof</code> operator traditionally
+verifies if an object inherits from a constructor's prototype chain.
+With the introduction of ES6, JavaScript exposed the
+<code>Symbol.hasInstance</code> well-known symbol, allowing developers
+to directly customize and override the behavior of the
+<code>instanceof</code> operator. This article explains how
+<code>Symbol.hasInstance</code> works internally, how to implement it in
+your classes and objects, and practical scenarios for customizing
+instance checks.</p>
+<h2 id="how-the-instanceof-operator-works-internally">How the
+<code>instanceof</code> Operator Works Internally</h2>
+<p>Historically, evaluating <code>obj instanceof Constructor</code>
+caused the JavaScript engine to traverse <code>obj</code>'s prototype
+chain to check if <code>Constructor.prototype</code> was present.</p>
+<p>In ES6 and later, the syntax <code>left instanceof Right</code> is
+translated into a method call on the right-hand operand:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Right[<span class="bu">Symbol</span><span class="op">.</span><span class="at">hasInstance</span>](left)</span></code></pre></div>
+<p>If the method exists, its return value determines the outcome of the
+<code>instanceof</code> expression. If it is omitted, the engine falls
+back to default prototype chain traversal using
+<code>Function.prototype[Symbol.hasInstance]</code>.</p>
+<h2 id="overriding-instanceof-in-es6-classes">Overriding
+<code>instanceof</code> in ES6 Classes</h2>
+<p>To customize <code>instanceof</code> validation inside an ES6 class,
+define a <code>static</code> method using the computed property name
+<code>[Symbol.hasInstance]</code>. This method receives the value on the
+left side of the <code>instanceof</code> operator as its sole argument
+and must return a boolean value.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> EvenNumber {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">static</span> [<span class="bu">Symbol</span><span class="op">.</span><span class="at">hasInstance</span>](instance) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">typeof</span> instance <span class="op">===</span> <span class="st">&#39;number&#39;</span> <span class="op">&amp;&amp;</span> instance <span class="op">%</span> <span class="dv">2</span> <span class="op">===</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="dv">4</span> <span class="kw">instanceof</span> EvenNumber)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="dv">7</span> <span class="kw">instanceof</span> EvenNumber)<span class="op">;</span> <span class="co">// false</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;4&#39;</span> <span class="kw">instanceof</span> EvenNumber)<span class="op">;</span> <span class="co">// false</span></span></code></pre></div>
+<p>In this example, <code>EvenNumber</code> is not instantiated using
+the <code>new</code> keyword. Instead, the <code>instanceof</code>
+operator checks if the value fulfills a mathematical condition rather
+than checking prototype inheritance.</p>
+<h2 id="using-symbolhasinstance-on-plain-objects">Using
+<code>Symbol.hasInstance</code> on Plain Objects</h2>
+<p>Because <code>Symbol.hasInstance</code> is a symbol property, it can
+also be attached to standard objects using
+<code>Object.defineProperty</code>. This allows plain objects to serve
+as the right-hand operand for <code>instanceof</code> checks without
+defining a class or constructor function.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ArrayLike <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  [<span class="bu">Symbol</span><span class="op">.</span><span class="at">hasInstance</span>](instance) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      instance <span class="op">!=</span> <span class="kw">null</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>      <span class="kw">typeof</span> instance[<span class="bu">Symbol</span><span class="op">.</span><span class="at">iterator</span>] <span class="op">===</span> <span class="st">&#39;function&#39;</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">typeof</span> instance<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="st">&#39;number&#39;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>([<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span>] <span class="kw">instanceof</span> ArrayLike)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;hello&#39;</span> <span class="kw">instanceof</span> ArrayLike)<span class="op">;</span>    <span class="co">// true</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>({ <span class="dt">a</span><span class="op">:</span> <span class="dv">1</span> } <span class="kw">instanceof</span> ArrayLike)<span class="op">;</span>   <span class="co">// false</span></span></code></pre></div>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<h3 id="1-structural-typing-duck-typing">1. Structural Typing (Duck
+Typing)</h3>
+<p>Instead of enforcing strict class hierarchy, you can check whether an
+object implements specific properties or methods.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Serializable {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">static</span> [<span class="bu">Symbol</span><span class="op">.</span><span class="at">hasInstance</span>](obj) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> obj <span class="op">!=</span> <span class="kw">null</span> <span class="op">&amp;&amp;</span> <span class="kw">typeof</span> obj<span class="op">.</span><span class="at">toJSON</span> <span class="op">===</span> <span class="st">&#39;function&#39;</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> customData <span class="op">=</span> {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">id</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">toJSON</span>() { <span class="cf">return</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(<span class="kw">this</span>)<span class="op">;</span> }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(customData <span class="kw">instanceof</span> Serializable)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h3 id="2-cross-realm-and-multi-window-validation">2. Cross-Realm and
+Multi-Window Validation</h3>
+<p>When dealing with objects created in different execution contexts
+(such as <code>&lt;iframe&gt;</code> elements or Node.js <code>vm</code>
+contexts), built-in <code>instanceof</code> checks fail because
+prototypes differ across realms. Customizing
+<code>Symbol.hasInstance</code> allows you to validate types using
+universal tags (like <code>Symbol.toStringTag</code>) rather than
+fragile prototype references.</p>
+<h3 id="3-custom-primitive-type-guards">3. Custom Primitive Type
+Guards</h3>
+<p>Standard <code>instanceof</code> checks evaluate to
+<code>false</code> for primitive types (e.g.,
+<code>42 instanceof Number</code> is <code>false</code>). By
+implementing <code>Symbol.hasInstance</code>, you can extend custom type
+validation to include primitive values.</p>
+<h2 id="key-considerations">Key Considerations</h2>
+<ul>
+<li><strong>Boolean Coercion:</strong> The result returned by
+<code>[Symbol.hasInstance]()</code> is automatically coerced to a
+boolean.</li>
+<li><strong>Non-Configurable on Functions:</strong>
+<code>Function.prototype[Symbol.hasInstance]</code> is defined as
+non-writable and non-configurable, meaning you cannot directly overwrite
+it on existing built-in functions without subclassing or reassigning on
+custom objects.</li>
+<li><strong>Execution Context:</strong> When invoked, <code>this</code>
+inside <code>[Symbol.hasInstance]</code> refers to the constructor or
+object on the right side of the <code>instanceof</code> operator.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fastdom Library Pattern: Coordinating DOM Mutations - javascript</title>
+    <meta name="description" content="This article provides an overview of the Fastdom library pattern, exploring how it eliminates layout thrashing and coordinates DOM reads and writes. You will learn the mechanics behind forced synchronous layouts, how the Fastdom architecture batches oper">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/fastdom-library-pattern-coordinating-dom-mutations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fastdom Library Pattern: Coordinating DOM Mutations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/fastdom-library-pattern-coordinating-dom-mutations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the Fastdom library pattern, exploring how it eliminates layout thrashing and coordinates DOM reads and writes. You will learn the mechanics behind forced synchronous layouts, how the Fastdom architecture batches oper" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="fastdom-library-pattern-coordinating-dom-mutations">Fastdom
+Library Pattern: Coordinating DOM Mutations</h1>
+<p>This article provides an overview of the Fastdom library pattern,
+exploring how it eliminates layout thrashing and coordinates DOM reads
+and writes. You will learn the mechanics behind forced synchronous
+layouts, how the Fastdom architecture batches operations using
+<code>requestAnimationFrame</code>, and how this pattern ensures
+high-performance, smooth frame rates in JavaScript applications.</p>
+<h3 id="the-problem-layout-thrashing">The Problem: Layout Thrashing</h3>
+<p>In modern web browsers, rendering occurs in distinct phases:
+JavaScript execution, Style calculation, Layout (reflow), Paint, and
+Composite. When JavaScript modifies the DOM (a write) and immediately
+queries geometry or styling (a read), the browser cannot wait for the
+next scheduled render phase. It is forced to prematurely recalculate the
+layout to return accurate values.</p>
+<p>Interleaving multiple reads and writes within a single frame creates
+a performance bottleneck known as layout thrashing or forced synchronous
+layout. This causes the browser to execute multiple recalculations per
+frame, dropping frame rates below 60 frames per second and introducing
+visible stutter (jank).</p>
+<h3 id="what-is-the-fastdom-pattern">What is the Fastdom Pattern?</h3>
+<p>The Fastdom pattern solves layout thrashing by acting as a central
+scheduler for all DOM operations. Instead of allowing components or
+scripts to manipulate or query the DOM immediately, Fastdom abstracts
+these operations into two distinct task queues:</p>
+<ol type="1">
+<li><strong>Measure (Read):</strong> Operations that query DOM
+properties, such as <code>element.offsetWidth</code>,
+<code>element.getBoundingClientRect()</code>, or
+<code>window.getComputedStyle()</code>.</li>
+<li><strong>Mutate (Write):</strong> Operations that alter the DOM tree
+or styling, such as <code>element.appendChild()</code>,
+<code>element.style.width</code>, or <code>classList.add()</code>.</li>
+</ol>
+<p>By separating operations into structured phases, Fastdom ensures that
+all read operations across the entire application execute first,
+followed by all write operations.</p>
+<h3 id="how-fastdom-coordinates-frame-mutations">How Fastdom Coordinates
+Frame Mutations</h3>
+<p>Fastdom coordinates frame mutations by tapping into the browser's
+refresh cycle using <code>window.requestAnimationFrame()</code> (rAF).
+The execution workflow operates as follows:</p>
+<ol type="1">
+<li><strong>Queueing Tasks:</strong> When code requires a DOM operation,
+it registers the task via <code>fastdom.measure(callback)</code> for
+reads or <code>fastdom.mutate(callback)</code> for writes. Fastdom
+stores these callbacks in dedicated arrays without running them
+immediately.</li>
+<li><strong>Scheduling the Frame:</strong> Upon receiving tasks, Fastdom
+requests an animation frame from the browser. If a frame is already
+scheduled, subsequent tasks are appended to the pending queues.</li>
+<li><strong>Flushing Reads:</strong> At the start of the animation
+frame, Fastdom processes the entire <code>measure</code> queue. Because
+no mutations have occurred in that frame yet, all read operations
+retrieve cached layout metrics without triggering a recalculation.</li>
+<li><strong>Flushing Writes:</strong> Once the <code>measure</code>
+queue is empty, Fastdom executes all tasks in the <code>mutate</code>
+queue. The browser records these changes in a single batch.</li>
+<li><strong>Browser Render:</strong> Fastdom releases execution back to
+the browser engine, which performs a single style and layout calculation
+and paints the frame efficiently.</li>
+</ol>
+<h3 id="example-implementation-flow">Example Implementation Flow</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Reading layout information without causing thrashing</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>fastdom<span class="op">.</span><span class="fu">measure</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> currentHeight <span class="op">=</span> element<span class="op">.</span><span class="at">offsetHeight</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Writing changes safely in the mutation phase</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  fastdom<span class="op">.</span><span class="fu">mutate</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    element<span class="op">.</span><span class="at">style</span><span class="op">.</span><span class="at">height</span> <span class="op">=</span> <span class="vs">`</span><span class="sc">${</span>currentHeight <span class="op">+</span> <span class="dv">20</span><span class="sc">}</span><span class="vs">px`</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>In scenarios with multiple independent components, Fastdom gathers
+all outer <code>measure</code> callbacks across every component first.
+It runs them in a single sweep, and only then executes the scheduled
+<code>mutate</code> callbacks.</p>
+<h3 id="core-benefits">Core Benefits</h3>
+<ul>
+<li><strong>Predictable Performance:</strong> Eliminates repetitive
+reflow cycles by enforcing a strict "read-then-write" pipeline.</li>
+<li><strong>Decoupled Architecture:</strong> Multiple independent
+scripts or UI widgets can interact with the DOM simultaneously without
+needing awareness of each other's execution order.</li>
+<li><strong>Optimized Frame Budget:</strong> By condensing style and
+layout computations into a single cycle per frame, the application
+remains well within the standard 16.6ms frame budget required for fluid
+animations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

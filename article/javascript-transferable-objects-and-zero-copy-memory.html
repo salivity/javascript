@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Transferable Objects and Zero-Copy Memory - javascript</title>
+    <meta name="description" content="This article explains how the Transferable Objects protocol in JavaScript enables zero-copy data transfers between execution contexts, such as the main thread and Web Workers. You will learn the mechanics of memory pointer relocation, the buffer detachme">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-transferable-objects-and-zero-copy-memory">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Transferable Objects and Zero-Copy Memory - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-transferable-objects-and-zero-copy-memory" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the Transferable Objects protocol in JavaScript enables zero-copy data transfers between execution contexts, such as the main thread and Web Workers. You will learn the mechanics of memory pointer relocation, the buffer detachme" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-transferable-objects-and-zero-copy-memory">JavaScript
+Transferable Objects and Zero-Copy Memory</h1>
+<p>This article explains how the Transferable Objects protocol in
+JavaScript enables zero-copy data transfers between execution contexts,
+such as the main thread and Web Workers. You will learn the mechanics of
+memory pointer relocation, the buffer detachment process, code
+implementation patterns, and the performance advantages this protocol
+provides over standard structured cloning.</p>
+<hr />
+<h2 id="the-problem-with-structured-cloning">The Problem with Structured
+Cloning</h2>
+<p>When passing data between threads in JavaScript (for example, via
+<code>postMessage</code>), the default behavior relies on the
+<strong>Structured Clone Algorithm</strong>. This algorithm creates a
+deep copy of the serialized data in the receiving thread's memory
+space.</p>
+<p>For small payloads, structured cloning is fast and safe. However,
+when working with large datasets—such as 4K video frames, WebGL
+textures, or massive binary buffers—deep copying introduces significant
+CPU overhead, increased memory usage, and garbage collection pauses that
+can freeze the user interface.</p>
+<h2 id="how-transferable-objects-work">How Transferable Objects
+Work</h2>
+<p>The Transferable Objects protocol solves this bottleneck by
+transferring reference ownership of the underlying memory rather than
+duplicating its contents.</p>
+<h3 id="1-backing-store-pointer-reassignment">1. Backing Store Pointer
+Reassignment</h3>
+<p>JavaScript typed arrays and binary objects are high-level wrappers
+around a raw block of allocated memory called a <strong>backing
+store</strong>. Under the hood in JavaScript engines (like Google's V8
+or SpiderMonkey), transferring an object does not move the bytes in RAM.
+Instead, the engine:</p>
+<ol type="1">
+<li>Allocates no new memory for the underlying payload.</li>
+<li>Extracts the raw memory address (pointer) of the backing store from
+the sender context.</li>
+<li>Maps that exact same memory pointer to a new wrapper object inside
+the receiver context.</li>
+</ol>
+<p>Because only a 64-bit memory address and metadata are transferred
+across the thread boundary, the operation executes in near-constant time
+(<span class="math inline">\(O(1)\)</span>), regardless of whether the
+buffer is 1 kilobyte or 2 gigabytes.</p>
+<h3 id="2-arraybuffer-detachment-neutering">2. ArrayBuffer Detachment
+(Neutering)</h3>
+<p>To maintain JavaScript's single-threaded safety guarantees and
+prevent concurrent read/write race conditions, the runtime invalidates
+the sender's original reference. This process is called
+<strong>detaching</strong> or <strong>neutering</strong> the buffer.</p>
+<p>Once transferred:</p>
+<ul>
+<li>The sender's <code>ArrayBuffer.prototype.byteLength</code> drops to
+<code>0</code>.</li>
+<li>Any TypedArray views (e.g., <code>Uint8Array</code>,
+<code>Float32Array</code>) pointing to that buffer become unusable.</li>
+<li>Attempts to read or write to the detached buffer throw errors or
+return empty results.</li>
+</ul>
+<p>Ownership is exclusive: exactly one execution context holds access to
+the memory at any given time.</p>
+<h2 id="syntax-and-implementation">Syntax and Implementation</h2>
+<p>To transfer an object instead of cloning it, pass the object as the
+first argument to <code>postMessage</code> and include an array of
+transferable references as the second (or optional
+<code>transfer</code>) argument.</p>
+<h3 id="main-thread-sender">Main Thread (Sender)</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Allocate a 64MB buffer</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> uInt8Array <span class="op">=</span> <span class="kw">new</span> <span class="bu">Uint8Array</span>(<span class="dv">1024</span> <span class="op">*</span> <span class="dv">1024</span> <span class="op">*</span> <span class="dv">64</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>uInt8Array[<span class="dv">0</span>] <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(uInt8Array<span class="op">.</span><span class="at">byteLength</span>)<span class="op">;</span> <span class="co">// 67108864</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Transfer ownership of the underlying ArrayBuffer</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="fu">postMessage</span>({ <span class="dt">data</span><span class="op">:</span> uInt8Array<span class="op">.</span><span class="at">buffer</span> }<span class="op">,</span> [uInt8Array<span class="op">.</span><span class="at">buffer</span>])<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// The buffer is now detached on the sender thread</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(uInt8Array<span class="op">.</span><span class="at">byteLength</span>)<span class="op">;</span> <span class="co">// 0</span></span></code></pre></div>
+<h3 id="worker-thread-receiver">Worker Thread (Receiver)</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> buffer <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span><span class="op">.</span><span class="at">data</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> view <span class="op">=</span> <span class="kw">new</span> <span class="bu">Uint8Array</span>(buffer)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(view<span class="op">.</span><span class="at">byteLength</span>)<span class="op">;</span> <span class="co">// 67108864</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(view[<span class="dv">0</span>])<span class="op">;</span>          <span class="co">// 42</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="supported-transferable-types">Supported Transferable Types</h2>
+<p>The Transferable Objects protocol is not limited to raw binary
+buffers. The Web API supports transferring several resource-heavy
+primitives:</p>
+<ul>
+<li><strong><code>ArrayBuffer</code></strong>: Raw binary data used by
+TypedArrays.</li>
+<li><strong><code>MessagePort</code></strong>: Channel messaging
+endpoints used to set up direct communication pipelines.</li>
+<li><strong><code>ImageBitmap</code></strong>: Decoded bitmap images
+suitable for low-latency canvas rendering.</li>
+<li><strong><code>OffscreenCanvas</code></strong>: Canvas contexts that
+can be rendered directly from worker threads without DOM access.</li>
+<li><strong><code>ReadableStream</code> / <code>WritableStream</code> /
+<code>TransformStream</code></strong>: Web Streams API pipes transferred
+for background streaming.</li>
+<li><strong><code>AudioData</code> / <code>VideoFrame</code></strong>:
+Decoded multimedia frames used in WebCodecs applications.</li>
+</ul>
+<h2 id="summary-of-benefits">Summary of Benefits</h2>
+<ul>
+<li><strong>Deterministic Latency</strong>: Eliminates serializing and
+copying overhead, making message passing instantaneous even for
+gigabyte-scale structures.</li>
+<li><strong>Thread Safety</strong>: Detachment prevents shared mutable
+state bugs without requiring mutex locks.</li>
+<li><strong>Reduced Memory Footprint</strong>: Keeps overall application
+memory stable by avoiding duplicate data allocations in RAM.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

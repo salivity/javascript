@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How DOM Clobbering Overrides Global Variables - javascript</title>
+    <meta name="description" content="DOM clobbering is a browser behavior and security vulnerability where HTML elements with specific id or name attributes inject properties into the global window object or document namespace. When web applications rely on global variables or object config">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-dom-clobbering-overrides-global-variables">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How DOM Clobbering Overrides Global Variables - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-dom-clobbering-overrides-global-variables" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="DOM clobbering is a browser behavior and security vulnerability where HTML elements with specific id or name attributes inject properties into the global window object or document namespace. When web applications rely on global variables or object config" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-dom-clobbering-overrides-global-variables">How DOM
+Clobbering Overrides Global Variables</h1>
+<p>DOM clobbering is a browser behavior and security vulnerability where
+HTML elements with specific <code>id</code> or <code>name</code>
+attributes inject properties into the global <code>window</code> object
+or <code>document</code> namespace. When web applications rely on global
+variables or object configurations without strict initialization,
+attackers can inject seemingly harmless HTML markup to overwrite these
+variables. This article explains the browser mechanics behind DOM
+clobbering, how JavaScript resolves named elements as globals, how
+nested clobbering works, and how to defend against it.</p>
+<h3 id="the-browser-legacy-window-object-property-resolution">The
+Browser Legacy: Window Object Property Resolution</h3>
+<p>To maintain backwards compatibility with legacy web standards, modern
+browsers automatically map HTML elements containing <code>id</code> or
+<code>name</code> attributes directly to properties on the global
+<code>window</code> object.</p>
+<p>For example, consider the following HTML markup:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">form</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;config&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">form</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>When this element is rendered, the browser automatically creates a
+property on <code>window</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">window</span><span class="op">.</span><span class="at">config</span>)<span class="op">;</span> <span class="co">// Returns [object HTMLFormElement]</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(config)<span class="op">;</span>        <span class="co">// Also references the same element directly</span></span></code></pre></div>
+<p>Because <code>window</code> is the global execution context in
+client-side JavaScript, any variable reference that is not declared in
+the local scope via <code>var</code>, <code>let</code>, or
+<code>const</code> falls back to checking the properties of
+<code>window</code>.</p>
+<h3 id="how-global-variable-overriding-occurs">How Global Variable
+Overriding Occurs</h3>
+<p>DOM clobbering occurs when an application checks for the existence of
+a global configuration object or property that has not yet been
+explicitly assigned in JavaScript, or when the application accesses
+properties directly from <code>window</code>.</p>
+<p>Consider a vulnerable script pattern:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// The application checks for an existing config object</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">var</span> apiEndpoint <span class="op">=</span> <span class="bu">window</span><span class="op">.</span><span class="at">config</span> <span class="op">?</span> <span class="bu">window</span><span class="op">.</span><span class="at">config</span><span class="op">.</span><span class="at">url</span> <span class="op">:</span> <span class="st">&quot;/default/api&quot;</span><span class="op">;</span></span></code></pre></div>
+<p>If an attacker injects HTML prior to this script's execution:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">a</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;config&quot;</span><span class="ot"> href</span><span class="op">=</span><span class="st">&quot;https://attacker.com/malicious-api&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">a</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>The browser maps the <code>&lt;a&gt;</code> element to
+<code>window.config</code>. Because the HTML anchor tag has a built-in
+<code>href</code> property that converts to a string representation via
+<code>.url</code> or <code>.href</code>, accessing
+<code>window.config</code> evaluates to the DOM element instead of
+<code>undefined</code>. Consequently, the application reads the
+attacker-supplied URL instead of falling back to the default path.</p>
+<h3 id="multi-level-nested-clobbering">Multi-Level (Nested)
+Clobbering</h3>
+<p>Attackers are not limited to single-level global properties. By
+combining elements such as <code>&lt;form&gt;</code> tags with named
+children, or using collections of elements sharing the same name,
+attackers can clobber multi-level objects like
+<code>window.user.profile</code>.</p>
+<h4 id="1-form-child-relationship">1. Form Child Relationship</h4>
+<p>Form elements automatically expose their child inputs as properties
+using their <code>name</code> attributes:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">form</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;user&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&lt;</span><span class="kw">input</span><span class="ot"> name</span><span class="op">=</span><span class="st">&quot;role&quot;</span><span class="ot"> value</span><span class="op">=</span><span class="st">&quot;admin&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;/</span><span class="kw">form</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>In JavaScript, evaluating <code>window.user.role.value</code> will
+yield the string <code>"admin"</code>, overriding an uninitialized
+<code>user</code> object.</p>
+<h4 id="2-grouped-elements-htmlcollection">2. Grouped Elements
+(HTMLCollection)</h4>
+<p>If multiple elements share the same <code>id</code> or
+<code>name</code>, the browser groups them into an
+<code>HTMLCollection</code>:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">a</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;user&quot;</span><span class="ot"> name</span><span class="op">=</span><span class="st">&quot;profile&quot;</span><span class="ot"> href</span><span class="op">=</span><span class="st">&quot;https://evil.com/payload.js&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">a</span><span class="dt">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">a</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;user&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">a</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>Here, <code>window.user</code> resolves to an
+<code>HTMLCollection</code>, and <code>window.user.profile</code>
+accesses the first link's attributes.</p>
+<h3 id="why-javascript-scope-does-not-always-protect">Why JavaScript
+Scope Does Not Always Protect</h3>
+<p>JavaScript scoping rules determine what gets clobbered:</p>
+<ul>
+<li><strong>Explicit Declarations (<code>let</code>, <code>const</code>,
+<code>var</code>):</strong> If a variable is declared in scope, it takes
+precedence over the DOM element with the same identifier.</li>
+<li><strong>Property Lookups on <code>window</code>:</strong> Accessing
+<code>window.variableName</code> directly bypasses lexical scoping and
+directly retrieves the clobbered DOM element if no JavaScript property
+was explicitly defined on <code>window</code>.</li>
+<li><strong>Undeclared Variables:</strong> Looking up an undeclared
+identifier traverses the scope chain up to the global object, falling
+back to the DOM element.</li>
+</ul>
+<h3 id="preventing-dom-clobbering">Preventing DOM Clobbering</h3>
+<ol type="1">
+<li><strong>Use Strict Variable Declarations:</strong> Always declare
+variables using <code>const</code> or <code>let</code> to prevent
+uninitialized identifiers from falling back to <code>window</code>.</li>
+<li><strong>Explicit Type and Instance Checking:</strong> Verify that
+properties are instances of the expected object types rather than
+relying solely on truthy checks:
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="bu">window</span><span class="op">.</span><span class="at">config</span> <span class="op">&amp;&amp;</span> <span class="op">!</span>(<span class="bu">window</span><span class="op">.</span><span class="at">config</span> <span class="kw">instanceof</span> <span class="bu">HTMLElement</span>)) {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Safe to use config</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div></li>
+<li><strong>HTML Sanitization:</strong> When parsing user-controlled
+markup, use sanitization libraries configured to strip or neutralize
+<code>id</code> and <code>name</code> attributes that could interfere
+with application logic.</li>
+<li><strong>Use <code>Object.freeze()</code> or Explicit
+Initialization:</strong> Define global configuration namespaces
+explicitly in an immutable format before rendering dynamic or
+user-generated HTML.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

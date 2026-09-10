@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Memoization Caches Functions in JavaScript - javascript</title>
+    <meta name="description" content="Memoization is an optimization technique that speeds up applications by storing the results of expensive function calls and returning the cached result when the same inputs occur again. In JavaScript, this is achieved by pairing closures with key-value d">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-memoization-caches-functions-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Memoization Caches Functions in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-memoization-caches-functions-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Memoization is an optimization technique that speeds up applications by storing the results of expensive function calls and returning the cached result when the same inputs occur again. In JavaScript, this is achieved by pairing closures with key-value d" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-memoization-caches-functions-in-javascript">How Memoization
+Caches Functions in JavaScript</h1>
+<p>Memoization is an optimization technique that speeds up applications
+by storing the results of expensive function calls and returning the
+cached result when the same inputs occur again. In JavaScript, this is
+achieved by pairing closures with key-value data structures to map
+function arguments directly to their computed outputs. This article
+explains the internal mechanics of memoization, demonstrates how
+argument serialization creates distinct cache keys, provides a
+lightweight implementation, and outlines the trade-offs of using memory
+to save processing time.</p>
+<h3 id="the-underlying-mechanism">The Underlying Mechanism</h3>
+<p>At its core, memoization relies on JavaScript closures and pure
+functions. A memoized function maintains a private cache—typically a
+standard object or a <code>Map</code>—that persists across multiple
+invocations.</p>
+<p>When the memoized function is executed, it follows a three-step
+cycle:</p>
+<ol type="1">
+<li><strong>Key Generation:</strong> It inspects the passed arguments
+and generates a unique identifier (a cache key).</li>
+<li><strong>Cache Lookup:</strong> It checks if the cache already
+contains a value associated with that key. If the key exists, the
+function immediately returns the stored result, completely bypassing the
+expensive logic.</li>
+<li><strong>Computation and Storage:</strong> If the key is not found,
+the original function executes. The result is saved in the cache under
+the generated key and then returned to the caller.</li>
+</ol>
+<h3 id="creating-cache-keys-from-arguments">Creating Cache Keys from
+Arguments</h3>
+<p>Because JavaScript compares non-primitive types by reference rather
+than value, functions accepting multiple or complex arguments require a
+consistent strategy for key generation.</p>
+<p>For single primitive arguments (like numbers or strings), the
+argument itself can serve directly as the key. For multiple arguments or
+objects, developers often serialize the arguments into a string:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> key <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(args)<span class="op">;</span></span></code></pre></div>
+<p>While <code>JSON.stringify</code> works well for simple serializable
+data, specialized key resolvers or nested maps are often used when
+handling complex structures, functions, or circular references.</p>
+<h3 id="implementing-a-generic-memoizer">Implementing a Generic
+Memoizer</h3>
+<p>Below is a standard higher-order function that wraps any pure
+computation with caching capabilities:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">memoize</span>(fn) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cache <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">function</span> (<span class="op">...</span>args) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> key <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(args)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (cache<span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> cache<span class="op">.</span><span class="fu">get</span>(key)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> result <span class="op">=</span> fn<span class="op">.</span><span class="fu">apply</span>(<span class="kw">this</span><span class="op">,</span> args)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    cache<span class="op">.</span><span class="fu">set</span>(key<span class="op">,</span> result)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="usage-example-heavy-computations">Usage Example: Heavy
+Computations</h3>
+<p>Consider a recursive or CPU-heavy task, such as computing an nth
+Fibonacci number or processing large datasets:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> slowFib <span class="op">=</span> (n) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&lt;=</span> <span class="dv">1</span>) <span class="cf">return</span> n<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">slowFib</span>(n <span class="op">-</span> <span class="dv">1</span>) <span class="op">+</span> <span class="fu">slowFib</span>(n <span class="op">-</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fastFib <span class="op">=</span> <span class="fu">memoize</span>((n) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&lt;=</span> <span class="dv">1</span>) <span class="cf">return</span> n<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">fastFib</span>(n <span class="op">-</span> <span class="dv">1</span>) <span class="op">+</span> <span class="fu">fastFib</span>(n <span class="op">-</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">time</span>(<span class="st">&quot;First run&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="fu">fastFib</span>(<span class="dv">40</span>)<span class="op">;</span> <span class="co">// Computes values and populates the cache</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">timeEnd</span>(<span class="st">&quot;First run&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">time</span>(<span class="st">&quot;Second run&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="fu">fastFib</span>(<span class="dv">40</span>)<span class="op">;</span> <span class="co">// Retrieves result instantly from the cache</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">timeEnd</span>(<span class="st">&quot;Second run&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<p>On the first run, sub-problems are evaluated once and stored.
+Subsequent invocations with the same inputs return instantaneously in
+<span class="math inline">\(O(1)\)</span> lookup time.</p>
+<h3 id="key-considerations-and-limitations">Key Considerations and
+Limitations</h3>
+<p>Memoization is not a universal solution and introduces specific
+trade-offs:</p>
+<ul>
+<li><strong>Purity is Required:</strong> Memoization only works reliably
+with pure functions—functions that always return the exact same output
+for the same input and produce no side effects. Caching a function that
+depends on external state, dates, or random values will produce stale or
+incorrect data.</li>
+<li><strong>Memory Consumption:</strong> Storing every computation
+consumes heap memory. If a function is called with thousands of unique
+argument combinations, the cache will continuously grow, potentially
+leading to memory leaks unless paired with eviction strategies like
+Least Recently Used (LRU) caches.</li>
+<li><strong>Overhead for Simple Logic:</strong> The overhead of
+serializing arguments and checking the cache can exceed the execution
+time of simple calculations. Memoization should be reserved for
+operations with noticeable computational costs.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

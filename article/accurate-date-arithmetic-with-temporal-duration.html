@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accurate Date Arithmetic with Temporal.Duration - javascript</title>
+    <meta name="description" content="JavaScript’s upcoming Temporal API revolutionizes how developers handle time, with Temporal.Duration serving as the core mechanism for representing and calculating date and time intervals. Unlike the legacy Date object, which treats all arithmetic as f">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/accurate-date-arithmetic-with-temporal-duration">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Accurate Date Arithmetic with Temporal.Duration - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/accurate-date-arithmetic-with-temporal-duration" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript’s upcoming Temporal API revolutionizes how developers handle time, with Temporal.Duration serving as the core mechanism for representing and calculating date and time intervals. Unlike the legacy Date object, which treats all arithmetic as f" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="accurate-date-arithmetic-with-temporalduration">Accurate Date
+Arithmetic with Temporal.Duration</h1>
+<p>JavaScript’s upcoming Temporal API revolutionizes how developers
+handle time, with <code>Temporal.Duration</code> serving as the core
+mechanism for representing and calculating date and time intervals.
+Unlike the legacy <code>Date</code> object, which treats all arithmetic
+as fixed millisecond offsets, <code>Temporal.Duration</code> performs
+accurate calendar-aware calculations by distinguishing between
+fixed-length clock units and variable-length calendar units. This
+article explains how <code>Temporal.Duration</code> operates, how it
+handles complex real-world temporal anomalies like Daylight Saving Time
+(DST) and leap years, and how to utilize its methods for precise date
+arithmetic.</p>
+<h3 id="the-failure-of-millisecond-based-math">The Failure of
+Millisecond-Based Math</h3>
+<p>Historically, JavaScript developers calculated intervals by adding or
+subtracting milliseconds using <code>Date.prototype.getTime()</code>.
+While mathematically straightforward, this approach inherently fails
+when applied to human calendar systems:</p>
+<ul>
+<li><strong>Days are not always 24 hours:</strong> Daylight Saving Time
+transitions can make a day 23 or 25 hours long.</li>
+<li><strong>Months have variable lengths:</strong> A month can consist
+of 28, 29, 30, or 31 days.</li>
+<li><strong>Leap years add days:</strong> A year can consist of 365 or
+366 days.</li>
+</ul>
+<p>Adding <code>86,400,000</code> milliseconds to advance by "one day"
+across a "spring forward" DST transition causes the local time to drift
+by an hour. <code>Temporal.Duration</code> resolves this by separating
+nominal intervals (such as years, months, and days) from exact elapsed
+intervals (such as hours, minutes, and seconds).</p>
+<h3 id="structure-of-a-temporalduration">Structure of a
+<code>Temporal.Duration</code></h3>
+<p>A <code>Temporal.Duration</code> instance stores an interval broken
+down into individual units: <code>years</code>, <code>months</code>,
+<code>weeks</code>, <code>days</code>, <code>hours</code>,
+<code>minutes</code>, <code>seconds</code>, <code>milliseconds</code>,
+<code>microseconds</code>, and <code>nanoseconds</code>.</p>
+<p>It is defined using either property bags or standard ISO 8601
+duration strings:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Defined via property bag</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> duration1 <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">months</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">days</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span> <span class="dt">hours</span><span class="op">:</span> <span class="dv">2</span> })<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Defined via ISO 8601 duration string (e.g., &quot;P1M5DT2H&quot;)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> duration2 <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&quot;P1M5DT2H&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<p>Because each unit remains distinct, the duration retains the user's
+explicit intent: adding "one month" remains an operation on the calendar
+month rather than an approximation based on 30 days.</p>
+<h3 id="achieving-accuracy-via-relativeto">Achieving Accuracy via
+<code>relativeTo</code></h3>
+<p>The key mechanism behind accurate duration arithmetic is the
+<code>relativeTo</code> option. Because units like years and months do
+not have fixed durations in seconds, their exact length can only be
+determined relative to a specific point in time and calendar system.</p>
+<p>When performing operations that involve variable-length units,
+<code>Temporal.Duration</code> methods (<code>add</code>,
+<code>subtract</code>, <code>round</code>, <code>total</code>) require a
+starting reference point provided via <code>relativeTo</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> duration <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">months</span><span class="op">:</span> <span class="dv">1</span> })<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculating the total days in a month depends on the starting date</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> daysInFeb2024 <span class="op">=</span> duration<span class="op">.</span><span class="fu">total</span>({ </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">unit</span><span class="op">:</span> <span class="st">&#39;days&#39;</span><span class="op">,</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">relativeTo</span><span class="op">:</span> Temporal<span class="op">.</span><span class="at">PlainDate</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;2024-02-01&#39;</span>) </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span> <span class="co">// 29 (Leap year)</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> daysInFeb2025 <span class="op">=</span> duration<span class="op">.</span><span class="fu">total</span>({ </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">unit</span><span class="op">:</span> <span class="st">&#39;days&#39;</span><span class="op">,</span> </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">relativeTo</span><span class="op">:</span> Temporal<span class="op">.</span><span class="at">PlainDate</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;2025-02-01&#39;</span>) </span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span> <span class="co">// 28</span></span></code></pre></div>
+<h3 id="handling-daylight-saving-time">Handling Daylight Saving
+Time</h3>
+<p>For time-zone-aware calculations, supplying a
+<code>Temporal.ZonedDateTime</code> to <code>relativeTo</code> ensures
+that shifts in local clocks do not introduce errors:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dstTransition <span class="op">=</span> Temporal<span class="op">.</span><span class="at">ZonedDateTime</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;2024-11-03T01:00:00-04:00[America/New_York]&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> oneDay <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">days</span><span class="op">:</span> <span class="dv">1</span> })<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Adds a calendar day, accounting for the 25-hour fall-back day</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> nextDay <span class="op">=</span> dstTransition<span class="op">.</span><span class="fu">add</span>(oneDay)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Result: 2024-11-04T01:00:00-05:00[America/New_York] (Wall-clock time is preserved)</span></span></code></pre></div>
+<p>If the calculation were done using hours
+(<code>{ hours: 24 }</code>), <code>Temporal</code> would calculate
+exactly 24 elapsed hours, landing at <code>00:00:00</code> local time
+instead of preserving the calendar hour. This explicit separation of
+concerns eliminates ambiguity.</p>
+<h3 id="arithmetic-operations-add-subtract-and-negate">Arithmetic
+Operations: Add, Subtract, and Negate</h3>
+<p><code>Temporal.Duration</code> includes native methods for combining
+and manipulating intervals:</p>
+<ul>
+<li><strong><code>add(other, options)</code>:</strong> Combines two
+durations. If any calendar units are present, <code>relativeTo</code>
+must be passed to determine how those units combine and balance.</li>
+<li><strong><code>subtract(other, options)</code>:</strong> Subtracts
+one duration from another using the same context-aware rules.</li>
+<li><strong><code>negate()</code>:</strong> Inverts the sign of all
+fields in the duration.</li>
+<li><strong><code>abs()</code>:</strong> Returns the absolute value of
+the duration.</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> durationA <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">hours</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">minutes</span><span class="op">:</span> <span class="dv">30</span> })<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> durationB <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">minutes</span><span class="op">:</span> <span class="dv">45</span> })<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> combined <span class="op">=</span> durationA<span class="op">.</span><span class="fu">add</span>(durationB)<span class="op">;</span> </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Result: PT1H75M (can be balanced to PT2H15M via rounding)</span></span></code></pre></div>
+<h3 id="balancing-and-rounding">Balancing and Rounding</h3>
+<p>Unlike traditional arithmetic, duration fields do not automatically
+balance upward to larger units without explicit instructions. For
+example, adding 75 minutes does not automatically convert into 1 hour
+and 15 minutes, because converting days into months or weeks into months
+requires a calendar reference.</p>
+<p>Developers can explicitly balance and normalize durations using
+<code>round()</code>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unbalanced <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Duration</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">minutes</span><span class="op">:</span> <span class="dv">90</span> })<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> balanced <span class="op">=</span> unbalanced<span class="op">.</span><span class="fu">round</span>({</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">largestUnit</span><span class="op">:</span> <span class="st">&#39;hour&#39;</span><span class="op">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">smallestUnit</span><span class="op">:</span> <span class="st">&#39;minute&#39;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Result: PT1H30M</span></span></code></pre></div>
+<p>If rounding involves calendar units (such as rounding days into
+months), passing <code>relativeTo</code> ensures the balance aligns with
+the exact days of the target month.</p>
+<h3 id="summary">Summary</h3>
+<p><code>Temporal.Duration</code> achieves accurate interval arithmetic
+by abandoning the assumption that time is uniformly linear. By treating
+calendar units independently from fixed time units, requiring explicit
+context (<code>relativeTo</code>) for variable lengths, and natively
+respecting time zones and DST, it provides a mathematically sound
+foundation for date calculations in modern JavaScript.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

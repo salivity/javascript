@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How attributeChangedCallback Works in Web Components - javascript</title>
+    <meta name="description" content="The attributeChangedCallback is a native lifecycle method in JavaScript Web Components that allows custom elements to monitor and react to changes in their HTML attributes. This article explains how this callback operates, how to configure the required o">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-attributechangedcallback-works-in-web-components">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How attributeChangedCallback Works in Web Components - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-attributechangedcallback-works-in-web-components" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The attributeChangedCallback is a native lifecycle method in JavaScript Web Components that allows custom elements to monitor and react to changes in their HTML attributes. This article explains how this callback operates, how to configure the required o" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-attributechangedcallback-works-in-web-components">How
+attributeChangedCallback Works in Web Components</h1>
+<p>The <code>attributeChangedCallback</code> is a native lifecycle
+method in JavaScript Web Components that allows custom elements to
+monitor and react to changes in their HTML attributes. This article
+explains how this callback operates, how to configure the required
+<code>observedAttributes</code> whitelist, how the callback captures
+previous and current values, and best practices for synchronizing
+attributes with component state.</p>
+<h2 id="the-role-of-observedattributes">The Role of
+<code>observedAttributes</code></h2>
+<p>By default, a custom element does not monitor every attribute
+modification for performance reasons. To enable the
+<code>attributeChangedCallback</code>, you must define a static getter
+named <code>observedAttributes</code> on the custom element class. This
+getter returns an array of attribute names that the browser should
+watch.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MyElement <span class="kw">extends</span> <span class="bu">HTMLElement</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">static</span> <span class="kw">get</span> <span class="fu">observedAttributes</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [<span class="st">&#39;theme&#39;</span><span class="op">,</span> <span class="st">&#39;disabled&#39;</span>]<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If an attribute is modified but is not listed in
+<code>observedAttributes</code>, the browser ignores the change and does
+not invoke the callback.</p>
+<h2 id="the-attributechangedcallback-signature">The
+<code>attributeChangedCallback</code> Signature</h2>
+<p>Whenever an observed attribute is added, modified, or removed, the
+browser automatically executes <code>attributeChangedCallback</code>
+with three arguments:</p>
+<ol type="1">
+<li><strong><code>name</code></strong>: The name of the attribute that
+changed.</li>
+<li><strong><code>oldValue</code></strong>: The previous value of the
+attribute (returns <code>null</code> if the attribute is newly
+added).</li>
+<li><strong><code>newValue</code></strong>: The updated value of the
+attribute (returns <code>null</code> if the attribute was removed).</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">attributeChangedCallback</span>(name<span class="op">,</span> oldValue<span class="op">,</span> newValue) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (oldValue <span class="op">===</span> newValue) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (name <span class="op">===</span> <span class="st">&#39;theme&#39;</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">updateTheme</span>(newValue)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="how-changes-are-triggered">How Changes Are Triggered</h2>
+<p>The callback responds to attribute modifications made through several
+methods:</p>
+<ul>
+<li><strong>Direct HTML Markup:</strong> Initial parsing of attributes
+defined directly on the element tag triggers the callback when the
+element is upgraded.</li>
+<li><strong>JavaScript DOM APIs:</strong> Methods such as
+<code>element.setAttribute('theme', 'dark')</code> or
+<code>element.removeAttribute('disabled')</code>.</li>
+<li><strong>User Interaction / Framework Bindings:</strong> Any external
+script or framework updating the DOM node's attributes.</li>
+</ul>
+<h2 id="complete-implementation-example">Complete Implementation
+Example</h2>
+<p>Here is a practical implementation of a custom component that reacts
+to attribute changes:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> StatusBadge <span class="kw">extends</span> <span class="bu">HTMLElement</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">static</span> <span class="kw">get</span> <span class="fu">observedAttributes</span>() {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [<span class="st">&#39;status&#39;</span>]<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">connectedCallback</span>() {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">attributeChangedCallback</span>(name<span class="op">,</span> oldValue<span class="op">,</span> newValue) {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (oldValue <span class="op">!==</span> newValue <span class="op">&amp;&amp;</span> name <span class="op">===</span> <span class="st">&#39;status&#39;</span>) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>() {</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> status <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getAttribute</span>(<span class="st">&#39;status&#39;</span>) <span class="op">||</span> <span class="st">&#39;offline&#39;</span><span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">textContent</span> <span class="op">=</span> <span class="vs">`Status: </span><span class="sc">${</span>status<span class="op">.</span><span class="fu">toUpperCase</span>()<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">className</span> <span class="op">=</span> <span class="vs">`badge-</span><span class="sc">${</span>status<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>customElements<span class="op">.</span><span class="fu">define</span>(<span class="st">&#39;status-badge&#39;</span><span class="op">,</span> StatusBadge)<span class="op">;</span></span></code></pre></div>
+<h2 id="key-considerations">Key Considerations</h2>
+<ul>
+<li><strong>Guard Against Redundant Updates:</strong> Always check
+<code>if (oldValue !== newValue)</code> inside the callback to prevent
+unnecessary re-renders or infinite loops when synchronizing attributes
+with properties.</li>
+<li><strong>Attribute-Property Reflection:</strong> If you create
+JavaScript getters and setters for your attributes, use
+<code>setAttribute</code> within the setter so that property updates
+trigger the <code>attributeChangedCallback</code>.</li>
+<li><strong>String Values Only:</strong> HTML attributes are always
+strings. If you need booleans or objects, convert the values inside the
+callback accordingly (e.g., using <code>hasAttribute</code> for boolean
+flags or <code>JSON.parse</code> for complex data).</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

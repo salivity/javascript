@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC ICE Candidates and Network Traversal - javascript</title>
+    <meta name="description" content="This article provides an overview of Interactive Connectivity Establishment (ICE) candidates and explains how JavaScript manages network traversal to establish peer-to-peer (P2P) connections in WebRTC. It covers the challenges posed by NATs and firewalls">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/webrtc-ice-candidates-and-network-traversal">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebRTC ICE Candidates and Network Traversal - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/webrtc-ice-candidates-and-network-traversal" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of Interactive Connectivity Establishment (ICE) candidates and explains how JavaScript manages network traversal to establish peer-to-peer (P2P) connections in WebRTC. It covers the challenges posed by NATs and firewalls" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="webrtc-ice-candidates-and-network-traversal">WebRTC ICE
+Candidates and Network Traversal</h1>
+<p>This article provides an overview of Interactive Connectivity
+Establishment (ICE) candidates and explains how JavaScript manages
+network traversal to establish peer-to-peer (P2P) connections in WebRTC.
+It covers the challenges posed by NATs and firewalls, the distinct types
+of ICE candidates, the roles of STUN and TURN servers, and the
+step-by-step JavaScript implementation required to gather, signal, and
+negotiate connection paths between remote browsers.</p>
+<h2 id="the-network-traversal-problem-in-webrtc">The Network Traversal
+Problem in WebRTC</h2>
+<p>WebRTC enables real-time audio, video, and data communication
+directly between browsers. However, most consumer devices do not have a
+public, static IP address. Instead, they reside behind Network Address
+Translation (NAT) devices and firewalls. NAT assigns private IP
+addresses (such as <code>192.168.x.x</code> or <code>10.x.x.x</code>) to
+local devices and translates them to a single public IP address when
+communicating with the internet.</p>
+<p>Because two devices behind different NATs cannot directly see each
+other's private IP addresses, direct communication fails without an
+intermediary mechanism to discover public routing paths and bypass
+firewall restrictions.</p>
+<h2 id="what-are-ice-candidates">What Are ICE Candidates?</h2>
+<p>An ICE (Interactive Connectivity Establishment) candidate is a
+network configuration profile that describes a potential method and path
+for communicating with a peer. Each candidate contains vital networking
+information, including:</p>
+<ul>
+<li>IP address</li>
+<li>Port number</li>
+<li>Transport protocol (UDP or TCP)</li>
+<li>Candidate type</li>
+<li>Priority level</li>
+</ul>
+<p>During the connection phase, WebRTC gathers multiple candidates from
+both peers to test all possible combinations and select the most
+efficient, viable path.</p>
+<h3 id="types-of-ice-candidates">Types of ICE Candidates</h3>
+<ol type="1">
+<li><strong>Host Candidates:</strong> Represent the local IP address and
+port directly assigned to the device’s network interfaces (Wi-Fi or
+Ethernet). These work only if both peers are on the same local
+network.</li>
+<li><strong>Server Reflexive (srflx) Candidates:</strong> Represent the
+public IP address and port allocated to the device by its NAT. These are
+discovered using a STUN (Session Traversal Utilities for NAT)
+server.</li>
+<li><strong>Relay Candidates:</strong> Represent an allocated address on
+an external TURN (Traversal Using Relays around NAT) server. If
+symmetric NATs or strict firewalls block direct communication, media and
+data packets are relayed through this third-party server.</li>
+<li><strong>Peer Reflexive (prflx) Candidates:</strong> Discovered
+dynamically during ICE connectivity checks when an incoming packet
+arrives from an address different from known host or reflexive
+candidates.</li>
+</ol>
+<h2 id="how-javascript-handles-ice-in-webrtc">How JavaScript Handles ICE
+in WebRTC</h2>
+<p>JavaScript utilizes the <code>RTCPeerConnection</code> API to
+automate network traversal. The browser handles the low-level discovery
+and connectivity testing, while JavaScript coordinates signaling via the
+application's signaling server (typically implemented with
+WebSockets).</p>
+<h3 id="1-configuring-ice-servers">1. Configuring ICE Servers</h3>
+<p>When instantiating the <code>RTCPeerConnection</code>, JavaScript
+provides an array of STUN and TURN server URLs.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> configuration <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">iceServers</span><span class="op">:</span> [</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">urls</span><span class="op">:</span> <span class="st">&#39;stun:stun.l.google.com:19302&#39;</span> }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">urls</span><span class="op">:</span> <span class="st">&#39;turn:turn.example.com:3478&#39;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">username</span><span class="op">:</span> <span class="st">&#39;user&#39;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">credential</span><span class="op">:</span> <span class="st">&#39;password&#39;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  ]</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> peerConnection <span class="op">=</span> <span class="kw">new</span> <span class="bu">RTCPeerConnection</span>(configuration)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-gathering-ice-candidates">2. Gathering ICE Candidates</h3>
+<p>Once local session descriptions (Offer/Answer) are set via
+<code>setLocalDescription()</code>, the browser begins the ICE gathering
+process automatically. As it discovers potential endpoints, it triggers
+the <code>icecandidate</code> event on the
+<code>RTCPeerConnection</code> instance.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>peerConnection<span class="op">.</span><span class="at">onicecandidate</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">candidate</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Send the candidate to the remote peer via your signaling server</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    signalingServer<span class="op">.</span><span class="fu">send</span>(<span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>({</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;candidate&#39;</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">candidate</span><span class="op">:</span> <span class="bu">event</span><span class="op">.</span><span class="at">candidate</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    }))<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// All ICE candidates have been gathered</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;ICE gathering complete&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="3-signaling-candidates">3. Signaling Candidates</h3>
+<p>WebSockets, HTTP requests, or any message-passing layer transmit the
+serialized ICE candidates to the remote peer. This process is known as
+<strong>Trickle ICE</strong>, where candidates are transmitted
+incrementally as they are found rather than waiting for all candidates
+to be collected, drastically reducing connection setup time.</p>
+<h3 id="4-adding-remote-candidates">4. Adding Remote Candidates</h3>
+<p>When the remote peer receives candidate data from the signaling
+channel, it registers the candidate using the
+<code>addIceCandidate()</code> method.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>signalingServer<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> <span class="kw">async</span> (message) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> data <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">parse</span>(message<span class="op">.</span><span class="at">data</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (data<span class="op">.</span><span class="at">type</span> <span class="op">===</span> <span class="st">&#39;candidate&#39;</span>) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="cf">await</span> peerConnection<span class="op">.</span><span class="fu">addIceCandidate</span>(<span class="kw">new</span> <span class="fu">RTCIceCandidate</span>(data<span class="op">.</span><span class="at">candidate</span>))<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">catch</span> (error) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Error adding received ICE candidate&#39;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="5-connectivity-checks-and-path-selection">5. Connectivity Checks
+and Path Selection</h3>
+<p>Under the hood, WebRTC pairs each local candidate with each remote
+candidate to form candidate pairs. It systematically tests each pair
+with STUN binding requests. The browser selects the highest-priority
+pair that successfully establishes two-way communication (preferring
+Host, then Server Reflexive, and falling back to Relay), transitioning
+the connection state to <code>connected</code>.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

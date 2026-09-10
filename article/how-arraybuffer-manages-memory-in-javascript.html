@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How ArrayBuffer Manages Memory in JavaScript - javascript</title>
+    <meta name="description" content="The ArrayBuffer object in JavaScript manages low-level, raw binary data by allocating a fixed-length, contiguous block of memory directly on the memory heap. Unlike standard JavaScript arrays that store dynamic, high-level objects with significant memory">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-arraybuffer-manages-memory-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How ArrayBuffer Manages Memory in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-arraybuffer-manages-memory-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The ArrayBuffer object in JavaScript manages low-level, raw binary data by allocating a fixed-length, contiguous block of memory directly on the memory heap. Unlike standard JavaScript arrays that store dynamic, high-level objects with significant memory" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-arraybuffer-manages-memory-in-javascript">How ArrayBuffer
+Manages Memory in JavaScript</h1>
+<p>The <code>ArrayBuffer</code> object in JavaScript manages low-level,
+raw binary data by allocating a fixed-length, contiguous block of memory
+directly on the memory heap. Unlike standard JavaScript arrays that
+store dynamic, high-level objects with significant memory overhead, an
+<code>ArrayBuffer</code> provides a lightweight, byte-accurate
+representation of data. Because an <code>ArrayBuffer</code> cannot be
+read or written to directly, JavaScript couples it with specialized
+"views"—such as TypedArrays and <code>DataView</code> instances—to
+interpret and manipulate the underlying memory efficiently while
+maintaining strict memory safety and predictable performance.</p>
+<h2 id="contiguous-fixed-length-allocation">Contiguous Fixed-Length
+Allocation</h2>
+<p>When you instantiate an <code>ArrayBuffer</code>, the JavaScript
+runtime engine (like V8) requests a dedicated, contiguous block of
+memory from the operating system via its underlying C++ backing
+store.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Allocates 16 contiguous bytes of memory</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> buffer <span class="op">=</span> <span class="kw">new</span> <span class="bu">ArrayBuffer</span>(<span class="dv">16</span>)<span class="op">;</span></span></code></pre></div>
+<p>Key characteristics of this allocation include:</p>
+<ul>
+<li><strong>Fixed Size:</strong> Once allocated, the byte length of a
+standard buffer remains constant. It cannot automatically expand or
+contract.</li>
+<li><strong>Zero Initialization:</strong> The runtime initializes every
+byte in the buffer to <code>0</code> for security reasons, preventing
+memory leakages from previously freed processes.</li>
+<li><strong>Low Overhead:</strong> Unlike standard JavaScript objects
+that contain metadata, prototypes, and dynamic properties, the backing
+store of an <code>ArrayBuffer</code> contains pure binary data with
+minimal engine overhead.</li>
+</ul>
+<h2 id="decoupled-architecture-buffers-vs-views">Decoupled Architecture:
+Buffers vs. Views</h2>
+<p>An <code>ArrayBuffer</code> represents the physical memory
+allocation, but it exposes no methods to directly mutate or access the
+values it holds. Memory management is divided into two distinct
+components: the storage layer (the buffer) and the access layer (the
+view).</p>
+<h3 id="typedarrays">TypedArrays</h3>
+<p>TypedArrays (such as <code>Uint8Array</code>,
+<code>Int32Array</code>, or <code>Float64Array</code>) overlay the
+buffer and dictate how the binary memory should be indexed and
+interpreted:</p>
+<ul>
+<li><strong>Element Sizing:</strong> A <code>Uint8Array</code> views
+memory in 1-byte increments, while a <code>Float64Array</code> views it
+in 8-byte increments.</li>
+<li><strong>Shared Memory:</strong> Multiple views can target the exact
+same <code>ArrayBuffer</code> with different offsets or data types,
+allowing multiple interpretations of the same memory segment without
+duplicating data.</li>
+</ul>
+<h3 id="dataview">DataView</h3>
+<p>The <code>DataView</code> object provides explicit control over
+byte-by-byte access, allowing heterogeneous data types to be read from
+or written to the buffer, as well as explicit handling of endianness
+(big-endian vs. little-endian).</p>
+<h2 id="zero-copy-transfers-and-detached-buffers">Zero-Copy Transfers
+and Detached Buffers</h2>
+<p>To prevent memory duplication and multithreading conflicts,
+JavaScript allows an <code>ArrayBuffer</code> to be transferred between
+different execution contexts (such as Web Workers) using structured
+cloning with a transfer list.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Transferring ownership to a Web Worker</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>worker<span class="op">.</span><span class="fu">postMessage</span>({ <span class="dt">data</span><span class="op">:</span> buffer }<span class="op">,</span> [buffer])<span class="op">;</span></span></code></pre></div>
+<p>When a buffer is transferred:</p>
+<ol type="1">
+<li><strong>Ownership Handover:</strong> The underlying memory pointer
+is handed directly to the receiver without copying the bytes (a
+zero-copy operation).</li>
+<li><strong>Detachment:</strong> The original <code>ArrayBuffer</code>
+becomes "neutered" or detached. Its <code>byteLength</code> drops to
+<code>0</code>, and any attempts to read or write to it from the
+original context throw an error. This prevents race conditions and
+ensures only one context controls that segment of memory at any given
+time.</li>
+</ol>
+<h2 id="garbage-collection-and-deallocation">Garbage Collection and
+Deallocation</h2>
+<p><code>ArrayBuffer</code> memory is managed automatically by the
+JavaScript engine's garbage collector (GC). The engine maintains an
+internal reference count between the <code>ArrayBuffer</code> and any
+active views referencing it.</p>
+<ul>
+<li><strong>Reclaim Condition:</strong> The backing store of an
+<code>ArrayBuffer</code> is freed when the buffer itself and all
+associated views (TypedArrays, DataViews) have no active references and
+fall out of scope.</li>
+<li><strong>External Memory Tracking:</strong> Because the binary
+backing store sits outside the standard V8 managed object heap, the
+engine explicitly accounts for this "external memory" so that large
+buffers trigger garbage collection cycles promptly rather than
+exhausting system memory.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Layout Thrashing in JavaScript - javascript</title>
+    <meta name="description" content="Layout thrashing, also known as forced synchronous reflow, occurs when JavaScript alternatingly reads from and writes to the Document Object Model (DOM) in rapid succession. This pattern disrupts the browser's native rendering optimization, forcing it to">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-layout-thrashing-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Layout Thrashing in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-layout-thrashing-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Layout thrashing, also known as forced synchronous reflow, occurs when JavaScript alternatingly reads from and writes to the Document Object Model (DOM) in rapid succession. This pattern disrupts the browser's native rendering optimization, forcing it to" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="understanding-layout-thrashing-in-javascript">Understanding
+Layout Thrashing in JavaScript</h1>
+<p>Layout thrashing, also known as forced synchronous reflow, occurs
+when JavaScript alternatingly reads from and writes to the Document
+Object Model (DOM) in rapid succession. This pattern disrupts the
+browser's native rendering optimization, forcing it to recalculate
+geometric styles and recalculate layouts multiple times within a single
+frame. This article explains the browser mechanics behind this behavior,
+demonstrates why interleaved reads and writes trigger performance
+bottlenecks, and details how to prevent layout thrashing in web
+applications.</p>
+<h3 id="the-browser-rendering-cycle-and-batching">The Browser Rendering
+Cycle and Batching</h3>
+<p>To render a web page, browsers execute a pipeline: executing
+JavaScript, calculating styles, computing the geometric layout of
+elements (reflow), painting pixels, and compositing layers. Layout
+calculation is computationally expensive because altering one element
+can affect the positions and dimensions of its parents, siblings, and
+children.</p>
+<p>To maintain a smooth frame rate (typically 60 frames per second),
+modern browsers use a lazy evaluation strategy. When JavaScript modifies
+the DOM—such as updating a style property, adding a class, or appending
+a node—the browser marks the layout as "dirty" and queues the changes.
+Instead of recalculating element dimensions immediately after every
+write, the browser waits to process the entire queue in a single,
+batched layout pass at the end of the current execution frame.</p>
+<h3 id="how-forced-synchronous-layout-happens">How Forced Synchronous
+Layout Happens</h3>
+<p>The lazy batching mechanism breaks when JavaScript attempts to read
+geometric properties from the DOM immediately after a write.</p>
+<p>Properties such as <code>offsetWidth</code>,
+<code>offsetHeight</code>, <code>clientWidth</code>,
+<code>clientHeight</code>, <code>scrollTop</code>, and methods like
+<code>getBoundingClientRect()</code> or <code>getComputedStyle()</code>
+require up-to-date geometric data. If an uncommitted DOM write is
+pending in the queue, the browser cannot return accurate measurements
+without first resolving those changes.</p>
+<p>Consequently, the browser is forced to execute an immediate,
+synchronous layout pass mid-execution to compute the requested values.
+Once the layout is recalculated, JavaScript execution resumes.</p>
+<h3 id="the-mechanism-of-layout-thrashing">The Mechanism of Layout
+Thrashing</h3>
+<p>Layout thrashing occurs when this forced synchronous layout cycle is
+repeated repeatedly, typically inside a loop.</p>
+<p>Consider the following execution pattern:</p>
+<ol type="1">
+<li><strong>Write:</strong> JavaScript changes the width of an element.
+The browser marks the layout as dirty.</li>
+<li><strong>Read:</strong> JavaScript requests the
+<code>offsetWidth</code> of the next element. The browser must halt
+execution and perform a full layout recalculation to provide the correct
+measurement.</li>
+<li><strong>Write:</strong> JavaScript modifies another element based on
+the read value. The layout is marked dirty again.</li>
+<li><strong>Read:</strong> JavaScript requests another measurement,
+forcing another immediate layout recalculation.</li>
+</ol>
+<p>When this sequence occurs over dozens or hundreds of elements, the
+browser recalculates the layout for every single iteration rather than
+once per frame. This causes significant CPU utilization, blocks the main
+thread, drops frame rates, and introduces noticeable stutter (jank) into
+the user interface.</p>
+<h3 id="code-pattern-comparison">Code Pattern Comparison</h3>
+<h4 id="problematic-pattern-thrashing">Problematic Pattern
+(Thrashing)</h4>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> elements <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelectorAll</span>(<span class="st">&#39;.card&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Alternating reads and writes inside a loop</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>elements<span class="op">.</span><span class="fu">forEach</span>(element <span class="kw">=&gt;</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Read triggers forced reflow because of the previous write</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> width <span class="op">=</span> element<span class="op">.</span><span class="at">offsetWidth</span><span class="op">;</span> </span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Write invalidates the layout</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  element<span class="op">.</span><span class="at">style</span><span class="op">.</span><span class="at">width</span> <span class="op">=</span> (width <span class="op">+</span> <span class="dv">10</span>) <span class="op">+</span> <span class="st">&#39;px&#39;</span><span class="op">;</span> </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="optimized-pattern-batching">Optimized Pattern (Batching)</h4>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> elements <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelectorAll</span>(<span class="st">&#39;.card&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> widths <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Phase 1: Batch all reads together</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>elements<span class="op">.</span><span class="fu">forEach</span>(element <span class="kw">=&gt;</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  widths<span class="op">.</span><span class="fu">push</span>(element<span class="op">.</span><span class="at">offsetWidth</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Phase 2: Batch all writes together</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>elements<span class="op">.</span><span class="fu">forEach</span>((element<span class="op">,</span> index) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  element<span class="op">.</span><span class="at">style</span><span class="op">.</span><span class="at">width</span> <span class="op">=</span> (widths[index] <span class="op">+</span> <span class="dv">10</span>) <span class="op">+</span> <span class="st">&#39;px&#39;</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="strategies-to-prevent-layout-thrashing">Strategies to Prevent
+Layout Thrashing</h3>
+<ol type="1">
+<li><strong>Separate Reads from Writes:</strong> Structure code so that
+all DOM measurements are collected first before applying any style
+updates or DOM modifications.</li>
+<li><strong>Schedule Visual Updates with
+<code>requestAnimationFrame</code>:</strong> Wrap write operations in
+<code>window.requestAnimationFrame()</code> to defer style changes to
+the beginning of the next frame, allowing reads to complete without
+interruption.</li>
+<li><strong>Use CSS Transforms Instead of Geometric Properties:</strong>
+Alter properties like <code>transform: translate()</code> and
+<code>opacity</code> instead of <code>top</code>, <code>left</code>,
+<code>width</code>, or <code>height</code>. Transforms run on the
+compositor thread and bypass both layout and paint cycles entirely.</li>
+<li><strong>Use Read/Write Queue Utilities:</strong> In complex
+applications where different modules independently interact with the
+DOM, utility libraries or centralized task schedulers can automatically
+batch reads and writes across components.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

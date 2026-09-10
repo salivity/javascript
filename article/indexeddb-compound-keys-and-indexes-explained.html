@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB Compound Keys and Indexes Explained - javascript</title>
+    <meta name="description" content="IndexedDB provides native support for handling multi-attribute data patterns using compound keys and compound indexes. This article explains how to define multi-field primary keys on an object store, how to build secondary compound indexes, and how to qu">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/indexeddb-compound-keys-and-indexes-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="IndexedDB Compound Keys and Indexes Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/indexeddb-compound-keys-and-indexes-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="IndexedDB provides native support for handling multi-attribute data patterns using compound keys and compound indexes. This article explains how to define multi-field primary keys on an object store, how to build secondary compound indexes, and how to qu" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="indexeddb-compound-keys-and-indexes-explained">IndexedDB
+Compound Keys and Indexes Explained</h1>
+<p>IndexedDB provides native support for handling multi-attribute data
+patterns using compound keys and compound indexes. This article explains
+how to define multi-field primary keys on an object store, how to build
+secondary compound indexes, and how to query these multidimensional
+structures using standard <code>IDBKeyRange</code> methods in native
+JavaScript.</p>
+<h3 id="what-are-compound-keys-and-indexes">What Are Compound Keys and
+Indexes?</h3>
+<p>In IndexedDB, a compound key is a key path composed of an array of
+property names (e.g., <code>['dept', 'employeeId']</code>). Rather than
+identifying or sorting records by a single value, the database evaluates
+the combination of these values in sequence.</p>
+<ul>
+<li><strong>Compound Primary Key</strong>: Uniquely identifies a record
+in an object store using multiple properties.</li>
+<li><strong>Compound Index</strong>: A secondary index spanning multiple
+properties used for querying and sorting by combinations of fields.</li>
+</ul>
+<h3 id="creating-a-compound-primary-key">Creating a Compound Primary
+Key</h3>
+<p>You define a compound primary key inside the
+<code>onupgradeneeded</code> lifecycle event when creating the object
+store. Pass an array of strings representing the object properties to
+the <code>keyPath</code> option.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> request <span class="op">=</span> indexedDB<span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;CompanyDB&#39;</span><span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onupgradeneeded</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create an object store with a compound primary key</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> store <span class="op">=</span> db<span class="op">.</span><span class="fu">createObjectStore</span>(<span class="st">&#39;shifts&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">keyPath</span><span class="op">:</span> [<span class="st">&#39;storeId&#39;</span><span class="op">,</span> <span class="st">&#39;employeeId&#39;</span><span class="op">,</span> <span class="st">&#39;shiftDate&#39;</span>]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>Any object added to <code>shifts</code> must contain valid, cloneable
+values for <code>storeId</code>, <code>employeeId</code>, and
+<code>shiftDate</code>.</p>
+<h3 id="creating-a-compound-index">Creating a Compound Index</h3>
+<p>If your primary key is simple (such as an auto-incrementing ID) but
+you need to retrieve records using multiple other properties, create a
+compound index using <code>createIndex</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onupgradeneeded</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> userStore <span class="op">=</span> db<span class="op">.</span><span class="fu">createObjectStore</span>(<span class="st">&#39;users&#39;</span><span class="op">,</span> { <span class="dt">keyPath</span><span class="op">:</span> <span class="st">&#39;id&#39;</span><span class="op">,</span> <span class="dt">autoIncrement</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create a compound index on lastName and firstName</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  userStore<span class="op">.</span><span class="fu">createIndex</span>(<span class="st">&#39;by_name&#39;</span><span class="op">,</span> [<span class="st">&#39;lastName&#39;</span><span class="op">,</span> <span class="st">&#39;firstName&#39;</span>]<span class="op">,</span> { <span class="dt">unique</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="querying-with-compound-keys-and-indexes">Querying with Compound
+Keys and Indexes</h3>
+<p>IndexedDB sorts arrays element by element. To query a compound key or
+index, your query keys must also be arrays matching the structure and
+order of the indexed properties.</p>
+<h4 id="1-exact-matches">1. Exact Matches</h4>
+<p>To retrieve a record matching an exact combination of fields, pass an
+array directly or use <code>IDBKeyRange.only()</code>.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tx <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>([<span class="st">&#39;users&#39;</span>]<span class="op">,</span> <span class="st">&#39;readonly&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> index <span class="op">=</span> tx<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;users&#39;</span>)<span class="op">.</span><span class="fu">index</span>(<span class="st">&#39;by_name&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Fetch the record matching lastName = &#39;Smith&#39; and firstName = &#39;Jane&#39;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> query <span class="op">=</span> index<span class="op">.</span><span class="fu">get</span>([<span class="st">&#39;Smith&#39;</span><span class="op">,</span> <span class="st">&#39;Jane&#39;</span>])<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>query<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;User found:&#39;</span><span class="op">,</span> query<span class="op">.</span><span class="at">result</span>)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h4 id="2-range-queries-and-prefix-matching">2. Range Queries and Prefix
+Matching</h4>
+<p>IndexedDB does not support wildcard searches on the middle or end of
+an index, but it does allow prefix-based range matching. Because arrays
+are compared item by item, you can match all records that share a common
+first property using <code>IDBKeyRange.bound()</code>.</p>
+<p>To match all users with the <code>lastName</code> of "Smith", set the
+lower bound to <code>['Smith']</code> and the upper bound to an array
+containing <code>'Smith'</code> followed by a value that sorts higher
+than any possible string, such as <code>'\uffff'</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tx <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>([<span class="st">&#39;users&#39;</span>]<span class="op">,</span> <span class="st">&#39;readonly&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> index <span class="op">=</span> tx<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;users&#39;</span>)<span class="op">.</span><span class="fu">index</span>(<span class="st">&#39;by_name&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Match everyone whose lastName is &#39;Smith&#39;, regardless of firstName</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> keyRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>(</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  [<span class="st">&#39;Smith&#39;</span>]<span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  [<span class="st">&#39;Smith&#39;</span><span class="op">,</span> <span class="st">&#39;</span><span class="sc">\uffff</span><span class="st">&#39;</span>]</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> request <span class="op">=</span> index<span class="op">.</span><span class="fu">getAll</span>(keyRange)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;All Smiths:&#39;</span><span class="op">,</span> request<span class="op">.</span><span class="at">result</span>)<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h4 id="3-cursor-iteration">3. Cursor Iteration</h4>
+<p>To iterate through matching records or paginate results, open a
+cursor over the compound range:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tx <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>([<span class="st">&#39;users&#39;</span>]<span class="op">,</span> <span class="st">&#39;readonly&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> index <span class="op">=</span> tx<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;users&#39;</span>)<span class="op">.</span><span class="fu">index</span>(<span class="st">&#39;by_name&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> keyRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>([<span class="st">&#39;A&#39;</span>]<span class="op">,</span> [<span class="st">&#39;M&#39;</span><span class="op">,</span> <span class="st">&#39;</span><span class="sc">\uffff</span><span class="st">&#39;</span>])<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cursorRequest <span class="op">=</span> index<span class="op">.</span><span class="fu">openCursor</span>(keyRange)<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>cursorRequest<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cursor <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (cursor) {</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`User: </span><span class="sc">${</span>cursor<span class="op">.</span><span class="at">value</span><span class="op">.</span><span class="at">firstName</span><span class="sc">}</span><span class="vs"> </span><span class="sc">${</span>cursor<span class="op">.</span><span class="at">value</span><span class="op">.</span><span class="at">lastName</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    cursor<span class="op">.</span><span class="fu">continue</span>()<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>When designing compound keys and indexes, the sequence of properties
+in the array determines the sorting hierarchy and query flexibility.
+Always place the most critical filter property first.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

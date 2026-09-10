@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How pnpm Saves Disk Space Using Hard Links - javascript</title>
+    <meta name="description" content="pnpm is a fast, disk-efficient JavaScript package manager that dramatically reduces storage usage by sharing package files across multiple projects on the same machine. Unlike traditional package managers that duplicate dependencies in every local nodemo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-pnpm-saves-disk-space-using-hard-links">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How pnpm Saves Disk Space Using Hard Links - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-pnpm-saves-disk-space-using-hard-links" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="pnpm is a fast, disk-efficient JavaScript package manager that dramatically reduces storage usage by sharing package files across multiple projects on the same machine. Unlike traditional package managers that duplicate dependencies in every local nodemo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-pnpm-saves-disk-space-using-hard-links">How pnpm Saves Disk
+Space Using Hard Links</h1>
+<p>pnpm is a fast, disk-efficient JavaScript package manager that
+dramatically reduces storage usage by sharing package files across
+multiple projects on the same machine. Unlike traditional package
+managers that duplicate dependencies in every local
+<code>node_modules</code> directory, pnpm maintains a single global
+content-addressable store on your hard drive and uses hard links
+alongside symbolic links (symlinks) to connect those files to individual
+projects. This article explains the underlying mechanics of
+content-addressable storage, hard linking, and how pnpm prevents
+redundant file duplication.</p>
+<h2 id="the-traditional-storage-problem-in-nodejs">The Traditional
+Storage Problem in Node.js</h2>
+<p>Traditional package managers like npm and standard Yarn historically
+copy every dependency into a project's local <code>node_modules</code>
+folder. If you have ten different projects on your computer that all
+depend on the exact same version of a large framework or utility
+library, that library is downloaded and stored on your disk ten separate
+times. Over time, this causes significant disk bloat and slower install
+times.</p>
+<h2 id="content-addressable-storage-cas">Content-Addressable Storage
+(CAS)</h2>
+<p>At the core of pnpm's architecture is a centralized global store,
+known as a content-addressable store.</p>
+<p>When pnpm downloads a dependency:</p>
+<ol type="1">
+<li>It hashes the content of each file within the package (typically
+using SHA-512).</li>
+<li>It stores the file in a single, centralized directory on your disk
+(for example, <code>~/.local/share/pnpm/store</code> on Linux/macOS)
+indexed by its hash.</li>
+<li>If multiple packages contain identical files—or if different
+versions of a package share unmodified files—those files are stored only
+once in the global store.</li>
+</ol>
+<p>Because the storage system is indexed by content rather than package
+name or version, identical files are never duplicated in the global
+cache.</p>
+<h2 id="how-hard-links-save-disk-space">How Hard Links Save Disk
+Space</h2>
+<p>Rather than copying files from the global store into your project’s
+local directory, pnpm creates <strong>hard links</strong>.</p>
+<p>A hard link is a filesystem-level reference that points directly to
+the existing data blocks (inode) of a file on your storage drive.</p>
+<ul>
+<li><strong>Zero Additional Space:</strong> A hard link does not
+duplicate file contents. It simply creates an additional path or
+directory entry pointing to the exact same physical space on the
+disk.</li>
+<li><strong>Direct File Access:</strong> To the operating system and
+Node.js runtime, a hard-linked file behaves exactly like a regular file
+inside <code>node_modules</code>.</li>
+<li><strong>Cross-Project Sharing:</strong> If ten projects use
+<code>lodash@4.17.21</code>, all ten projects have
+<code>node_modules</code> files that point back to the single set of
+files in the global store. Disk space is consumed only once.</li>
+</ul>
+<h2 id="the-role-of-symlinks-in-structuring-node_modules">The Role of
+Symlinks in Structuring <code>node_modules</code></h2>
+<p>While hard links share individual files from the store, pnpm uses
+symbolic links (symlinks) to construct the structure of the
+<code>node_modules</code> folder.</p>
+<ol type="1">
+<li><strong>The <code>.pnpm</code> Virtual Store:</strong> pnpm creates
+a hidden directory at <code>node_modules/.pnpm</code>. Inside this
+directory, all project dependencies are organized in a flat structure,
+with each file hard-linked to the global content-addressable store.</li>
+<li><strong>Project Root Symlinks:</strong> In your root
+<code>node_modules</code>, pnpm creates symlinks that point only to the
+direct dependencies declared in your <code>package.json</code>.</li>
+<li><strong>Dependency Isolation:</strong> Transitive dependencies
+(dependencies of your dependencies) are symlinked within
+<code>.pnpm</code> rather than exposed at the root level.</li>
+</ol>
+<p>This combination of hard links and symlinks creates an isolated,
+non-flat dependency tree. It eliminates phantom dependencies (importing
+packages that are not listed in <code>package.json</code>) while keeping
+disk usage to an absolute minimum.</p>
+<h2 id="summary-of-benefits">Summary of Benefits</h2>
+<p>By combining content-addressable storage with hard links and
+symlinks, pnpm provides:</p>
+<ul>
+<li><strong>Massive Disk Savings:</strong> Every unique file version
+exists on disk exactly once per drive.</li>
+<li><strong>Faster Installations:</strong> Installing already-cached
+dependencies avoids network requests and disk write operations, as pnpm
+only needs to generate hard links and symlinks.</li>
+<li><strong>Strict Dependency Resolution:</strong> The symlink-based
+layout prevents accidental access to unlisted transitive dependencies
+without sacrificing compatibility.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

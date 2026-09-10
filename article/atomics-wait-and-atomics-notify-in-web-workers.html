@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atomics.wait and Atomics.notify in Web Workers - javascript</title>
+    <meta name="description" content="Atomics.wait and Atomics.notify provide a low-level synchronization mechanism for managing concurrent JavaScript execution across Web Workers. When workers share memory via a SharedArrayBuffer, these methods allow threads to pause execution and wait for">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/atomics-wait-and-atomics-notify-in-web-workers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Atomics.wait and Atomics.notify in Web Workers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/atomics-wait-and-atomics-notify-in-web-workers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Atomics.wait and Atomics.notify provide a low-level synchronization mechanism for managing concurrent JavaScript execution across Web Workers. When workers share memory via a SharedArrayBuffer, these methods allow threads to pause execution and wait for" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="atomicswait-and-atomicsnotify-in-web-workers">Atomics.wait and
+Atomics.notify in Web Workers</h1>
+<p><code>Atomics.wait</code> and <code>Atomics.notify</code> provide a
+low-level synchronization mechanism for managing concurrent JavaScript
+execution across Web Workers. When workers share memory via a
+<code>SharedArrayBuffer</code>, these methods allow threads to pause
+execution and wait for specific state changes without consuming CPU
+resources through busy-waiting, and then signal each other when data is
+ready to be processed.</p>
+<h3 id="the-need-for-synchronization">The Need for Synchronization</h3>
+<p>When multiple Web Workers operate on the same
+<code>SharedArrayBuffer</code>, they risk data races if one worker reads
+from a memory location while another writes to it. While basic
+<code>Atomics</code> operations (such as <code>Atomics.add</code> or
+<code>Atomics.exchange</code>) ensure individual read-modify-write
+operations are indivisible, complex tasks require threads to pause and
+wait for multi-step processes to complete.</p>
+<p>Without synchronization primitives, workers would need to poll memory
+inside a loop (<code>while</code> loop), which maxes out CPU cores and
+reduces performance. <code>Atomics.wait</code> and
+<code>Atomics.notify</code> eliminate polling by leveraging the
+operating system's native thread-blocking capabilities.</p>
+<h3 id="how-atomicswait-works">How Atomics.wait Works</h3>
+<p><code>Atomics.wait()</code> blocks a worker thread until a specific
+condition is met or an optional timeout expires.</p>
+<ul>
+<li><strong>Signature:</strong>
+<code>Atomics.wait(typedArray, index, expectedValue, [timeout])</code></li>
+<li><strong>Behavior:</strong>
+<ol type="1">
+<li>Checks if the value at <code>typedArray[index]</code> equals
+<code>expectedValue</code>.</li>
+<li>If the values match, the browser puts the calling thread to
+sleep.</li>
+<li>If the value does not match, the call returns immediately with
+<code>"not-equal"</code>, preventing sleep on outdated conditions.</li>
+<li>Once awakened by <code>Atomics.notify()</code> or a timeout, it
+returns <code>"ok"</code> or <code>"timed-out"</code>.</li>
+</ol></li>
+</ul>
+<p><strong>Constraint:</strong> To prevent user interface freezes,
+<code>Atomics.wait()</code> is forbidden on the main thread and will
+throw a <code>TypeError</code> if invoked there. It can only be called
+inside dedicated Web Workers.</p>
+<h3 id="how-atomicsnotify-works">How Atomics.notify Works</h3>
+<p><code>Atomics.notify()</code> wakes up one or more workers that are
+currently suspended in an <code>Atomics.wait()</code> call on a
+specified array index.</p>
+<ul>
+<li><strong>Signature:</strong>
+<code>Atomics.notify(typedArray, index, [count])</code></li>
+<li><strong>Behavior:</strong>
+<ol type="1">
+<li>Identifies threads sleeping on the specified index.</li>
+<li>Wakes up the number of threads specified by <code>count</code>
+(default is <code>Infinity</code>, waking all waiting threads).</li>
+<li>Returns the number of workers that were successfully awakened.</li>
+</ol></li>
+</ul>
+<p>Unlike <code>Atomics.wait()</code>, <code>Atomics.notify()</code> can
+be executed safely from both Web Workers and the main thread.</p>
+<h3 id="the-coordination-workflow">The Coordination Workflow</h3>
+<p>A standard producer-consumer pattern between workers follows this
+sequence:</p>
+<ol type="1">
+<li><strong>Setup:</strong> Both the producer worker and consumer worker
+receive the same <code>SharedArrayBuffer</code> wrapped in an
+<code>Int32Array</code>.</li>
+<li><strong>Consumer Waits:</strong> The consumer checks a
+synchronization index (e.g., index <code>0</code>, initialized to
+<code>0</code>). It calls <code>Atomics.wait(sharedArray, 0, 0)</code>.
+The consumer enters a sleep state.</li>
+<li><strong>Producer Works:</strong> The producer writes data to the
+buffer, updates index <code>0</code> to a new state (e.g.,
+<code>1</code>), and calls
+<code>Atomics.notify(sharedArray, 0, 1)</code>.</li>
+<li><strong>Consumer Resumes:</strong> The consumer thread wakes up,
+receives <code>"ok"</code>, reads the newly produced data, and resets
+the synchronization index.</li>
+</ol>
+<h3 id="key-rules-and-restrictions">Key Rules and Restrictions</h3>
+<ul>
+<li><strong>Typed Array Types:</strong> <code>Atomics.wait</code> and
+<code>Atomics.notify</code> operate exclusively on
+<code>Int32Array</code> or <code>BigInt64Array</code> views over a
+<code>SharedArrayBuffer</code>.</li>
+<li><strong>Cross-Origin Isolation:</strong> Using
+<code>SharedArrayBuffer</code> requires the hosting server to deliver
+the proper HTTP headers
+(<code>Cross-Origin-Opener-Policy: same-origin</code> and
+<code>Cross-Origin-Embedder-Policy: require-corp</code>) for security
+reasons.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

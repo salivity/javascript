@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stop Client-Side Parameter Tampering in JavaScript - javascript</title>
+    <meta name="description" content="Client-side parameter tampering occurs when malicious actors modify data sent from the browser to the backend to exploit business logic, such as altering prices, elevating permissions, or accessing unauthorized records. Because web browsers are entirely">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/stop-client-side-parameter-tampering-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stop Client-Side Parameter Tampering in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/stop-client-side-parameter-tampering-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Client-side parameter tampering occurs when malicious actors modify data sent from the browser to the backend to exploit business logic, such as altering prices, elevating permissions, or accessing unauthorized records. Because web browsers are entirely" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="stop-client-side-parameter-tampering-in-javascript">Stop
+Client-Side Parameter Tampering in JavaScript</h1>
+<p>Client-side parameter tampering occurs when malicious actors modify
+data sent from the browser to the backend to exploit business logic,
+such as altering prices, elevating permissions, or accessing
+unauthorized records. Because web browsers are entirely under user
+control, relying on front-end constraints like disabled fields or
+JavaScript checks creates severe vulnerabilities. This article explains
+how parameter tampering works and outlines practical defenses for
+JavaScript backends (such as Node.js, Express, Fastify, and NestJS),
+including strict schema validation, server-side authoritative data
+handling, and cryptographic verification.</p>
+<h2 id="understanding-client-side-parameter-tampering">Understanding
+Client-Side Parameter Tampering</h2>
+<p>Client-side parameter tampering targets the communication layer
+between client interfaces and server applications. Attackers intercept
+or craft HTTP requests using standard developer tools, interception
+proxies like Burp Suite, or API testing clients like Postman.</p>
+<p>Common vectors include:</p>
+<ul>
+<li><strong>Hidden Form Fields and JSON Payloads:</strong> Manipulating
+hidden fields such as
+<code>&lt;input type="hidden" name="price" value="100"&gt;</code> or
+modifying a JSON body from <code>{"price": 100}</code> to
+<code>{"price": 1}</code>.</li>
+<li><strong>Query Parameters:</strong> Changing URL parameters, such as
+updating <code>/api/orders?discount=10</code> to
+<code>/api/orders?discount=90</code>.</li>
+<li><strong>Mass Assignment:</strong> Injecting unexpected fields into
+payloads, such as submitting
+<code>{"username": "alice", "isAdmin": true}</code> to grant
+administrative privileges during account updates.</li>
+<li><strong>Insecure Direct Object References (IDOR):</strong> Changing
+an identifier parameter, such as editing <code>/api/documents/104</code>
+to <code>/api/documents/105</code> to view or alter another user's
+file.</li>
+</ul>
+<p>Front-end controls exist solely for user experience. True application
+security requires backend boundaries that treat every incoming byte as
+untrusted.</p>
+<h2 id="strategies-to-defend-javascript-backends">Strategies to Defend
+JavaScript Backends</h2>
+<h3 id="1-maintain-authoritative-state-on-the-server">1. Maintain
+Authoritative State on the Server</h3>
+<p>Never trust the client to dictate sensitive operational state,
+business rules, or monetary values. Instead of accepting values like
+prices, discounts, or account tiers from the front end, require the
+client to submit only identifiers.</p>
+<p>In an Express or Fastify endpoint:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable: trusts the client&#39;s submitted price</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;/api/checkout&#39;</span><span class="op">,</span> <span class="kw">async</span> (req<span class="op">,</span> res) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { itemId<span class="op">,</span> price } <span class="op">=</span> req<span class="op">.</span><span class="at">body</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">chargeCustomer</span>(req<span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span><span class="op">,</span> price)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Secure: resolves price directly from the authoritative database</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;/api/checkout&#39;</span><span class="op">,</span> <span class="kw">async</span> (req<span class="op">,</span> res) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { itemId<span class="op">,</span> quantity } <span class="op">=</span> req<span class="op">.</span><span class="at">body</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> item <span class="op">=</span> <span class="cf">await</span> db<span class="op">.</span><span class="at">items</span><span class="op">.</span><span class="fu">findById</span>(itemId)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>item) {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> res<span class="op">.</span><span class="fu">status</span>(<span class="dv">404</span>)<span class="op">.</span><span class="fu">json</span>({ <span class="dt">error</span><span class="op">:</span> <span class="st">&#39;Item not found&#39;</span> })<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> calculatedTotal <span class="op">=</span> item<span class="op">.</span><span class="at">price</span> <span class="op">*</span> quantity<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">chargeCustomer</span>(req<span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span><span class="op">,</span> calculatedTotal)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="2-enforce-strict-schema-validation-and-whitelisting">2. Enforce
+Strict Schema Validation and Whitelisting</h3>
+<p>To prevent mass assignment and malformed input, define explicit
+schemas for all incoming request bodies, headers, and query parameters.
+Modern JavaScript environments often use libraries like Zod, Joi, or
+TypeBox.</p>
+<p>Configure validators to strip or reject any property not explicitly
+declared in the schema:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { z } <span class="im">from</span> <span class="st">&#39;zod&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> UpdateProfileSchema <span class="op">=</span> z<span class="op">.</span><span class="fu">object</span>({</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bio</span><span class="op">:</span> z<span class="op">.</span><span class="fu">string</span>()<span class="op">.</span><span class="fu">max</span>(<span class="dv">200</span>)<span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">displayName</span><span class="op">:</span> z<span class="op">.</span><span class="fu">string</span>()<span class="op">.</span><span class="fu">min</span>(<span class="dv">1</span>)<span class="op">.</span><span class="fu">max</span>(<span class="dv">50</span>)<span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Exclude fields like &#39;role&#39;, &#39;isAdmin&#39;, or &#39;balance&#39;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">.</span><span class="fu">strict</span>()<span class="op">;</span> <span class="co">// .strict() rejects requests containing unexpected fields</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">put</span>(<span class="st">&#39;/api/profile&#39;</span><span class="op">,</span> <span class="kw">async</span> (req<span class="op">,</span> res) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> result <span class="op">=</span> UpdateProfileSchema<span class="op">.</span><span class="fu">safeParse</span>(req<span class="op">.</span><span class="at">body</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>result<span class="op">.</span><span class="at">success</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> res<span class="op">.</span><span class="fu">status</span>(<span class="dv">400</span>)<span class="op">.</span><span class="fu">json</span>({ <span class="dt">errors</span><span class="op">:</span> result<span class="op">.</span><span class="at">error</span><span class="op">.</span><span class="fu">flatten</span>() })<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> db<span class="op">.</span><span class="at">users</span><span class="op">.</span><span class="fu">update</span>(req<span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span><span class="op">,</span> result<span class="op">.</span><span class="at">data</span>)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  res<span class="op">.</span><span class="fu">status</span>(<span class="dv">200</span>)<span class="op">.</span><span class="fu">json</span>({ <span class="dt">status</span><span class="op">:</span> <span class="st">&#39;Updated&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="3-implement-cryptographic-signing-for-round-trip-data">3.
+Implement Cryptographic Signing for Round-Trip Data</h3>
+<p>If data must pass through the client and return to the server
+unmodified (such as checkout sessions or multi-step form state), sign
+the data cryptographically.</p>
+<p>Using an HMAC (Hash-based Message Authentication Code) ensures that
+any change made to the parameter invalidates the entire payload:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> crypto <span class="im">from</span> <span class="st">&#39;crypto&#39;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> SECRET_KEY <span class="op">=</span> <span class="bu">process</span><span class="op">.</span><span class="at">env</span><span class="op">.</span><span class="at">HMAC_SECRET</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">signData</span>(payload) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> serialized <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(payload)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> signature <span class="op">=</span> crypto<span class="op">.</span><span class="fu">createHmac</span>(<span class="st">&#39;sha256&#39;</span><span class="op">,</span> SECRET_KEY)<span class="op">.</span><span class="fu">update</span>(serialized)<span class="op">.</span><span class="fu">digest</span>(<span class="st">&#39;hex&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> { <span class="dt">data</span><span class="op">:</span> serialized<span class="op">,</span> signature }<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">verifyData</span>(serialized<span class="op">,</span> signature) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> expectedSignature <span class="op">=</span> crypto<span class="op">.</span><span class="fu">createHmac</span>(<span class="st">&#39;sha256&#39;</span><span class="op">,</span> SECRET_KEY)<span class="op">.</span><span class="fu">update</span>(serialized)<span class="op">.</span><span class="fu">digest</span>(<span class="st">&#39;hex&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> isValid <span class="op">=</span> crypto<span class="op">.</span><span class="fu">timingSafeEqual</span>(<span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>(signature)<span class="op">,</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>(expectedSignature))<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>isValid) {</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&#39;Data has been tampered with&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">parse</span>(serialized)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Alternatively, use signed JSON Web Tokens (JWTs) or encrypted
+server-side session stores so client-side state cannot be tampered
+with.</p>
+<h3 id="4-validate-object-ownership-and-context">4. Validate Object
+Ownership and Context</h3>
+<p>Defending against parameter tampering also requires validating that
+the authenticated identity is authorized to mutate the specific entity
+referenced by the parameter.</p>
+<p>Always scope database operations to the active session:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">delete</span>(<span class="st">&#39;/api/orders/:orderId&#39;</span><span class="op">,</span> <span class="kw">async</span> (req<span class="op">,</span> res) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> { orderId } <span class="op">=</span> req<span class="op">.</span><span class="at">params</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> userId <span class="op">=</span> req<span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Ensure the query verifies both the resource ID and ownership</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> deleted <span class="op">=</span> <span class="cf">await</span> db<span class="op">.</span><span class="at">orders</span><span class="op">.</span><span class="fu">deleteOne</span>({ <span class="dt">_id</span><span class="op">:</span> orderId<span class="op">,</span> <span class="dt">ownerId</span><span class="op">:</span> userId })<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>deleted) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> res<span class="op">.</span><span class="fu">status</span>(<span class="dv">404</span>)<span class="op">.</span><span class="fu">json</span>({ <span class="dt">error</span><span class="op">:</span> <span class="st">&#39;Order not found or access denied&#39;</span> })<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  res<span class="op">.</span><span class="fu">status</span>(<span class="dv">204</span>)<span class="op">.</span><span class="fu">send</span>()<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Securing JavaScript backends against client-side parameter tampering
+requires assuming zero trust in all incoming network payloads. By
+keeping critical business logic server-side, actively stripping unknown
+fields with strict schemas, and validating object-level ownership,
+applications remain secure regardless of client modifications.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

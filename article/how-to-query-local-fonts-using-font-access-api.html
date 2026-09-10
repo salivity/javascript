@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Query Local Fonts Using Font Access API - javascript</title>
+    <meta name="description" content="The Font Access API provides web applications with the ability to discover and access the full catalog of locally installed fonts on a user's operating system. By utilizing the window.queryLocalFonts() method in JavaScript, developers can programmaticall">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-to-query-local-fonts-using-font-access-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Query Local Fonts Using Font Access API - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-to-query-local-fonts-using-font-access-api" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Font Access API provides web applications with the ability to discover and access the full catalog of locally installed fonts on a user's operating system. By utilizing the window.queryLocalFonts() method in JavaScript, developers can programmaticall" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-to-query-local-fonts-using-font-access-api">How to Query
+Local Fonts Using Font Access API</h1>
+<p>The Font Access API provides web applications with the ability to
+discover and access the full catalog of locally installed fonts on a
+user's operating system. By utilizing the
+<code>window.queryLocalFonts()</code> method in JavaScript, developers
+can programmatically enumerate system fonts, inspect their metadata, and
+retrieve raw binary font data. This guide explains the technical
+workflow of the API, including permission management, font enumeration,
+filtering options, and accessing raw SFNT font tables.</p>
+<h3 id="security-and-permission-requirements">Security and Permission
+Requirements</h3>
+<p>Because enumerating local fonts can introduce fingerprinting risks,
+the Font Access API is restricted to secure contexts (HTTPS) and
+requires explicit user consent.</p>
+<p>Before querying fonts, the browser prompts the user for permission.
+You can check or request permissions programmatically using the
+Permissions API:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { state } <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">permissions</span><span class="op">.</span><span class="fu">query</span>({ <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;local-fonts&#39;</span> })<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (state <span class="op">===</span> <span class="st">&#39;granted&#39;</span> <span class="op">||</span> state <span class="op">===</span> <span class="st">&#39;prompt&#39;</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Permission is either already granted or will trigger a prompt upon calling the API</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="enumerating-all-local-fonts">Enumerating All Local Fonts</h3>
+<p>The core method of the API is <code>window.queryLocalFonts()</code>.
+When called, it requests permission if not already granted and resolves
+to an array of <code>FontData</code> objects representing the installed
+fonts.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">getInstalledFonts</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> availableFonts <span class="op">=</span> <span class="cf">await</span> <span class="bu">window</span><span class="op">.</span><span class="fu">queryLocalFonts</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> font <span class="kw">of</span> availableFonts) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`PostScript Name: </span><span class="sc">${</span>font<span class="op">.</span><span class="at">postscriptName</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Full Name: </span><span class="sc">${</span>font<span class="op">.</span><span class="at">fullName</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Family: </span><span class="sc">${</span>font<span class="op">.</span><span class="at">family</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Style: </span><span class="sc">${</span>font<span class="op">.</span><span class="at">style</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (err) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="vs">`Error querying fonts: </span><span class="sc">${</span>err<span class="op">.</span><span class="at">name</span><span class="sc">}</span><span class="vs">, </span><span class="sc">${</span>err<span class="op">.</span><span class="at">message</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Each <code>FontData</code> object exposes standard metadata
+properties:</p>
+<ul>
+<li><code>postscriptName</code>: The unique identifier used to target
+the font in PostScript contexts.</li>
+<li><code>fullName</code>: The complete name of the font (e.g.,
+"Helvetica Bold").</li>
+<li><code>family</code>: The overarching font family (e.g.,
+"Helvetica").</li>
+<li><code>style</code>: The specific style variant (e.g., "Bold",
+"Italic").</li>
+</ul>
+<h3 id="filtering-specific-fonts">Filtering Specific Fonts</h3>
+<p>Querying the entire font registry can yield thousands of entries,
+which can impact performance. If your application only requires specific
+fonts, you can pass a <code>postscriptNames</code> filter to the query
+method:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">getSpecificFonts</span>() {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> specificFonts <span class="op">=</span> <span class="cf">await</span> <span class="bu">window</span><span class="op">.</span><span class="fu">queryLocalFonts</span>({</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">postscriptNames</span><span class="op">:</span> [<span class="st">&quot;Verdana&quot;</span><span class="op">,</span> <span class="st">&quot;Verdana-Bold&quot;</span><span class="op">,</span> <span class="st">&quot;ArialMT&quot;</span>]</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> specificFonts<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="accessing-low-level-binary-data">Accessing Low-Level Binary
+Data</h3>
+<p>Beyond reading font metadata, advanced graphics and design tools
+often require access to raw OpenType/TrueType tables. The
+<code>FontData</code> object provides a <code>blob()</code> method that
+returns a <code>Promise</code> resolving to a <code>Blob</code>
+containing the complete font file:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">parseFontTable</span>(fontData) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Retrieve the binary SFNT data</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> sfntBlob <span class="op">=</span> <span class="cf">await</span> fontData<span class="op">.</span><span class="fu">blob</span>()<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Convert blob to ArrayBuffer for custom parsing or WebAssembly processing</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> arrayBuffer <span class="op">=</span> <span class="cf">await</span> sfntBlob<span class="op">.</span><span class="fu">arrayBuffer</span>()<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> arrayBuffer<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This binary access enables client-side rendering engines, layout
+engines, and WebAssembly modules to parse glyph data, OpenType features,
+and metrics directly within the browser without requiring external
+server-side font hosting.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

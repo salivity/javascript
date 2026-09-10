@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding NFC, NFD, NFKC, and NFKD in JavaScript - javascript</title>
+    <meta name="description" content="Unicode normalization resolves the issue of visually identical strings having different underlying byte sequences in JavaScript. By using String.prototype.normalize(), developers can convert text into a standardized representation for reliable comparison">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-nfc-nfd-nfkc-and-nfkd-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding NFC, NFD, NFKC, and NFKD in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-nfc-nfd-nfkc-and-nfkd-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Unicode normalization resolves the issue of visually identical strings having different underlying byte sequences in JavaScript. By using String.prototype.normalize(), developers can convert text into a standardized representation for reliable comparison" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="understanding-nfc-nfd-nfkc-and-nfkd-in-javascript">Understanding
+NFC, NFD, NFKC, and NFKD in JavaScript</h1>
+<p>Unicode normalization resolves the issue of visually identical
+strings having different underlying byte sequences in JavaScript. By
+using <code>String.prototype.normalize()</code>, developers can convert
+text into a standardized representation for reliable comparison,
+searching, and storage. This guide explains how the four Unicode
+normalization forms—NFC, NFD, NFKC, and NFKD—differ in their handling of
+canonical and compatibility characters.</p>
+<hr />
+<h3 id="the-underlying-problem-equivalence">The Underlying Problem:
+Equivalence</h3>
+<p>In Unicode, certain characters can be represented in multiple ways.
+For example, the accented character <strong>é</strong> can be stored
+as:</p>
+<ul>
+<li>A single precomposed character: <code>\u00E9</code> (Latin Small
+Letter E with Acute)</li>
+<li>A decomposed sequence: <code>\u0065\u0301</code> (Latin Small Letter
+E + Combining Acute Accent)</li>
+</ul>
+<p>To human readers, both look identical, but JavaScript's strict
+equality operator (<code>===</code>) evaluates them as different
+strings:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="sc">\u00E9</span><span class="st">&quot;</span> <span class="op">===</span> <span class="st">&quot;</span><span class="sc">\u0065\u0301</span><span class="st">&quot;</span><span class="op">;</span> <span class="co">// false</span></span></code></pre></div>
+<p>Unicode defines two types of equivalence to address this:</p>
+<ol type="1">
+<li><strong>Canonical Equivalence:</strong> Characters that are
+structurally and visually identical (e.g., <code>é</code> as a single
+code point versus <code>e</code> + combining mark).</li>
+<li><strong>Compatibility Equivalence:</strong> Characters that convey
+the same core semantic meaning but may have distinct visual formatting
+or typography (e.g., the ligature <code>ﬁ</code>, the superscript
+<code>²</code>, or full-width characters like <code>Ａ</code>).</li>
+</ol>
+<hr />
+<h3 id="canonical-forms-nfc-and-nfd">Canonical Forms: NFC and NFD</h3>
+<p>Canonical normalization forms preserve character formatting and focus
+strictly on decomposing or composing canonical sequences.</p>
+<h4 id="1-nfd-normalization-form-canonical-decomposition">1. NFD
+(Normalization Form Canonical Decomposition)</h4>
+<p>NFD breaks composite characters into their base characters and
+separate combining diacritical marks.</p>
+<ul>
+<li><code>\u00E9</code> (<code>é</code>) becomes
+<code>\u0065\u0301</code> (<code>e</code> + <code>´</code>).</li>
+<li>Ligatures (like <code>ﬁ</code>) and formatting variants (like
+<code>²</code>) remain unchanged because their equivalents are
+compatibility-based, not canonical.</li>
+</ul>
+<h4 id="2-nfc-normalization-form-canonical-composition">2. NFC
+(Normalization Form Canonical Composition)</h4>
+<p>NFC decomposes characters canonically and then recomposes them into
+single precomposed characters wherever standard Unicode code points
+exist.</p>
+<ul>
+<li><code>\u0065\u0301</code> (<code>e</code> + <code>´</code>) becomes
+<code>\u00E9</code> (<code>é</code>).</li>
+<li>This is the default form used by
+<code>String.prototype.normalize()</code> if no argument is passed.</li>
+</ul>
+<hr />
+<h3 id="compatibility-forms-nfkc-and-nfkd">Compatibility Forms: NFKC and
+NFKD</h3>
+<p>Compatibility forms go a step further by replacing stylized
+characters, ligatures, and symbols with their plain, standard
+equivalents.</p>
+<h4 id="3-nfkd-normalization-form-compatibility-decomposition">3. NFKD
+(Normalization Form Compatibility Decomposition)</h4>
+<p>NFKD applies compatibility decomposition followed by canonical
+decomposition. It breaks characters down into their simplest individual
+components and flattens stylized variations.</p>
+<ul>
+<li><code>ﬁ</code> (ligature) becomes <code>f</code> +
+<code>i</code>.</li>
+<li><code>²</code> (superscript two) becomes <code>2</code>.</li>
+<li><code>é</code> becomes <code>e</code> + <code>´</code>.</li>
+</ul>
+<h4 id="4-nfkc-normalization-form-compatibility-composition">4. NFKC
+(Normalization Form Compatibility Composition)</h4>
+<p>NFKC applies compatibility decomposition to strip stylistic variants,
+followed by canonical composition to recombine base characters with
+diacritics where possible.</p>
+<ul>
+<li><code>ﬁ</code> becomes <code>fi</code>.</li>
+<li><code>²</code> becomes <code>2</code>.</li>
+<li><code>\u0065\u0301</code> (<code>e</code> + <code>´</code>) becomes
+<code>é</code> (<code>\u00E9</code>).</li>
+</ul>
+<hr />
+<h3 id="comparison-matrix">Comparison Matrix</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Form</th>
+<th style="text-align: left;">Full Name</th>
+<th style="text-align: left;">Handles Canonical?</th>
+<th style="text-align: left;">Handles Compatibility?</th>
+<th style="text-align: left;">Final State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>NFC</strong></td>
+<td style="text-align: left;">Normalization Form C</td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Composed</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>NFD</strong></td>
+<td style="text-align: left;">Normalization Form D</td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Decomposed</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>NFKC</strong></td>
+<td style="text-align: left;">Normalization Form KC</td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">Composed</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>NFKD</strong></td>
+<td style="text-align: left;">Normalization Form KD</td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">Decomposed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="practical-code-example">Practical Code Example</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> strLigature <span class="op">=</span> <span class="st">&quot;ﬁle&quot;</span><span class="op">;</span> <span class="co">// Ligature &#39;fi&#39; (\uFB01)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> strAccented <span class="op">=</span> <span class="st">&quot;</span><span class="sc">\u0065\u0301</span><span class="st">&quot;</span><span class="op">;</span> <span class="co">// Decomposed &#39;e&#39; + combining accent</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// NFC (Default): Composes characters canonically</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strAccented<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&quot;NFC&quot;</span>) <span class="op">===</span> <span class="st">&quot;</span><span class="sc">\u00E9</span><span class="st">&quot;</span>)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strLigature<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&quot;NFC&quot;</span>) <span class="op">===</span> <span class="st">&quot;file&quot;</span>)<span class="op">;</span>   <span class="co">// false (ligature preserved)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// NFD: Decomposes characters canonically</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;</span><span class="sc">\u00E9</span><span class="st">&quot;</span><span class="op">.</span><span class="fu">normalize</span>(<span class="st">&quot;NFD&quot;</span>) <span class="op">===</span> <span class="st">&quot;</span><span class="sc">\u0065\u0301</span><span class="st">&quot;</span>)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// NFKC: Strips stylistic variants, then composes</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strLigature<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&quot;NFKC&quot;</span>) <span class="op">===</span> <span class="st">&quot;file&quot;</span>)<span class="op">;</span>   <span class="co">// true</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strAccented<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&quot;NFKC&quot;</span>) <span class="op">===</span> <span class="st">&quot;</span><span class="sc">\u00E9</span><span class="st">&quot;</span>)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">// NFKD: Strips stylistic variants, then decomposes</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strLigature<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&quot;NFKD&quot;</span>) <span class="op">===</span> <span class="st">&quot;file&quot;</span>)<span class="op">;</span>     <span class="co">// true</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;</span><span class="sc">\u00E9</span><span class="st">&quot;</span><span class="op">.</span><span class="fu">normalize</span>(<span class="st">&quot;NFKD&quot;</span>) <span class="op">===</span> <span class="st">&quot;</span><span class="sc">\u0065\u0301</span><span class="st">&quot;</span>)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<hr />
+<h3 id="when-to-use-each-form">When to Use Each Form</h3>
+<ul>
+<li><strong>Use NFC</strong> for standard web content, database storage,
+and general string matching. It keeps text compact and maintains visual
+fidelity.</li>
+<li><strong>Use NFD</strong> when manipulating combining marks directly,
+such as stripping diacritics/accents via regex
+(<code>str.normalize('NFD').replace(/\p{Diacritic}/gu, '')</code>).</li>
+<li><strong>Use NFKC</strong> for search queries, identifier validation,
+and sanitizing user inputs where visual distinction (e.g., full-width
+letters, ligatures, math symbols) should be ignored.</li>
+<li><strong>Use NFKD</strong> for aggressive text normalization
+pipelines, such as indexing text for search engines or speech-to-text
+processing.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Redux Middleware Uses Currying to Intercept Actions - javascript</title>
+    <meta name="description" content="Redux middleware relies on curried functions to create a modular, composable pipeline for intercepting, modifying, or halting dispatched actions before they reach the root reducer. By using currying—a functional programming technique where a function w">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-redux-middleware-uses-currying-to-intercept-actions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Redux Middleware Uses Currying to Intercept Actions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-redux-middleware-uses-currying-to-intercept-actions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Redux middleware relies on curried functions to create a modular, composable pipeline for intercepting, modifying, or halting dispatched actions before they reach the root reducer. By using currying—a functional programming technique where a function w" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-redux-middleware-uses-currying-to-intercept-actions">How
+Redux Middleware Uses Currying to Intercept Actions</h1>
+<p>Redux middleware relies on curried functions to create a modular,
+composable pipeline for intercepting, modifying, or halting dispatched
+actions before they reach the root reducer. By using currying—a
+functional programming technique where a function with multiple
+arguments is transformed into a sequence of nesting unary
+functions—Redux separates the stages of middleware initialization,
+pipeline composition, and individual action dispatching. This design
+allows developers to cleanly access store APIs, wrap the internal
+dispatch mechanism, and manipulate action payloads on the fly.</p>
+<h3 id="the-anatomy-of-redux-middleware">The Anatomy of Redux
+Middleware</h3>
+<p>At its core, Redux middleware is defined as a series of three nested
+functions. In modern JavaScript, this is typically written using arrow
+functions:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> customMiddleware <span class="op">=</span> storeAPI <span class="kw">=&gt;</span> next <span class="kw">=&gt;</span> action <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Middleware logic here</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">next</span>(action)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>Without arrow functions, the curried structure is explicit:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">customMiddleware</span>(storeAPI) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">function</span>(next) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">function</span>(action) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="fu">next</span>(action)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Each nested function accepts a single argument and serves a distinct
+purpose in the Redux lifecycle through partial application.</p>
+<h3 id="the-three-layers-of-currying">The Three Layers of Currying</h3>
+<ol type="1">
+<li><p><strong>The Outer Function (<code>storeAPI</code>):
+Initialization</strong><br />
+The outermost function receives a restricted store interface containing
+only <code>{ dispatch, getState }</code>. Redux invokes this layer once
+during the setup phase when <code>applyMiddleware</code> initializes the
+store. By passing the store once, the inner functions retain access to
+<code>getState</code> and <code>dispatch</code> via closure without
+having to pass the store instance with every dispatched action.</p></li>
+<li><p><strong>The Middle Function (<code>next</code>): Pipeline
+Composition</strong><br />
+The middle function receives <code>next</code>, which represents the
+next middleware in the pipeline or, if it is the last middleware, the
+base <code>store.dispatch</code> method. During store setup, Redux uses
+functional composition (<code>compose</code>) to pipe the middlewares
+together. Each middleware receives its successor as <code>next</code>,
+forming an unbroken chain of dispatch wrappers.</p></li>
+<li><p><strong>The Inner Function (<code>action</code>): Action
+Interception</strong><br />
+The innermost function executes every time an action is dispatched in
+the application. Because closures preserve access to both
+<code>storeAPI</code> and <code>next</code>, this function can evaluate
+the incoming <code>action</code>.</p></li>
+</ol>
+<h3 id="how-currying-enables-action-interception">How Currying Enables
+Action Interception</h3>
+<p>Currying allows Redux to defer execution until all prerequisites are
+ready. By the time an action enters the pipeline, the environment is
+fully configured:</p>
+<ul>
+<li><strong>Inspecting and Logging:</strong> The inner function can run
+<code>storeAPI.getState()</code> before and after calling
+<code>next(action)</code> to monitor state transitions.</li>
+<li><strong>Mutating Actions:</strong> It can modify the
+<code>action</code> object before forwarding it down the chain via
+<code>next(modifiedAction)</code>.</li>
+<li><strong>Halting Actions:</strong> By conditionally omitting the call
+to <code>next(action)</code>, the middleware stops the action from
+reaching subsequent middlewares and the root reducer entirely.</li>
+<li><strong>Handling Asynchronous Work:</strong> If the
+<code>action</code> is a function or a Promise (as seen in libraries
+like <code>redux-thunk</code>), the middleware can intercept it, execute
+side effects, and prevent the non-standard action from reaching the
+reducers.</li>
+</ul>
+<h3 id="the-role-of-applymiddleware">The Role of
+<code>applyMiddleware</code></h3>
+<p>Under the hood, Redux's <code>applyMiddleware</code> function manages
+this currying pipeline. It first maps over each middleware, invoking the
+outer layer with <code>storeAPI</code>. It then takes the resulting
+functions—each awaiting <code>next</code>—and composes them from right
+to left using JavaScript's <code>Array.prototype.reduce</code>.</p>
+<p>The result is a single wrapped <code>dispatch</code> function that
+encapsulates the innermost layer of every middleware. When an
+application calls <code>dispatch(action)</code>, the action cascades
+through each curried layer in sequence, providing complete control over
+the dispatch lifecycle.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

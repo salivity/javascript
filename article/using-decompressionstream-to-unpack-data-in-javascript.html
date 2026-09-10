@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using DecompressionStream to Unpack Data in JavaScript - javascript</title>
+    <meta name="description" content="The DecompressionStream interface is a built-in web API in modern JavaScript that decompresses streams of binary data natively in the browser and Node.js environments. By leveraging the Compression Streams API, developers can unpack formats like Gzip and">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/using-decompressionstream-to-unpack-data-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using DecompressionStream to Unpack Data in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/using-decompressionstream-to-unpack-data-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The DecompressionStream interface is a built-in web API in modern JavaScript that decompresses streams of binary data natively in the browser and Node.js environments. By leveraging the Compression Streams API, developers can unpack formats like Gzip and" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="using-decompressionstream-to-unpack-data-in-javascript">Using
+DecompressionStream to Unpack Data in JavaScript</h1>
+<p>The <code>DecompressionStream</code> interface is a built-in web API
+in modern JavaScript that decompresses streams of binary data natively
+in the browser and Node.js environments. By leveraging the Compression
+Streams API, developers can unpack formats like Gzip and Deflate on the
+fly without relying on heavy third-party libraries. This article
+explains the underlying mechanism of <code>DecompressionStream</code>,
+demonstrates how to pipe compressed binary data through it, and outlines
+best practices for handling both network responses and in-memory byte
+buffers.</p>
+<h3 id="how-decompressionstream-works">How DecompressionStream
+Works</h3>
+<p><code>DecompressionStream</code> implements the standard
+<code>TransformStream</code> interface. It sits between a readable
+source of compressed bytes and a writable destination, decoding incoming
+binary chunks sequentially using native, low-level browser routines
+(written in C++ or Rust). Because it operates as a stream, it processes
+data chunk-by-chunk rather than loading the entire compressed payload
+into memory at once, significantly reducing memory overhead and
+latency.</p>
+<p>The constructor accepts a format string specifying the compression
+algorithm:</p>
+<ul>
+<li><code>'gzip'</code>: For data compressed using the Gzip format.</li>
+<li><code>'deflate'</code>: For data compressed using the ZLIB
+compression format with headers.</li>
+<li><code>'deflate-raw'</code>: For raw Deflate streams without ZLIB
+headers or checksums.</li>
+</ul>
+<h3 id="decompressing-a-network-stream-fetch">Decompressing a Network
+Stream (fetch)</h3>
+<p>When downloading compressed assets, you can pipe the HTTP response
+body directly into a <code>DecompressionStream</code>. This allows you
+to read the unpacked text or binary data as it arrives over the
+network.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">fetchAndDecompress</span>(url) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(url)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>response<span class="op">.</span><span class="at">ok</span>) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`HTTP error! status: </span><span class="sc">${</span>response<span class="op">.</span><span class="at">status</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Pipe the raw response stream through the Gzip decompressor</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> decompressedStream <span class="op">=</span> response<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="fu">pipeThrough</span>(</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">new</span> <span class="fu">DecompressionStream</span>(<span class="st">&#39;gzip&#39;</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Consume the decompressed stream as text</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> text <span class="op">=</span> <span class="cf">await</span> <span class="kw">new</span> <span class="fu">Response</span>(decompressedStream)<span class="op">.</span><span class="fu">text</span>()<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> text<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="decompressing-in-memory-binary-buffers">Decompressing In-Memory
+Binary Buffers</h3>
+<p>If you already have compressed binary data stored in an
+<code>ArrayBuffer</code> or <code>Uint8Array</code>, you can wrap it in
+a <code>Blob</code> or <code>ReadableStream</code> to process it with
+<code>DecompressionStream</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">decompressByteArray</span>(compressedBytes<span class="op">,</span> format <span class="op">=</span> <span class="st">&#39;gzip&#39;</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create a stream from the compressed byte array</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> stream <span class="op">=</span> <span class="kw">new</span> <span class="bu">Blob</span>([compressedBytes])<span class="op">.</span><span class="fu">stream</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Pipe through the decompression transform stream</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> decompressedStream <span class="op">=</span> stream<span class="op">.</span><span class="fu">pipeThrough</span>(</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">new</span> <span class="fu">DecompressionStream</span>(format)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Read the decompressed data into an ArrayBuffer</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> decompressedBuffer <span class="op">=</span> <span class="cf">await</span> <span class="kw">new</span> <span class="fu">Response</span>(decompressedStream)<span class="op">.</span><span class="fu">arrayBuffer</span>()<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Uint8Array</span>(decompressedBuffer)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="reading-chunks-manually-with-a-stream-reader">Reading Chunks
+Manually with a Stream Reader</h3>
+<p>For granular control over data processing, you can attach a reader to
+the <code>readable</code> side of the <code>DecompressionStream</code>
+to process decompressed chunks incrementally.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">processStreamChunks</span>(compressedStream) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> decompressionStream <span class="op">=</span> <span class="kw">new</span> <span class="fu">DecompressionStream</span>(<span class="st">&#39;gzip&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> readable <span class="op">=</span> compressedStream<span class="op">.</span><span class="fu">pipeThrough</span>(decompressionStream)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> reader <span class="op">=</span> readable<span class="op">.</span><span class="fu">getReader</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (<span class="kw">true</span>) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { value<span class="op">,</span> done } <span class="op">=</span> <span class="cf">await</span> reader<span class="op">.</span><span class="fu">read</span>()<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (done) <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// &#39;value&#39; is a Uint8Array containing a decompressed data chunk</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Received decompressed chunk of size: </span><span class="sc">${</span>value<span class="op">.</span><span class="at">byteLength</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="key-advantages">Key Advantages</h3>
+<ol type="1">
+<li><strong>Zero External Dependencies:</strong> Eliminates the need for
+external libraries like <code>pako</code> or <code>fflate</code>,
+reducing JavaScript bundle sizes.</li>
+<li><strong>Memory Efficiency:</strong> Avoids high memory spikes by
+unpacking data incrementally rather than buffering whole archives into
+RAM.</li>
+<li><strong>High Performance:</strong> Native engine-level decompression
+executes significantly faster than equivalent WebAssembly or pure
+JavaScript decompression routines.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

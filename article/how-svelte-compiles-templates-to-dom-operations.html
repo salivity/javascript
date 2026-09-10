@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Svelte Compiles Templates to DOM Operations - javascript</title>
+    <meta name="description" content="Unlike traditional frameworks that use a runtime Virtual DOM to detect changes, Svelte shifts the heavy lifting of UI updates to build time. This article explores how the Svelte compiler parses declarative HTML-like components, tracks state dependencies">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-svelte-compiles-templates-to-dom-operations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Svelte Compiles Templates to DOM Operations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-svelte-compiles-templates-to-dom-operations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Unlike traditional frameworks that use a runtime Virtual DOM to detect changes, Svelte shifts the heavy lifting of UI updates to build time. This article explores how the Svelte compiler parses declarative HTML-like components, tracks state dependencies" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-svelte-compiles-templates-to-dom-operations">How Svelte
+Compiles Templates to DOM Operations</h1>
+<p>Unlike traditional frameworks that use a runtime Virtual DOM to
+detect changes, Svelte shifts the heavy lifting of UI updates to build
+time. This article explores how the Svelte compiler parses declarative
+HTML-like components, tracks state dependencies through static analysis,
+and outputs lean, imperative JavaScript that surgically mutates the real
+DOM using low-level browser APIs.</p>
+<h3 id="1-parsing-into-an-abstract-syntax-tree-ast">1. Parsing into an
+Abstract Syntax Tree (AST)</h3>
+<p>The compilation process begins by reading the <code>.svelte</code>
+file and parsing it into an Abstract Syntax Tree (AST). The compiler
+separates the file into three primary sections:
+<code>&lt;script&gt;</code>, <code>&lt;style&gt;</code>, and the
+template markup.</p>
+<p>The markup is parsed into a tree of nodes representing HTML elements,
+text nodes, control-flow logic (like <code>{#if}</code> and
+<code>{#each}</code> blocks), and component references. Each node in the
+AST holds metadata regarding its attributes, child nodes, and
+expressions.</p>
+<h3 id="2-static-analysis-and-dependency-tracking">2. Static Analysis
+and Dependency Tracking</h3>
+<p>Once the AST is formed, Svelte conducts static analysis to determine
+how state interacts with the user interface:</p>
+<ul>
+<li><strong>Scope and Variable Tracking:</strong> The compiler analyzes
+the JavaScript in the <code>&lt;script&gt;</code> tag to identify which
+variables are reactive state variables, which are derived, and which
+functions reassign them.</li>
+<li><strong>Expression Mapping:</strong> The compiler traverses the
+template AST to map template expressions directly to the specific state
+variables they reference.</li>
+<li><strong>Dirty Bitmasks:</strong> Svelte establishes a system of
+bitwise flags or dependency markers. Each reactive variable is
+associated with a bit (e.g., variable <code>x</code> is <code>1</code>,
+variable <code>y</code> is <code>2</code>). When a variable changes, its
+corresponding bit is marked "dirty."</li>
+</ul>
+<p>Because the relationship between state variables and target DOM nodes
+is established during this phase, Svelte avoids runtime diffing
+entirely.</p>
+<h3 id="3-the-fragment-strategy-code-generation">3. The Fragment
+Strategy (Code Generation)</h3>
+<p>The core mechanism of Svelte's code generation is the
+<strong>Fragment</strong>. The compiler converts every template block
+into an internal JavaScript object representing a UI fragment. This
+fragment implements a specific set of imperative lifecycle methods:</p>
+<ul>
+<li><strong><code>c</code> (Create):</strong> Responsible for creating
+the DOM elements. The compiler emits direct DOM calls like
+<code>document.createElement()</code>,
+<code>document.createTextNode()</code>, and sets up initial
+attributes.</li>
+<li><strong><code>m</code> (Mount):</strong> Responsible for inserting
+the created elements into the actual document using operations like
+<code>target.insertBefore()</code> or
+<code>Node.appendChild()</code>.</li>
+<li><strong><code>p</code> (Patch/Update):</strong> The imperative core
+of reactivity. It receives the <code>dirty</code> bitmask representing
+modified state and executes surgical updates.</li>
+<li><strong><code>d</code> (Destroy):</strong> Handles the teardown of
+the fragment, removing nodes from the DOM and detaching event
+listeners.</li>
+</ul>
+<h3 id="4-turning-declarative-logic-into-imperative-updates">4. Turning
+Declarative Logic into Imperative Updates</h3>
+<p>To understand how declarative code becomes imperative, consider a
+simple template binding:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">p</span><span class="dt">&gt;</span>{count}<span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>During compilation, Svelte generates code structured conceptually
+like this:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">create_fragment</span>(ctx) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> p<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> t<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="fu">c</span>() {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>            p <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createElement</span>(<span class="st">&quot;p&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>            t <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">createTextNode</span>(ctx[<span class="dv">0</span>])<span class="op">;</span> <span class="co">// ctx[0] corresponds to count</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        }<span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="fu">m</span>(target<span class="op">,</span> anchor) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            target<span class="op">.</span><span class="fu">insertBefore</span>(p<span class="op">,</span> anchor)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            p<span class="op">.</span><span class="fu">appendChild</span>(t)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        }<span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">p</span>(ctx<span class="op">,</span> [dirty]) {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Check if the &#39;count&#39; variable (bit 1) changed</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (dirty <span class="op">&amp;</span> <span class="co">/*count*/</span> <span class="dv">1</span>) {</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>                t<span class="op">.</span><span class="at">data</span> <span class="op">=</span> ctx[<span class="dv">0</span>]<span class="op">;</span> <span class="co">// Imperative DOM mutation</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        }<span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="fu">d</span>(detaching) {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (detaching) p<span class="op">.</span><span class="at">parentNode</span><span class="op">.</span><span class="fu">removeChild</span>(p)<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When an event triggers an update (such as <code>count += 1</code>),
+Svelte schedules an invalidation. During the next microtask, it runs the
+<code>p</code> method with the active dirty mask. Because the compiler
+knows that <code>count</code> only affects the text node <code>t</code>,
+the generated code skips the <code>&lt;p&gt;</code> element entirely and
+executes a single property assignment: <code>t.data = ctx[0]</code>.</p>
+<h3 id="5-managing-blocks-and-control-flow">5. Managing Blocks and
+Control Flow</h3>
+<p>Dynamic blocks such as conditional <code>{#if}</code> or looped
+<code>{#each}</code> statements follow the same pattern at a macro
+scale.</p>
+<ul>
+<li><strong>Conditionals:</strong> An <code>if</code> block is compiled
+into a separate nested fragment. When the condition evaluates to true,
+the compiler invokes the nested fragment's <code>c</code> (create) and
+<code>m</code> (mount) methods. When false, it invokes <code>d</code>
+(destroy).</li>
+<li><strong>Lists:</strong> An <code>each</code> block creates and
+maintains an array of fragments, mapping list keys directly to DOM
+fragments to append, move, or remove items using imperative DOM
+methods.</li>
+</ul>
+<p>By transforming templates into explicit, conditional DOM mutations at
+build time, the Svelte compiler eliminates the need for an abstraction
+layer like a Virtual DOM, yielding smaller bundle sizes and predictable
+execution speed.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

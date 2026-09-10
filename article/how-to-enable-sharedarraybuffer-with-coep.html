@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Enable SharedArrayBuffer with COEP - javascript</title>
+    <meta name="description" content="This article explains what the Cross-Origin Embedder Policy (COEP) is, why modern web browsers require it to establish a cross-origin isolated environment, and how this mechanism safely re-enables high-performance features like SharedArrayBuffer in JavaS">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-to-enable-sharedarraybuffer-with-coep">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Enable SharedArrayBuffer with COEP - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-to-enable-sharedarraybuffer-with-coep" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains what the Cross-Origin Embedder Policy (COEP) is, why modern web browsers require it to establish a cross-origin isolated environment, and how this mechanism safely re-enables high-performance features like SharedArrayBuffer in JavaS" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-to-enable-sharedarraybuffer-with-coep">How to Enable
+SharedArrayBuffer with COEP</h1>
+<p>This article explains what the Cross-Origin Embedder Policy (COEP)
+is, why modern web browsers require it to establish a cross-origin
+isolated environment, and how this mechanism safely re-enables
+high-performance features like <code>SharedArrayBuffer</code> in
+JavaScript. You will learn the security risks introduced by side-channel
+attacks, how COEP prevents unauthorized resource loading, and the exact
+HTTP response headers needed to unlock multi-threaded memory sharing
+across Web Workers.</p>
+<h2 id="what-is-cross-origin-embedder-policy-coep">What is Cross-Origin
+Embedder Policy (COEP)?</h2>
+<p>Cross-Origin Embedder Policy (COEP) is an HTTP security header that
+forces a document to only load subresources (such as images, scripts,
+stylesheets, and iframes) that have explicitly granted permission to be
+loaded by that document.</p>
+<p>COEP provides three directives:</p>
+<ul>
+<li><code>Cross-Origin-Embedder-Policy: require-corp</code> — Blocks any
+resource that does not provide an explicit Cross-Origin Resource Policy
+(CORP) header or a valid Cross-Origin Resource Sharing (CORS)
+response.</li>
+<li><code>Cross-Origin-Embedder-Policy: credentialless</code> — Allows
+cross-origin resources to load without credentials (like cookies),
+bypassing the strict CORP requirement while maintaining isolation.</li>
+<li><code>Cross-Origin-Embedder-Policy: unsafe-none</code> — The default
+state where resources are loaded without isolation checks.</li>
+</ul>
+<p>When set to <code>require-corp</code>, a web page cannot accidentally
+or maliciously embed cross-origin resources unless those resources
+respond with <code>Cross-Origin-Resource-Policy: cross-origin</code> or
+appropriate CORS headers.</p>
+<h2 id="the-security-problem-spectre-and-sharedarraybuffer">The Security
+Problem: Spectre and SharedArrayBuffer</h2>
+<p>In JavaScript, <code>SharedArrayBuffer</code> allows multiple
+execution threads (such as the main thread and Web Workers) to read and
+write to the same shared memory location concurrently. While essential
+for high-performance computing, WebAssembly multithreading, and media
+processing, it also provides an extremely precise, shared clock.</p>
+<p>With the discovery of the <strong>Spectre</strong> and
+<strong>Meltdown</strong> hardware vulnerabilities, attackers
+demonstrated that precise timing mechanisms could measure
+microarchitectural CPU cache states to leak sensitive data across
+security boundaries. Because browsers historically allowed documents to
+embed cross-origin assets (like user profile images containing private
+data) into the same process, an attacker could use
+<code>SharedArrayBuffer</code> to execute side-channel attacks and read
+unauthorized memory.</p>
+<p>To protect user data, browser vendors disabled or heavily restricted
+<code>SharedArrayBuffer</code> by default.</p>
+<h2
+id="cross-origin-isolation-the-requirement-for-sharedarraybuffer">Cross-Origin
+Isolation: The Requirement for SharedArrayBuffer</h2>
+<p>To safely re-enable <code>SharedArrayBuffer</code>, browsers require
+a webpage to enter a state called <strong>Cross-Origin
+Isolation</strong>.</p>
+<p>Cross-Origin Isolation guarantees that:</p>
+<ol type="1">
+<li>The document is strictly isolated in its own process and cannot be
+manipulated by cross-origin windows.</li>
+<li>The document cannot read or embed arbitrary cross-origin resources
+into its process without explicit server permission.</li>
+</ol>
+<p>This isolation is achieved by pairing COEP with the Cross-Origin
+Opener Policy (COOP).</p>
+<h2 id="how-coep-enables-sharedarraybuffer">How COEP Enables
+SharedArrayBuffer</h2>
+<p>Setting COEP satisfies the second condition of Cross-Origin Isolation
+by guaranteeing that no unauthorized data enters the document's memory
+space.</p>
+<p>To enable <code>SharedArrayBuffer</code>, your server must send the
+following two response headers for the top-level HTML document:</p>
+<pre class="http"><code>Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp</code></pre>
+<ul>
+<li><strong><code>Cross-Origin-Opener-Policy: same-origin</code></strong>
+prevents cross-origin popups or pages from interacting with your window
+object, placing your application in a dedicated browsing context
+group.</li>
+<li><strong><code>Cross-Origin-Embedder-Policy: require-corp</code></strong>
+ensures all assets embedded on your page have explicitly opted in via
+CORP or CORS.</li>
+</ul>
+<p>Additionally, every cross-origin asset loaded by the page must
+include:</p>
+<pre class="http"><code>Cross-Origin-Resource-Policy: cross-origin</code></pre>
+<h2 id="verifying-cross-origin-isolation-in-javascript">Verifying
+Cross-Origin Isolation in JavaScript</h2>
+<p>Once the required headers are configured on your server, you can
+verify that the environment is properly isolated using the
+<code>crossOriginIsolated</code> property in JavaScript:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="bu">window</span><span class="op">.</span><span class="at">crossOriginIsolated</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// SharedArrayBuffer is available and safe to use</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> sharedBuffer <span class="op">=</span> <span class="kw">new</span> <span class="bu">SharedArrayBuffer</span>(<span class="dv">1024</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> sharedArray <span class="op">=</span> <span class="kw">new</span> <span class="bu">Int32Array</span>(sharedBuffer)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Cross-Origin Isolation active. SharedArrayBuffer initialized.&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&quot;Cross-Origin Isolation is not active. SharedArrayBuffer is disabled.&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If <code>window.crossOriginIsolated</code> evaluates to
+<code>true</code>, the browser unlocks <code>SharedArrayBuffer</code>,
+high-precision timers (<code>performance.now()</code>), and WebAssembly
+threads, allowing your application to leverage multi-threaded
+capabilities securely.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

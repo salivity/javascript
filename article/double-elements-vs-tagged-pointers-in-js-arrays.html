@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Double Elements vs Tagged Pointers in JS Arrays - javascript</title>
+    <meta name="description" content="JavaScript engines optimize array storage in memory by categorizing arrays into different internal "element kinds" based on the data they contain. This article breaks down the fundamental differences between double elements and tagged pointers in JavaScr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/double-elements-vs-tagged-pointers-in-js-arrays">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Double Elements vs Tagged Pointers in JS Arrays - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/double-elements-vs-tagged-pointers-in-js-arrays" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript engines optimize array storage in memory by categorizing arrays into different internal "element kinds" based on the data they contain. This article breaks down the fundamental differences between double elements and tagged pointers in JavaScr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="double-elements-vs-tagged-pointers-in-js-arrays">Double Elements
+vs Tagged Pointers in JS Arrays</h1>
+<p>JavaScript engines optimize array storage in memory by categorizing
+arrays into different internal "element kinds" based on the data they
+contain. This article breaks down the fundamental differences between
+double elements and tagged pointers in JavaScript engines (such as
+Google V8), detailing how each format represents data, handles memory
+layout, and influences runtime performance.</p>
+<h3 id="tagged-pointers-in-javascript-arrays">Tagged Pointers in
+JavaScript Arrays</h3>
+<p>In modern JavaScript engines, values like Small Integers (Smis) and
+references to objects are represented using pointer tagging. Because
+memory addresses are aligned to word boundaries (typically 4 or 8
+bytes), the least significant bits of a memory address are always zero.
+JavaScript engines exploit these unused bits as a "tag" to distinguish
+between immediate integer values and heap pointers without requiring
+extra memory.</p>
+<p>When an array contains integers within a specific range (e.g., 31-bit
+signed integers) or references to JavaScript objects, it uses tagged
+pointer elements:</p>
+<ul>
+<li><strong>Small Integers (Smis):</strong> The engine encodes the
+number directly within the pointer word, tagged with a specific bit
+(usually a <code>0</code> in the least significant bit). This avoids
+heap allocation entirely.</li>
+<li><strong>Heap Objects:</strong> If the element is a string, object,
+or larger number, the value is stored as a memory address pointing to
+the heap, tagged with a different bit (typically a <code>1</code>).</li>
+</ul>
+<p>In V8, arrays containing only Smis use the
+<code>PACKED_SMI_ELEMENTS</code> kind, while arrays containing general
+objects use <code>PACKED_ELEMENTS</code>.</p>
+<h3 id="double-elements-in-javascript-arrays">Double Elements in
+JavaScript Arrays</h3>
+<p>Floating-point numbers in JavaScript conform to the 64-bit IEEE 754
+standard. Normally, numbers that cannot fit into the Smi representation
+must be allocated on the heap as <code>HeapNumber</code> objects, which
+introduces memory overhead and pointer indirection.</p>
+<p>To optimize arrays of floating-point numbers, engines implement
+<strong>double elements</strong> (such as
+<code>PACKED_DOUBLE_ELEMENTS</code> in V8):</p>
+<ul>
+<li><strong>Unboxed Storage:</strong> Instead of creating an array of
+tagged pointers pointing to <code>HeapNumber</code> objects on the heap,
+the engine stores the raw, unboxed 64-bit floating-point values directly
+in a contiguous block of memory.</li>
+<li><strong>Flattened Memory:</strong> Each element is an actual 8-byte
+float rather than a reference, drastically reducing memory footprint and
+eliminating garbage collection pressure caused by intermediate number
+objects.</li>
+</ul>
+<h3 id="core-differences">Core Differences</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Double Elements</th>
+<th style="text-align: left;">Tagged Pointers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Data Format</strong></td>
+<td style="text-align: left;">Raw, unboxed 64-bit IEEE 754 floats</td>
+<td style="text-align: left;">Bit-tagged integer values or heap memory
+addresses</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Heap Allocation</strong></td>
+<td style="text-align: left;">None for individual floating-point
+values</td>
+<td style="text-align: left;">Required for values that cannot be
+represented as Smis</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Element Kind (V8)</strong></td>
+<td style="text-align: left;"><code>PACKED_DOUBLE_ELEMENTS</code> /
+<code>HOLEY_DOUBLE_ELEMENTS</code></td>
+<td style="text-align: left;"><code>PACKED_SMI_ELEMENTS</code> or
+<code>PACKED_ELEMENTS</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Use Case</strong></td>
+<td style="text-align: left;">Arrays composed exclusively of non-integer
+numbers</td>
+<td style="text-align: left;">Arrays of integers, mixed types, objects,
+or strings</td>
+</tr>
+</tbody>
+</table>
+<h3 id="transitions-and-performance-implications">Transitions and
+Performance Implications</h3>
+<p>Array element kinds transition unidirectionally from the most
+specific to the most general:</p>
+<ol type="1">
+<li>An array initialized with small integers starts as a tagged integer
+array (<code>PACKED_SMI_ELEMENTS</code>).</li>
+<li>Pushing a floating-point number (e.g., <code>4.5</code>) causes the
+engine to reallocate and convert the array to a double array
+(<code>PACKED_DOUBLE_ELEMENTS</code>), unboxing the existing numbers
+into raw 64-bit floats.</li>
+<li>Pushing an object or string transitions the array to a general
+tagged pointer array (<code>PACKED_ELEMENTS</code>). In this state, any
+floating-point numbers must be boxed back into <code>HeapNumber</code>
+objects on the heap.</li>
+</ol>
+<p>Double elements provide substantial performance gains for numerical
+computation by avoiding boxing, whereas tagged pointers provide the
+flexibility necessary to hold diverse object types and fast immediate
+integers in a single array structure.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

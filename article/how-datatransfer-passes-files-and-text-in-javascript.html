@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How DataTransfer Passes Files and Text in JavaScript - javascript</title>
+    <meta name="description" content="The HTML5 Drag and Drop API relies on the DataTransfer object to hold and transfer data between a drag source and a drop zone. This object acts as a shared clipboard during the drag operation, holding data types, format specifications, and file lists. By">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-datatransfer-passes-files-and-text-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How DataTransfer Passes Files and Text in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-datatransfer-passes-files-and-text-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The HTML5 Drag and Drop API relies on the DataTransfer object to hold and transfer data between a drag source and a drop zone. This object acts as a shared clipboard during the drag operation, holding data types, format specifications, and file lists. By" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-datatransfer-passes-files-and-text-in-javascript">How
+DataTransfer Passes Files and Text in JavaScript</h1>
+<p>The HTML5 Drag and Drop API relies on the <code>DataTransfer</code>
+object to hold and transfer data between a drag source and a drop zone.
+This object acts as a shared clipboard during the drag operation,
+holding data types, format specifications, and file lists. By listening
+to specific drag events, JavaScript developers can populate the
+<code>DataTransfer</code> object with plain text, HTML, custom data, or
+binary files, and subsequently extract those payloads when the user
+releases the mouse over a designated drop target.</p>
+<h3 id="the-role-of-the-datatransfer-object">The Role of the
+DataTransfer Object</h3>
+<p>When a drag operation begins, the browser creates a
+<code>DataTransfer</code> instance accessible via the
+<code>dataTransfer</code> property of the <code>DragEvent</code>. This
+object serves as the bridge between the element being dragged (the
+source) and the element receiving the drop (the target). It persists
+throughout the drag-and-drop lifecycle, exposing methods to set and
+retrieve data, configure visual drag feedback, and determine allowed
+drop effects such as copying or moving.</p>
+<h3 id="setting-up-drop-zones">Setting Up Drop Zones</h3>
+<p>For an element to accept dragged data or files, it must be designated
+as a drop zone. Browsers prevent drops on most elements by default, so
+the default behavior must be canceled in the <code>dragover</code> event
+handler.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dropZone <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;#drop-zone&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>dropZone<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;dragover&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Prevent default to allow drop</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">preventDefault</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="at">dataTransfer</span><span class="op">.</span><span class="at">dropEffect</span> <span class="op">=</span> <span class="st">&#39;copy&#39;</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="passing-text-and-custom-strings">Passing Text and Custom
+Strings</h3>
+<p>Text transfer relies on key-value pairs assigned via MIME types. The
+drag source uses <code>setData()</code> during the
+<code>dragstart</code> event, and the drop target reads the data using
+<code>getData()</code> during the <code>drop</code> event.</p>
+<ol type="1">
+<li><p><strong>Setting the Data:</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>draggableElement<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;dragstart&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="at">dataTransfer</span><span class="op">.</span><span class="fu">setData</span>(<span class="st">&#39;text/plain&#39;</span><span class="op">,</span> <span class="st">&#39;Sample text payload&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="at">dataTransfer</span><span class="op">.</span><span class="fu">setData</span>(<span class="st">&#39;text/html&#39;</span><span class="op">,</span> <span class="st">&#39;&lt;strong&gt;Formatted Text&lt;/strong&gt;&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Reading the Data:</strong></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>dropZone<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;drop&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">preventDefault</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> textData <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">dataTransfer</span><span class="op">.</span><span class="fu">getData</span>(<span class="st">&#39;text/plain&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Received text:&#39;</span><span class="op">,</span> textData)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></li>
+</ol>
+<p>Common MIME types include <code>text/plain</code>,
+<code>text/html</code>, and <code>text/uri-list</code>. Developers can
+also define custom MIME types (e.g.,
+<code>application/my-custom-type</code>) to pass serialized JSON strings
+between elements.</p>
+<h3 id="passing-files-to-drop-zones">Passing Files to Drop Zones</h3>
+<p>When users drag files directly from their operating system's file
+manager into the browser, the <code>DataTransfer</code> object captures
+them in two properties: <code>files</code> and <code>items</code>.</p>
+<h4 id="using-the-files-property">Using the <code>files</code>
+Property</h4>
+<p>The <code>dataTransfer.files</code> property returns a standard
+<code>FileList</code> containing <code>File</code> objects. These can be
+inspected, converted, or uploaded using the <code>FileReader</code> API,
+<code>fetch()</code>, or <code>FormData</code>.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>dropZone<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;drop&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">preventDefault</span>()<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> files <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">dataTransfer</span><span class="op">.</span><span class="at">files</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> file <span class="kw">of</span> files) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`File Name: </span><span class="sc">${</span>file<span class="op">.</span><span class="at">name</span><span class="sc">}</span><span class="vs">, Size: </span><span class="sc">${</span>file<span class="op">.</span><span class="at">size</span><span class="sc">}</span><span class="vs"> bytes`</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="using-the-items-property">Using the <code>items</code>
+Property</h4>
+<p>The <code>dataTransfer.items</code> property provides a
+<code>DataTransferItemList</code>, offering lower-level access to both
+files and string data. This is particularly useful for checking file
+types before reading them or for accessing directories using
+<code>webkitGetAsEntry()</code>.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>dropZone<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;drop&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">preventDefault</span>()<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">dataTransfer</span><span class="op">.</span><span class="at">items</span>) {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> item <span class="kw">of</span> <span class="bu">event</span><span class="op">.</span><span class="at">dataTransfer</span><span class="op">.</span><span class="at">items</span>) {</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (item<span class="op">.</span><span class="at">kind</span> <span class="op">===</span> <span class="st">&#39;file&#39;</span>) {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> file <span class="op">=</span> item<span class="op">.</span><span class="fu">getAsFile</span>()<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Extracted file via items:&#39;</span><span class="op">,</span> file<span class="op">.</span><span class="at">name</span>)<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="security-considerations">Security Considerations</h3>
+<p>For security reasons, data stored inside <code>DataTransfer</code> is
+subject to restrictions based on the event phase. During
+<code>dragenter</code> and <code>dragover</code> events, the data
+payload is in a protected mode; scripts can inspect data types (via
+<code>types</code>) and file counts, but they cannot read the actual
+string contents or file data using <code>getData()</code> or
+<code>files</code>. The data only becomes readable once the
+<code>drop</code> event fires.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

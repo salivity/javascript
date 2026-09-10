@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Pollution in Recursive Object.assign - javascript</title>
+    <meta name="description" content="Prototype pollution is a critical JavaScript vulnerability where an attacker manipulates the prototype of base objects, potentially leading to property injection, application crashes, or remote code execution. This article explores how custom recursive i">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/prototype-pollution-in-recursive-object-assign">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Prototype Pollution in Recursive Object.assign - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/prototype-pollution-in-recursive-object-assign" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Prototype pollution is a critical JavaScript vulnerability where an attacker manipulates the prototype of base objects, potentially leading to property injection, application crashes, or remote code execution. This article explores how custom recursive i" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="prototype-pollution-in-recursive-objectassign">Prototype
+Pollution in Recursive Object.assign</h1>
+<p>Prototype pollution is a critical JavaScript vulnerability where an
+attacker manipulates the prototype of base objects, potentially leading
+to property injection, application crashes, or remote code execution.
+This article explores how custom recursive implementations of
+<code>Object.assign</code>—commonly known as deep merge functions—can
+inadvertently expose Node.js and browser applications to prototype
+pollution, examine how attacks occur, and provide actionable techniques
+to secure your code.</p>
+<h3 id="understanding-prototype-pollution">Understanding Prototype
+Pollution</h3>
+<p>In JavaScript, objects inherit properties and methods from prototypes
+via the prototype chain. The root of this chain is usually
+<code>Object.prototype</code>. When an application modifies
+<code>Object.prototype</code>, the new or altered properties become
+accessible on every object in the runtime environment.</p>
+<p>Prototype pollution occurs when untrusted input is processed without
+proper sanitization, allowing an attacker to inject properties into
+<code>Object.prototype</code> using special accessor keys such as
+<code>__proto__</code>, <code>constructor</code>, or
+<code>prototype</code>.</p>
+<h3 id="why-recursive-objectassign-is-vulnerable">Why Recursive
+Object.assign Is Vulnerable</h3>
+<p>Native <code>Object.assign()</code> performs a shallow copy and does
+not traverse nested objects. To overcome this, developers frequently
+implement recursive wrappers around <code>Object.assign</code> or write
+custom deep merge utilities.</p>
+<p>A vulnerable recursive merge function typically follows this
+pattern:</p>
+<ol type="1">
+<li>It iterates over the keys of a source object.</li>
+<li>If a key's value is another object, it recursively merges that
+object into the target.</li>
+<li>If the key's value is a primitive, it copies the value
+directly.</li>
+</ol>
+<p>When such a function encounters a payload containing the key
+<code>__proto__</code>, it accesses the target object's prototype
+directly. Instead of assigning a property to the intended local object,
+the recursive function sets properties on <code>Object.prototype</code>,
+polluting every object in the application.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable recursive merge implementation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">deepMerge</span>(target<span class="op">,</span> source) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> key <span class="kw">in</span> source) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (source[key] <span class="kw">instanceof</span> <span class="bu">Object</span> <span class="op">&amp;&amp;</span> key <span class="kw">in</span> target) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="fu">deepMerge</span>(target[key]<span class="op">,</span> source[key])<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      target[key] <span class="op">=</span> source[key]<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> target<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Malicious payload</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> maliciousPayload <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">parse</span>(<span class="st">&#39;{&quot;__proto__&quot;: {&quot;isAdmin&quot;: true}}&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co">// Merging the payload</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">deepMerge</span>({}<span class="op">,</span> maliciousPayload)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co">// The vulnerability manifests globally</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> newUser <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(newUser<span class="op">.</span><span class="at">isAdmin</span>)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h3 id="potential-impact-of-exploitation">Potential Impact of
+Exploitation</h3>
+<ul>
+<li><strong>Denial of Service (DoS):</strong> Overwriting built-in
+methods like <code>toString</code> or <code>valueOf</code> with
+non-function values causes the application to crash whenever those
+functions are invoked.</li>
+<li><strong>Privilege Escalation:</strong> Injecting flags such as
+<code>isAdmin</code>, <code>isAuthorized</code>, or <code>role</code>
+can bypass authorization checks across an entire application.</li>
+<li><strong>Remote Code Execution (RCE):</strong> In Node.js
+environments, polluting properties utilized by internal child processes,
+template engines, or execution contexts can allow attackers to execute
+arbitrary shell commands.</li>
+</ul>
+<h3 id="mitigation-strategies">Mitigation Strategies</h3>
+<p>To prevent prototype pollution in recursive merge operations:</p>
+<ol type="1">
+<li><p><strong>Filter Dangerous Keys:</strong> Explicitly block
+sensitive properties such as <code>__proto__</code>,
+<code>constructor</code>, and <code>prototype</code> before performing
+any assignment or recursive call.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">safeDeepMerge</span>(target<span class="op">,</span> source) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> key <span class="kw">of</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">keys</span>(source)) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (key <span class="op">===</span> <span class="st">&#39;__proto__&#39;</span> <span class="op">||</span> key <span class="op">===</span> <span class="st">&#39;constructor&#39;</span> <span class="op">||</span> key <span class="op">===</span> <span class="st">&#39;prototype&#39;</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">typeof</span> source[key] <span class="op">===</span> <span class="st">&#39;object&#39;</span> <span class="op">&amp;&amp;</span> source[key] <span class="op">!==</span> <span class="kw">null</span>) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>target[key]) target[key] <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">safeDeepMerge</span>(target[key]<span class="op">,</span> source[key])<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      target[key] <span class="op">=</span> source[key]<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> target<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div></li>
+<li><p><strong>Use Prototype-less Objects:</strong> When storing
+key-value pairs from user input, create objects with no prototype using
+<code>Object.create(null)</code> or use the <code>Map</code> data
+structure.</p></li>
+<li><p><strong>Freeze the Prototype:</strong> Prevent modifications to
+the root prototype by calling
+<code>Object.freeze(Object.prototype)</code> at application startup.
+Note that this may cause compatibility issues with legacy libraries that
+modify prototypes legitimately.</p></li>
+<li><p><strong>Use Validated Libraries:</strong> Avoid writing custom
+deep merge algorithms. Rely on well-maintained libraries like modern
+versions of <code>lodash.merge</code> that include built-in protection
+against prototype pollution.</p></li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

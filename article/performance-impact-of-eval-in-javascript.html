@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Impact of eval in JavaScript - javascript</title>
+    <meta name="description" content="The eval() function in JavaScript executes string-based code dynamically within the current or global context, but it introduces severe performance bottlenecks. Modern JavaScript engines rely on ahead-of-time parsing, static analysis, and Just-In-Time (J">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/performance-impact-of-eval-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Performance Impact of eval in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/performance-impact-of-eval-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The eval() function in JavaScript executes string-based code dynamically within the current or global context, but it introduces severe performance bottlenecks. Modern JavaScript engines rely on ahead-of-time parsing, static analysis, and Just-In-Time (J" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="performance-impact-of-eval-in-javascript">Performance Impact of
+eval in JavaScript</h1>
+<p>The <code>eval()</code> function in JavaScript executes string-based
+code dynamically within the current or global context, but it introduces
+severe performance bottlenecks. Modern JavaScript engines rely on
+ahead-of-time parsing, static analysis, and Just-In-Time (JIT)
+compilation to run code at near-native speeds. Using <code>eval()</code>
+breaks these optimization pipelines, forcing the engine to fall back on
+slower, interpreted execution paths and dynamic scope lookups.</p>
+<h3 id="disruption-of-jit-optimizations">Disruption of JIT
+Optimizations</h3>
+<p>Modern engines like Google’s V8, SpiderMonkey, and JavaScriptCore use
+baseline and optimizing compilers to optimize machine code based on
+predictable patterns. They perform optimizations such as:</p>
+<ul>
+<li><strong>Function Inlining:</strong> Replacing a function call
+directly with its body.</li>
+<li><strong>Hidden Classes and Inline Caching:</strong> Storing known
+property offsets for fast object access.</li>
+<li><strong>Type Specialization:</strong> Emitting optimized machine
+instructions when variable types remain consistent.</li>
+</ul>
+<p>When an engine encounters <code>eval()</code>, it cannot statically
+determine what variables or types will be introduced or altered. As a
+result, the engine disables high-level optimizations for the entire
+containing function and falls back to conservative, unoptimized code
+execution.</p>
+<h3 id="scope-invalidation-and-variable-lookup-penalties">Scope
+Invalidation and Variable Lookup Penalties</h3>
+<p>Normally, modern engines map local variables to fixed memory offsets
+based on static lexical scope. Direct calls to <code>eval()</code> can
+introduce new local variables at runtime:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculate</span>(input) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">var</span> x <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="pp">eval</span>(input)<span class="op">;</span> <span class="co">// input might be &quot;var x = 20;&quot; or introduce new identifiers</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> x<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Because the engine cannot know in advance whether <code>eval()</code>
+will overwrite existing variables or create new ones, it cannot use
+fixed memory offsets. Instead, it must construct a dynamic scope
+dictionary. Every subsequent variable lookup within that function must
+check this dictionary at runtime, significantly increasing the CPU
+cycles required for basic variable reads and writes.</p>
+<h3 id="on-the-fly-parsing-and-compilation">On-the-Fly Parsing and
+Compilation</h3>
+<p>Standard JavaScript code is parsed and compiled into bytecode once
+during the initial load phase. Code passed to <code>eval()</code> must
+undergo the entire compilation pipeline—lexing, parsing, Abstract Syntax
+Tree (AST) generation, and bytecode compilation—at runtime, precisely at
+the moment the function executes. If <code>eval()</code> is called
+repeatedly within loops or frequent events, this compilation overhead
+occurs on every single invocation, creating noticeable latency.</p>
+<h3 id="impact-on-memory-and-garbage-collection">Impact on Memory and
+Garbage Collection</h3>
+<p>By forcing the engine to maintain dynamic scope objects,
+<code>eval()</code> prevents unused variables from being safely cleared
+from memory. Optimizers cannot accurately determine variable lifetimes,
+which leads to prolonged memory retention and heavier workloads for the
+garbage collector.</p>
+<h3 id="direct-vs-indirect-eval">Direct vs. Indirect eval</h3>
+<p>JavaScript distinguishes between direct and indirect
+<code>eval()</code> calls:</p>
+<ul>
+<li><strong>Direct <code>eval()</code>:</strong>
+<code>eval("...")</code> executes within the local scope, causing severe
+de-optimization of local variables.</li>
+<li><strong>Indirect <code>eval()</code>:</strong>
+<code>(0, eval)("...")</code> or <code>window.eval("...")</code>
+executes in the global scope.</li>
+</ul>
+<p>While indirect <code>eval()</code> avoids de-optimizing local
+function scopes, it still suffers from runtime parsing and compilation
+overhead, global scope pollution, and the inability of the global
+execution context to fully optimize related operations.</p>
+<h3 id="modern-alternatives">Modern Alternatives</h3>
+<p>To preserve engine performance, standard JavaScript features should
+replace common <code>eval()</code> use cases:</p>
+<ul>
+<li><strong>Parsing JSON:</strong> Use <code>JSON.parse()</code> instead
+of evaluating JSON strings. <code>JSON.parse()</code> is optimized at
+the C++ level and runs orders of magnitude faster without invoking the
+JS compiler.</li>
+<li><strong>Dynamic Property Access:</strong> Use computed property
+notation (<code>object[key]</code>) rather than dynamically constructing
+code to access object members.</li>
+<li><strong>Dynamic Code Execution:</strong> If dynamic code evaluation
+is strictly required, the <code>Function</code> constructor
+(<code>new Function(...)</code>) executes only in the global scope,
+preventing the de-optimization of local calling scopes, though runtime
+parsing costs still apply.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

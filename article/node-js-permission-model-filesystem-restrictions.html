@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js Permission Model Filesystem Restrictions - javascript</title>
+    <meta name="description" content="The Node.js experimental permission model provides native security mechanisms to restrict application access to system resources, with a primary focus on filesystem operations. Introduced in Node.js v20, this feature allows developers to execute untruste">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/node-js-permission-model-filesystem-restrictions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Node.js Permission Model Filesystem Restrictions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/node-js-permission-model-filesystem-restrictions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Node.js experimental permission model provides native security mechanisms to restrict application access to system resources, with a primary focus on filesystem operations. Introduced in Node.js v20, this feature allows developers to execute untruste" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="nodejs-permission-model-filesystem-restrictions">Node.js
+Permission Model Filesystem Restrictions</h1>
+<p>The Node.js experimental permission model provides native security
+mechanisms to restrict application access to system resources, with a
+primary focus on filesystem operations. Introduced in Node.js v20, this
+feature allows developers to execute untrusted code or secure
+dependencies by explicitly defining read and write boundaries. This
+article outlines the core capabilities of the permission model, the
+specific flags used to restrict filesystem access, runtime permission
+querying, and the boundaries of this security layer.</p>
+<h3 id="enabling-the-permission-model">Enabling the Permission
+Model</h3>
+<p>By default, Node.js applications inherit all system privileges of the
+executing user. The permission model is activated by passing the
+<code>--experimental-permission</code> flag during startup. Once
+enabled, Node.js shifts to a zero-trust default stance: all filesystem
+access is completely revoked unless explicitly granted via configuration
+flags. Attempting an unauthorized filesystem call triggers an
+<code>ERR_ACCESS_DENIED</code> exception.</p>
+<h3 id="granular-read-and-write-controls">Granular Read and Write
+Controls</h3>
+<p>The model separates file access into distinct read and write
+permissions, preventing common attack vectors such as malicious data
+exfiltration or unauthorized file modification.</p>
+<ul>
+<li><strong>Restricting Read Access
+(<code>--allow-fs-read</code>):</strong> Passing
+<code>--allow-fs-read=*</code> grants read access to the entire disk.
+Alternatively, passing specific paths restricts access to defined
+directories or files. For example,
+<code>--allow-fs-read=/etc/app/config.json --allow-fs-read=./public/</code>
+restricts read operations strictly to that configuration file and public
+directory.</li>
+<li><strong>Restricting Write Access
+(<code>--allow-fs-write</code>):</strong> Similar to read controls,
+<code>--allow-fs-write</code> accepts wildcards or targeted paths. For
+instance, <code>--allow-fs-write=/tmp/logs/</code> ensures the
+application can only alter or generate files inside the designated log
+directory.</li>
+</ul>
+<p>Read and write boundaries operate independently. An application can
+be granted permission to write temporary files without having access to
+read source code or sensitive system directories.</p>
+<h3 id="path-resolution-and-traversal-protection">Path Resolution and
+Traversal Protection</h3>
+<p>The permission model resolves paths into absolute canonical
+representations before evaluating access. This design automatically
+guards against basic path-traversal attacks (such as <code>../</code>
+sequences) designed to escape a directory jail. The permission checks
+intercept core module calls across <code>node:fs</code>,
+<code>node:fs/promises</code>, and related file-handling operations.</p>
+<h3 id="runtime-permission-checking">Runtime Permission Checking</h3>
+<p>Applications can inspect their permissions programmatically using the
+<code>process.permission</code> API. This allows developers to check
+whether a capability is present before executing an operation,
+preventing abrupt runtime errors:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Check if read access to a specific directory is available</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> canRead <span class="op">=</span> <span class="bu">process</span><span class="op">.</span><span class="at">permission</span><span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;fs.read&#39;</span><span class="op">,</span> <span class="st">&#39;/data/records&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (canRead) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Execute file access logic</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The <code>process.permission.has()</code> method accepts the resource
+type (such as <code>fs.read</code> or <code>fs.write</code>) along with
+the target path.</p>
+<h3 id="native-addon-and-child-process-enforcement">Native Addon and
+Child Process Enforcement</h3>
+<p>Filesystem access restrictions cannot be enforced effectively if an
+application can spawn uncontrolled child processes or load arbitrary
+native C++ addons. Consequently, enabling
+<code>--experimental-permission</code> automatically disables the
+loading of native addons (equivalent to <code>--no-addons</code>) and
+disables process spawning unless explicitly overridden with
+<code>--allow-child-process</code>. This containment ensures that code
+cannot bypass Node.js runtime checks via underlying system binaries or
+native bindings.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

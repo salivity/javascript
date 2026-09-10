@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How CSP Report-Only Tracks JavaScript Violations - javascript</title>
+    <meta name="description" content="The Content-Security-Policy-Report-Only (CSP-Report-Only) HTTP response header allows web developers to test security policies by monitoring JavaScript execution without enforcing blocking actions. When a script breaches the defined rules, the user's web">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-csp-report-only-tracks-javascript-violations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How CSP Report-Only Tracks JavaScript Violations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-csp-report-only-tracks-javascript-violations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Content-Security-Policy-Report-Only (CSP-Report-Only) HTTP response header allows web developers to test security policies by monitoring JavaScript execution without enforcing blocking actions. When a script breaches the defined rules, the user's web" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-csp-report-only-tracks-javascript-violations">How CSP
+Report-Only Tracks JavaScript Violations</h1>
+<p>The <code>Content-Security-Policy-Report-Only</code>
+(CSP-Report-Only) HTTP response header allows web developers to test
+security policies by monitoring JavaScript execution without enforcing
+blocking actions. When a script breaches the defined rules, the user's
+web browser intercepts the behavior, executes the script normally, and
+asynchronously transmits a detailed JSON-formatted violation report to a
+specified endpoint. This mechanism provides engineering teams with
+accurate, real-world telemetry on unauthorized inline scripts, insecure
+<code>eval()</code> calls, and third-party script injections without
+risking site breakage.</p>
+<h3 id="setting-up-the-header-and-directives">Setting Up the Header and
+Directives</h3>
+<p>To collect JavaScript metrics, the server delivers the
+<code>Content-Security-Policy-Report-Only</code> header within the HTTP
+response headers (it cannot be set via HTML <code>&lt;meta&gt;</code>
+tags). Within this header, developers define constraints specifically
+targeting script behavior using directives such as:</p>
+<ul>
+<li><code>script-src</code>: Restricts the authorized domains, hashes,
+or nonces allowed to execute JavaScript.</li>
+<li><code>script-src-elem</code>: Isolates controls explicitly to
+<code>&lt;script&gt;</code> tags.</li>
+<li><code>script-src-attr</code>: Targets inline event handlers like
+<code>onclick</code>.</li>
+<li><code>unsafe-eval</code>: Detects the usage of string-to-code
+execution methods like <code>eval()</code>, <code>setTimeout()</code>,
+and <code>Function()</code>.</li>
+</ul>
+<p>Alongside these constraints, the header specifies where the telemetry
+should be sent, using either the modern <code>report-to</code> directive
+or the legacy <code>report-uri</code> directive:</p>
+<pre class="http"><code>Content-Security-Policy-Report-Only: script-src &#39;self&#39; https://trustedscripts.com; report-to csp-endpoint;</code></pre>
+<p>When using <code>report-to</code>, the site pairs this header with
+the standard <code>Reporting-Endpoints</code> header to declare the
+destination URL:</p>
+<pre class="http"><code>Reporting-Endpoints: csp-endpoint=&quot;https://analytics.example.com/csp-reports&quot;</code></pre>
+<h3 id="how-the-browser-detects-violations">How the Browser Detects
+Violations</h3>
+<p>During DOM construction and runtime execution, the browser's
+JavaScript engine evaluates every script invocation against the defined
+policy. If an event occurs that would normally violate a strict CSP—such
+as an unapproved third-party tracker loading, an inline script lacking a
+cryptographic nonce, or an <code>eval()</code> statement—the browser's
+security layer flags the event.</p>
+<p>Because the policy is set to "Report-Only", the browser does not halt
+script execution or throw a runtime error in the user interface.
+Instead, it logs the incident internally to the developer console and
+queues a telemetry payload.</p>
+<h3 id="the-violation-report-payload">The Violation Report Payload</h3>
+<p>Once flagged, the browser compiles a structured JSON report detailing
+the exact nature of the violation. For legacy implementations, this is
+sent with the <code>application/csp-report</code> content type
+containing a <code>csp-report</code> object:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;csp-report&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;document-uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/checkout&quot;</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;referrer&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/cart&quot;</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;violated-directive&quot;</span><span class="fu">:</span> <span class="st">&quot;script-src &#39;self&#39; https://trustedscripts.com&quot;</span><span class="fu">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;effective-directive&quot;</span><span class="fu">:</span> <span class="st">&quot;script-src&quot;</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;original-policy&quot;</span><span class="fu">:</span> <span class="st">&quot;script-src &#39;self&#39; https://trustedscripts.com; report-uri /csp-report-endpoint&quot;</span><span class="fu">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;disposition&quot;</span><span class="fu">:</span> <span class="st">&quot;report&quot;</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;blocked-uri&quot;</span><span class="fu">:</span> <span class="st">&quot;https://unauthorized-cdn.com/malicious.js&quot;</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;line-number&quot;</span><span class="fu">:</span> <span class="dv">42</span><span class="fu">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;column-number&quot;</span><span class="fu">:</span> <span class="dv">15</span><span class="fu">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;source-file&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/static/bundle.js&quot;</span><span class="fu">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;status-code&quot;</span><span class="fu">:</span> <span class="dv">200</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Modern browsers using the Reporting API send this data via
+<code>application/reports+json</code>, wrapping the payload inside an
+array of report objects that include additional metadata, such as user
+agent context and relative timestamps.</p>
+<p>Key metrics captured in the payload include:</p>
+<ul>
+<li><strong>effective-directive</strong>: Identifies whether the
+violation was an inline element, attribute, or source domain
+violation.</li>
+<li><strong>blocked-uri</strong>: Displays the full URL of the offending
+script, or identifiers like <code>inline</code> and
+<code>eval</code>.</li>
+<li><strong>source-file, line-number, and column-number</strong>:
+Pinpoints the exact file and position where the script execution
+originated, assisting in debugging legitimate application code.</li>
+<li><strong>disposition</strong>: Clarifies that the state was
+<code>report</code> rather than <code>enforce</code>.</li>
+</ul>
+<h3 id="asynchronous-data-dispatch">Asynchronous Data Dispatch</h3>
+<p>The browser dispatches these violation reports in the background via
+HTTP <code>POST</code> requests. To ensure that metric collection does
+not degrade website performance or network availability for the end
+user, browsers batch reports and transmit them during idle CPU cycles or
+just before page unload using non-blocking transport mechanisms similar
+to the Beacon API.</p>
+<p>The receiving server or telemetry collector parses these JSON
+payloads, aggregates the occurrence counts, and exposes trends across
+user sessions, script sources, and application routes.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

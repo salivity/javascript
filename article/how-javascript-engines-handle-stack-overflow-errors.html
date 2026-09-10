@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Engines Handle Stack Overflow Errors - javascript</title>
+    <meta name="description" content="When a recursive function calls itself without an exit condition or with excessive depth, it causes a stack overflow error. JavaScript engines manage this scenario by tracking function calls within an internal call stack, setting strict memory boundaries">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-engines-handle-stack-overflow-errors">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Engines Handle Stack Overflow Errors - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-engines-handle-stack-overflow-errors" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When a recursive function calls itself without an exit condition or with excessive depth, it causes a stack overflow error. JavaScript engines manage this scenario by tracking function calls within an internal call stack, setting strict memory boundaries" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-engines-handle-stack-overflow-errors">How
+JavaScript Engines Handle Stack Overflow Errors</h1>
+<p>When a recursive function calls itself without an exit condition or
+with excessive depth, it causes a stack overflow error. JavaScript
+engines manage this scenario by tracking function calls within an
+internal call stack, setting strict memory boundaries for execution
+frames, and throwing a catchable
+<code>RangeError: Maximum call stack size exceeded</code> once limits
+are breached. This mechanism protects the host environment from total
+system crashes, freezes, and memory exhaustion.</p>
+<h3 id="the-call-stack-and-execution-frames">The Call Stack and
+Execution Frames</h3>
+<p>JavaScript is a single-threaded language that uses a Last-In,
+First-Out (LIFO) call stack to track function execution. Every time a
+function is invoked, the engine creates an execution context—often
+called a stack frame. This frame stores:</p>
+<ul>
+<li>The function's local variables and arguments.</li>
+<li>The execution context and lexical environment.</li>
+<li>The return address pointing to where execution should resume after
+the function completes.</li>
+</ul>
+<p>In normal execution, a function finishes, its frame is popped off the
+stack, and memory is reclaimed. During excessive recursion, frames are
+continuously pushed onto the stack without being resolved, causing the
+stack memory to grow rapidly.</p>
+<h3 id="how-the-engine-detects-overflow">How the Engine Detects
+Overflow</h3>
+<p>JavaScript engines, such as Google V8 (Chrome, Node.js), SpiderMonkey
+(Firefox), and JavaScriptCore (Safari), allocate a fixed amount of
+memory for the call stack. This limit is typically determined by:</p>
+<ol type="1">
+<li><strong>Stack Memory Size:</strong> A hard limit on allocated stack
+memory (usually between 1MB and 2MB).</li>
+<li><strong>Frame Count:</strong> A variable depth usually ranging
+between 10,000 and 50,000 nested calls, depending on the number of local
+variables within each frame and available system memory.</li>
+</ol>
+<p>Before executing a new stack frame, the engine checks the current
+stack pointer against the upper bound of the allocated stack segment. If
+the next frame would exceed the boundary, the engine aborts the call
+instead of attempting to access unallocated memory.</p>
+<h3 id="throwing-the-rangeerror">Throwing the RangeError</h3>
+<p>When the boundary check fails, the engine halts the recursive loop
+and immediately throws an exception:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">RangeError</span><span class="op">:</span> Maximum call stack size exceeded <span class="co">// V8 (Chrome, Node.js)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">InternalError</span><span class="op">:</span> too much recursion          <span class="co">// SpiderMonkey (Firefox)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">RangeError</span><span class="op">:</span> Maximum call stack size reached  <span class="co">// JavaScriptCore (Safari)</span></span></code></pre></div>
+<p>This error behaves like standard runtime errors. If enclosed in a
+<code>try...catch</code> block, execution can theoretically continue,
+although relying on this is risky because the application state may be
+left inconsistent. If unhandled, the error terminates the current task
+in the event loop and logs the stack trace to the console.</p>
+<h3 id="preventing-and-handling-stack-overflows">Preventing and Handling
+Stack Overflows</h3>
+<p>To avoid reaching the engine's stack limits during deep operations,
+several techniques can be applied:</p>
+<ul>
+<li><strong>Iterative Refactoring:</strong> Convert recursive algorithms
+into <code>while</code> or <code>for</code> loops, moving state storage
+from the engine's call stack to the heap memory.</li>
+<li><strong>Trampolining:</strong> Wrap recursive calls in thunks
+(functions that return another function) so the outer loop executes
+calls iteratively without nesting the call stack.</li>
+<li><strong>Event Loop Defers:</strong> Break deep recursion across
+ticks of the event loop using <code>setTimeout</code> or
+<code>queueMicrotask</code>, allowing the engine to clear the call stack
+before invoking the next chunk.</li>
+<li><strong>Tail Call Optimization (TCO):</strong> Although part of the
+ECMAScript 2015 specification where the engine reuses the current stack
+frame for return-level recursive calls, TCO is currently only
+consistently implemented in Safari (JavaScriptCore).</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

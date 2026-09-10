@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Transferable ArrayBuffers Reduce Worker Latency - javascript</title>
+    <meta name="description" content="Transferable objects, particularly ArrayBuffer instances, provide an efficient mechanism for passing large data sets between execution contexts like the main thread and Web Workers in JavaScript. By transferring ownership of the underlying memory rather">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-transferable-arraybuffers-reduce-worker-latency">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Transferable ArrayBuffers Reduce Worker Latency - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-transferable-arraybuffers-reduce-worker-latency" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Transferable objects, particularly ArrayBuffer instances, provide an efficient mechanism for passing large data sets between execution contexts like the main thread and Web Workers in JavaScript. By transferring ownership of the underlying memory rather" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-transferable-arraybuffers-reduce-worker-latency">How
+Transferable ArrayBuffers Reduce Worker Latency</h1>
+<p>Transferable objects, particularly <code>ArrayBuffer</code>
+instances, provide an efficient mechanism for passing large data sets
+between execution contexts like the main thread and Web Workers in
+JavaScript. By transferring ownership of the underlying memory rather
+than copying its contents, transferable <code>ArrayBuffer</code>s
+eliminate serialization and deserialization overhead, drastically
+reducing latency and memory pressure in concurrent JavaScript
+applications.</p>
+<h2 id="the-default-problem-structured-clone-latency">The Default
+Problem: Structured Clone Latency</h2>
+<p>By default, data passed between threads via
+<code>postMessage()</code> undergoes the Structured Clone Algorithm.
+While this ensures memory safety and isolates thread states, it creates
+substantial performance bottlenecks when dealing with large
+payloads:</p>
+<ul>
+<li><strong>Memory Duplication:</strong> The runtime creates a full
+duplicate of the transmitted data, doubling the application's memory
+footprint during the transfer.</li>
+<li><strong>Serialization Overhead:</strong> Deep-copying gigabytes or
+even megabytes of raw binary data incurs <span
+class="math inline">\(O(n)\)</span> time complexity relative to the size
+of the payload.</li>
+<li><strong>Garbage Collection Pressure:</strong> The continuous
+allocation and subsequent cleanup of large duplicate objects trigger
+frequent Garbage Collection (GC) pauses, causing frame drops and input
+lag on the main UI thread.</li>
+</ul>
+<h2 id="the-solution-zero-copy-pointer-transfer">The Solution: Zero-Copy
+Pointer Transfer</h2>
+<p>Transferable <code>ArrayBuffer</code>s bypass the cloning process
+entirely through a zero-copy mechanism. Instead of reading, copying, and
+rewriting bytes in a new memory address, the JavaScript runtime moves
+the pointer reference of the underlying memory block from one execution
+context to another.</p>
+<p>The transfer process operates in three core steps:</p>
+<ol type="1">
+<li><strong>Context Detachment:</strong> When passed in the transfer
+list array of <code>postMessage(message, [transferable])</code>, the
+<code>ArrayBuffer</code> in the sending context is immediately
+"detached."</li>
+<li><strong>Neutering the Source:</strong> The original buffer's
+<code>byteLength</code> drops to <code>0</code>, making it inaccessible
+and non-functional in the sender thread. This prevents race conditions
+and ensures strict thread safety without requiring explicit locks or
+mutexes.</li>
+<li><strong>Context Attachment:</strong> The receiving thread receives
+ownership of the existing memory allocation at the exact same physical
+memory address, executing in constant <span
+class="math inline">\(O(1)\)</span> time regardless of whether the
+buffer is 10 Kilobytes or 2 Gigabytes.</li>
+</ol>
+<h2 id="why-this-eliminates-multithreading-bottlenecks">Why This
+Eliminates Multithreading Bottlenecks</h2>
+<h3 id="instantaneous-throughput">Instantaneous Throughput</h3>
+<p>Because only the reference metadata changes hands, transferring large
+binary structures (such as image pixel arrays, audio PCM data, physics
+engine matrices, or WebAssembly memory chunks) takes sub-millisecond
+execution time, keeping communication latency near zero.</p>
+<h3 id="predictable-frame-rates">Predictable Frame Rates</h3>
+<p>Zero-copy operations prevent large memory spikes. By keeping memory
+consumption flat and avoiding temporary objects, the main browser thread
+avoids triggering heavy garbage collection sweeps, maintaining
+consistent 60 or 120 FPS rendering loops.</p>
+<h3 id="deterministic-performance-for-heavy-workloads">Deterministic
+Performance for Heavy Workloads</h3>
+<p>Workloads that demand continuous bidirectional communication—such as
+WebGL rendering workers, video transcoding, cryptography, and real-time
+audio analysis—can pass ownership back and forth without degrading
+throughput over time.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

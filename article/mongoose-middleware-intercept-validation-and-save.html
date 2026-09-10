@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mongoose Middleware: Intercept Validation and Save - javascript</title>
+    <meta name="description" content="Mongoose middleware, also known as pre and post hooks, allows developers to intercept document operations throughout their lifecycle in a Node.js application. This article covers how pre hooks evaluate or alter data before validation and persistence, how">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/mongoose-middleware-intercept-validation-and-save">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mongoose Middleware: Intercept Validation and Save - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/mongoose-middleware-intercept-validation-and-save" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Mongoose middleware, also known as pre and post hooks, allows developers to intercept document operations throughout their lifecycle in a Node.js application. This article covers how pre hooks evaluate or alter data before validation and persistence, how" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="mongoose-middleware-intercept-validation-and-save">Mongoose
+Middleware: Intercept Validation and Save</h1>
+<p>Mongoose middleware, also known as <code>pre</code> and
+<code>post</code> hooks, allows developers to intercept document
+operations throughout their lifecycle in a Node.js application. This
+article covers how <code>pre</code> hooks evaluate or alter data before
+validation and persistence, how <code>post</code> hooks handle side
+effects and error handling after an action finishes, and how these
+functions operate synchronously or asynchronously within the Mongoose
+execution pipeline.</p>
+<h2 id="the-validation-and-saving-lifecycle">The Validation and Saving
+Lifecycle</h2>
+<p>When you call <code>document.save()</code> in Mongoose, the document
+automatically undergoes internal validation before it writes to MongoDB.
+The lifecycle executes in a defined order:</p>
+<ol type="1">
+<li><code>pre('validate')</code> hooks execute.</li>
+<li>Built-in and custom schema validations run.</li>
+<li><code>post('validate')</code> hooks execute.</li>
+<li><code>pre('save')</code> hooks execute.</li>
+<li>The document is inserted or updated in the database.</li>
+<li><code>post('save')</code> hooks execute.</li>
+</ol>
+<p>If an error occurs at any point in this sequence, execution stops
+immediately, and subsequent middleware and operations are aborted.</p>
+<h2 id="intercepting-validation-with-pre-and-post-hooks">Intercepting
+Validation with Pre and Post Hooks</h2>
+<p>Validation hooks allow you to manipulate data before schema rules
+trigger or inspect the results before proceeding to the save phase.</p>
+<h3 id="pre-validation-hooks">Pre-Validation Hooks</h3>
+<p>A <code>pre('validate')</code> hook executes before Mongoose checks
+schema types, required fields, or custom validators. This is the optimal
+place to sanitize inputs, normalize strings, or calculate dependent
+fields required by the schema.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userSchema <span class="op">=</span> <span class="kw">new</span> mongoose<span class="op">.</span><span class="fu">Schema</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">email</span><span class="op">:</span> { <span class="dt">type</span><span class="op">:</span> <span class="bu">String</span><span class="op">,</span> <span class="dt">required</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">lowercase</span><span class="op">:</span> <span class="kw">true</span> }<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">username</span><span class="op">:</span> { <span class="dt">type</span><span class="op">:</span> <span class="bu">String</span><span class="op">,</span> <span class="dt">required</span><span class="op">:</span> <span class="kw">true</span> }</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>userSchema<span class="op">.</span><span class="fu">pre</span>(<span class="st">&#39;validate&#39;</span><span class="op">,</span> <span class="kw">function</span>() {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">username</span>) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Strip unwanted characters before validation checks</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">username</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">username</span><span class="op">.</span><span class="fu">trim</span>()<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="post-validation-hooks">Post-Validation Hooks</h3>
+<p>A <code>post('validate')</code> hook runs immediately after Mongoose
+validates the document data against schema constraints. This hook is
+useful for logging validation successes or modifying validation errors
+before they reach the save pipeline.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>userSchema<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;validate&#39;</span><span class="op">,</span> <span class="kw">function</span>(doc) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Document with ID </span><span class="sc">${</span>doc<span class="op">.</span><span class="at">_id</span><span class="sc">}</span><span class="vs"> passed validation.`</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2
+id="intercepting-document-saving-with-pre-and-post-hooks">Intercepting
+Document Saving with Pre and Post Hooks</h2>
+<p>Saving hooks intercept the execution flow around the actual database
+write operation.</p>
+<h3 id="pre-save-hooks">Pre-Save Hooks</h3>
+<p>A <code>pre('save')</code> hook runs after validation passes, but
+right before the write command is sent to MongoDB. Common use cases
+include hashing passwords, generating slugs, or validating business
+logic against other database collections.</p>
+<p>In modern Mongoose, hooks natively support <code>async/await</code>.
+To stop the save operation, throw an error.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bcrypt <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;bcrypt&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>userSchema<span class="op">.</span><span class="fu">pre</span>(<span class="st">&#39;save&#39;</span><span class="op">,</span> <span class="kw">async</span> <span class="kw">function</span>() {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Only hash the password if it has been modified (or is new)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="fu">isModified</span>(<span class="st">&#39;password&#39;</span>)) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> salt <span class="op">=</span> <span class="cf">await</span> bcrypt<span class="op">.</span><span class="fu">genSalt</span>(<span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">password</span> <span class="op">=</span> <span class="cf">await</span> bcrypt<span class="op">.</span><span class="fu">hash</span>(<span class="kw">this</span><span class="op">.</span><span class="at">password</span><span class="op">,</span> salt)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If any condition fails, throwing an error cancels the operation:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>userSchema<span class="op">.</span><span class="fu">pre</span>(<span class="st">&#39;save&#39;</span><span class="op">,</span> <span class="kw">function</span>() {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">isBanned</span>) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&#39;Cannot save updates to a banned account.&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="post-save-hooks">Post-Save Hooks</h3>
+<p>A <code>post('save')</code> hook fires after the document has been
+successfully saved to MongoDB. The document passed into the callback is
+the saved database document, including auto-generated values like
+<code>_id</code> and timestamps.</p>
+<p>Because the write has already finished, mutations made to
+<code>doc</code> inside a <code>post('save')</code> hook are not
+persisted back to MongoDB automatically. Instead, this hook is ideal for
+triggering side effects:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>userSchema<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;save&#39;</span><span class="op">,</span> <span class="kw">function</span>(doc) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Trigger external workflows such as notifications or logging</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  emailService<span class="op">.</span><span class="fu">sendWelcomeEmail</span>(doc<span class="op">.</span><span class="at">email</span>)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="error-handling-in-middleware">Error Handling in Middleware</h2>
+<p>Mongoose allows specialized post middleware designed exclusively to
+handle errors. By supplying a function that accepts three
+arguments—<code>(error, doc, next)</code>—the hook acts as an error
+interceptor to format database errors (like MongoDB duplicate key
+errors) into client-friendly responses.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>userSchema<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;save&#39;</span><span class="op">,</span> <span class="kw">function</span>(error<span class="op">,</span> doc<span class="op">,</span> next) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (error<span class="op">.</span><span class="at">name</span> <span class="op">===</span> <span class="st">&#39;MongoServerError&#39;</span> <span class="op">&amp;&amp;</span> error<span class="op">.</span><span class="at">code</span> <span class="op">===</span> <span class="dv">11000</span>) {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">next</span>(<span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&#39;Email already exists. Please choose another.&#39;</span>))<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">next</span>(error)<span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="key-considerations">Key Considerations</h2>
+<ul>
+<li><strong>Document vs. Query Hooks:</strong> <code>pre('save')</code>
+and <code>post('save')</code> only execute when saving document
+instances using <code>doc.save()</code>. They do not trigger for query
+updates like <code>Model.updateOne()</code> or
+<code>Model.findByIdAndUpdate()</code>.</li>
+<li><strong><code>this</code> Context:</strong> Standard function
+declarations (<code>function() {}</code>) must be used for hooks where
+access to the document via <code>this</code> is required. Arrow
+functions (<code>() =&gt; {}</code>) bind <code>this</code> lexically
+and will break document access.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>When Should You Not Use Data URLs in JavaScript? - javascript</title>
+    <meta name="description" content="Data URLs allow developers to embed small files directly into code as base64-encoded strings, eliminating individual HTTP requests. However, using data URLs in the wrong contexts creates severe performance penalties, memory leaks, and security vulnerabil">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/when-should-you-not-use-data-urls-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="When Should You Not Use Data URLs in JavaScript? - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/when-should-you-not-use-data-urls-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Data URLs allow developers to embed small files directly into code as base64-encoded strings, eliminating individual HTTP requests. However, using data URLs in the wrong contexts creates severe performance penalties, memory leaks, and security vulnerabil" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="when-should-you-not-use-data-urls-in-javascript">When Should You
+Not Use Data URLs in JavaScript?</h1>
+<p>Data URLs allow developers to embed small files directly into code as
+base64-encoded strings, eliminating individual HTTP requests. However,
+using data URLs in the wrong contexts creates severe performance
+penalties, memory leaks, and security vulnerabilities. This article
+outlines the specific scenarios where you should avoid data URLs in
+JavaScript applications and provides standard architectural
+alternatives.</p>
+<h2 id="large-media-assets-and-images">Large Media Assets and
+Images</h2>
+<p>Embedding large images, audio tracks, or videos via data URLs
+directly into JavaScript bundles or HTML documents is one of the most
+common anti-patterns.</p>
+<ul>
+<li><strong>File Size Inflation:</strong> Base64 encoding inflates
+binary file size by approximately 33%. A 3 MB image becomes roughly 4 MB
+of raw text that the browser must parse.</li>
+<li><strong>Main Thread Blocking:</strong> Decoding large base64 strings
+requires CPU cycles on the main thread, delaying interaction readiness
+and worsening Core Web Vitals like Total Blocking Time (TBT).</li>
+<li><strong>Bundle Bloat:</strong> Inlining large assets directly inside
+bundled JavaScript files prevents code-splitting optimizations and slows
+initial page load.</li>
+</ul>
+<p>For anything larger than a few kilobytes, host the files externally
+and reference them via standard URLs or process them dynamically using
+<code>URL.createObjectURL(blob)</code>.</p>
+<h2 id="frequently-repeated-or-shared-assets">Frequently Repeated or
+Shared Assets</h2>
+<p>Data URLs bypass the browser’s native caching mechanisms entirely.
+When an icon or recurring background pattern is embedded via a data URL,
+the client cannot cache that asset independently of the file enclosing
+it.</p>
+<ul>
+<li>If the same 20 KB icon appears in multiple views, a standard image
+file is downloaded once and served from disk or memory cache
+thereafter.</li>
+<li>A data URL embedded across multiple components or bundles forces the
+browser to download and process identical base64 strings
+repeatedly.</li>
+<li>Updating the parent JavaScript file invalidates the cache for the
+inlined image, even if the image asset itself remained unchanged.</li>
+</ul>
+<p>Store shared icons and branding elements as standalone assets (such
+as an external SVG sprite) to take full advantage of HTTP caching
+headers.</p>
+<h2 id="high-frequency-dynamic-updates">High-Frequency Dynamic
+Updates</h2>
+<p>Generating data URLs on the fly inside tight rendering loops or
+animation frames introduces massive memory overhead.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Inefficient pattern in an animation or stream</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>canvas<span class="op">.</span><span class="fu">toDataURL</span>(<span class="st">&#39;image/png&#39;</span>)<span class="op">;</span> <span class="co">// Allocates a new long string on every frame</span></span></code></pre></div>
+<p>Calling methods like <code>canvas.toDataURL()</code> produces an
+immutable, garbage-collected string on every execution. In
+high-frequency operations—such as real-time video processing or canvas
+animations—this rapid allocation triggers aggressive garbage collection
+pauses, causing visible frame drops.</p>
+<p>When handling dynamic binary data in real time, use
+<code>OffscreenCanvas</code>, typed arrays, or
+<code>URL.createObjectURL(new Blob([...]))</code>, ensuring that old
+object URLs are explicitly released with
+<code>URL.revokeObjectURL()</code>.</p>
+<h2
+id="security-sensitive-dynamic-scripting-and-iframes">Security-Sensitive
+Dynamic Scripting and iframes</h2>
+<p>Constructing <code>iframe</code> sources or dynamic script tags with
+data URLs exposes applications to cross-site scripting (XSS) risks and
+breaks common security policies.</p>
+<ul>
+<li><strong>Content Security Policy (CSP) Restrictions:</strong> Strict
+modern CSP rules generally ban <code>data:</code> directives in
+<code>script-src</code> and <code>frame-src</code> to prevent malicious
+code injection. Relying on <code>data:</code> URLs often forces
+developers to weaken their security policies.</li>
+<li><strong>Opaque Origin Contexts:</strong> In modern browsers,
+resources loaded from <code>data:</code> URLs operate inside an opaque,
+unique origin. This restricts them from accessing local storage, session
+storage, and cookies that belong to your primary origin, breaking
+authentication flows and cross-frame communication.</li>
+</ul>
+<p>Deliver dynamic scripts via standard module imports and load
+sandboxed child documents from designated, isolated subdomains rather
+than inline data strings.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

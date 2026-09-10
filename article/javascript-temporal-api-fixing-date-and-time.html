@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Temporal API: Fixing Date and Time - javascript</title>
+    <meta name="description" content="JavaScript's legacy Date object has long been a source of frustration for developers due to its mutable design, lack of built-in timezone awareness, inconsistent parsing, and confusing 0-indexed months. The proposed ECMAScript Temporal API is a modern, c">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-temporal-api-fixing-date-and-time">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Temporal API: Fixing Date and Time - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-temporal-api-fixing-date-and-time" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript's legacy Date object has long been a source of frustration for developers due to its mutable design, lack of built-in timezone awareness, inconsistent parsing, and confusing 0-indexed months. The proposed ECMAScript Temporal API is a modern, c" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-temporal-api-fixing-date-and-time">JavaScript
+Temporal API: Fixing Date and Time</h1>
+<p>JavaScript's legacy <code>Date</code> object has long been a source
+of frustration for developers due to its mutable design, lack of
+built-in timezone awareness, inconsistent parsing, and confusing
+0-indexed months. The proposed ECMAScript <code>Temporal</code> API is a
+modern, comprehensive replacement designed to fix these fundamental
+flaws. This article outlines the primary shortcomings of the legacy
+<code>Date</code> object and explains how the <code>Temporal</code> API
+resolves date and time complexities through immutability, dedicated data
+types, precise timezone handling, and predictable arithmetic.</p>
+<h2 id="flaws-in-the-legacy-date-object">Flaws in the Legacy Date
+Object</h2>
+<p>The original <code>Date</code> object, implemented in JavaScript's
+earliest days, inherited design flaws from Java's
+<code>java.util.Date</code>:</p>
+<ul>
+<li><strong>Unintended Mutability:</strong> Modifying a
+<code>Date</code> instance alters the original object directly,
+frequently introducing subtle bugs across shared references.</li>
+<li><strong>Limited Timezone Support:</strong> <code>Date</code> only
+supports the user's local timezone and UTC. Converting to arbitrary
+timezones typically requires external libraries like Moment.js, Day.js,
+or Luxon.</li>
+<li><strong>Unreliable Parsing:</strong> String parsing via
+<code>Date.parse()</code> varies significantly across browser engines,
+leading to non-standard and unpredictable behavior.</li>
+<li><strong>Missing Domain Types:</strong> <code>Date</code> represents
+both a date and a time simultaneously. It cannot natively represent a
+date without a time (such as a birthday) or a time without a date (such
+as store operating hours).</li>
+<li><strong>Zero-Indexed Months:</strong> Months are indexed from 0
+(January) to 11 (December), while days of the month are indexed from 1
+to 31, creating frequent off-by-one errors.</li>
+</ul>
+<h2 id="how-the-temporal-api-resolves-these-issues">How the Temporal API
+Resolves These Issues</h2>
+<p>The <code>Temporal</code> API provides a modern, standard-compliant
+approach to time manipulation through the global <code>Temporal</code>
+namespace.</p>
+<h3 id="1-immutability-by-default">1. Immutability by Default</h3>
+<p>Every object created by <code>Temporal</code> is immutable. Any
+modification—such as adding days or shifting hours—returns a completely
+new instance, preventing unintended side effects in shared state.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> now <span class="op">=</span> Temporal<span class="op">.</span><span class="at">Now</span><span class="op">.</span><span class="fu">plainDateISO</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> nextWeek <span class="op">=</span> now<span class="op">.</span><span class="fu">add</span>({ <span class="dt">days</span><span class="op">:</span> <span class="dv">7</span> })<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(now<span class="op">.</span><span class="fu">toString</span>())<span class="op">;</span>      <span class="co">// Remains unchanged</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(nextWeek<span class="op">.</span><span class="fu">toString</span>())<span class="op">;</span> <span class="co">// New instance with added days</span></span></code></pre></div>
+<h3 id="2-specialized-data-types">2. Specialized Data Types</h3>
+<p><code>Temporal</code> splits date and time operations into distinct,
+explicit types based on the specific use case:</p>
+<ul>
+<li><strong><code>Temporal.Instant</code>:</strong> Represents an exact,
+absolute point in time on a global timeline, measured in nanoseconds
+since the Unix epoch (UTC).</li>
+<li><strong><code>Temporal.ZonedDateTime</code>:</strong> A complete,
+timezone-aware representation that combines an exact point in time with
+a specific calendar and IANA timezone identifier (e.g.,
+<code>America/New_York</code>).</li>
+<li><strong><code>Temporal.PlainDate</code>:</strong> Represents a
+calendar date with no associated time or timezone (e.g.,
+<code>2026-05-15</code>).</li>
+<li><strong><code>Temporal.PlainTime</code>:</strong> Represents a
+wall-clock time without a date or timezone (e.g.,
+<code>14:30:00</code>).</li>
+<li><strong><code>Temporal.PlainDateTime</code>:</strong> Represents a
+combined date and time without timezone information.</li>
+<li><strong><code>Temporal.Duration</code>:</strong> Represents an exact
+duration of time (e.g., 2 hours and 30 minutes) used for arithmetic and
+differences.</li>
+</ul>
+<h3 id="3-built-in-timezone-and-dst-handling">3. Built-In Timezone and
+DST Handling</h3>
+<p><code>Temporal.ZonedDateTime</code> includes native support for all
+standard IANA timezones. It automatically accounts for daylight saving
+time (DST) transitions when performing arithmetic:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> meeting <span class="op">=</span> Temporal<span class="op">.</span><span class="at">ZonedDateTime</span><span class="op">.</span><span class="fu">from</span>({</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">year</span><span class="op">:</span> <span class="dv">2026</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">month</span><span class="op">:</span> <span class="dv">11</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">day</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">hour</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timeZone</span><span class="op">:</span> <span class="st">&#39;America/New_York&#39;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Adding hours across a DST transition correctly computes the local time</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> later <span class="op">=</span> meeting<span class="op">.</span><span class="fu">add</span>({ <span class="dt">hours</span><span class="op">:</span> <span class="dv">2</span> })<span class="op">;</span></span></code></pre></div>
+<h3 id="4-deterministic-parsing-and-1-indexed-months">4. Deterministic
+Parsing and 1-Indexed Months</h3>
+<p><code>Temporal</code> enforces strict RFC 9557 and ISO 8601
+formatting standards. String parsing is fully deterministic across all
+JavaScript engines. Furthermore, months are normalized to 1-indexed
+integers (1 for January, 12 for December), eliminating off-by-one
+errors.</p>
+<h3 id="5-intuitive-arithmetic-and-differences">5. Intuitive Arithmetic
+and Differences</h3>
+<p>The API provides explicit <code>.add()</code>,
+<code>.subtract()</code>, <code>.since()</code>, and
+<code>.until()</code> methods for readable date calculations without
+manual millisecond conversions:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> date1 <span class="op">=</span> Temporal<span class="op">.</span><span class="at">PlainDate</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;2026-01-01&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> date2 <span class="op">=</span> Temporal<span class="op">.</span><span class="at">PlainDate</span><span class="op">.</span><span class="fu">from</span>(<span class="st">&#39;2026-12-31&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> difference <span class="op">=</span> date1<span class="op">.</span><span class="fu">until</span>(date2<span class="op">,</span> { <span class="dt">largestUnit</span><span class="op">:</span> <span class="st">&#39;day&#39;</span> })<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(difference<span class="op">.</span><span class="at">days</span>)<span class="op">;</span> <span class="co">// 364</span></span></code></pre></div>
+<h2 id="summary">Summary</h2>
+<p>The <code>Temporal</code> API solves JavaScript's longstanding date
+issues by separating time into explicit, immutable data types and
+providing native support for timezones, non-Gregorian calendars, and
+DST-safe arithmetic. This eliminates the need for third-party date
+manipulation libraries and ensures predictable temporal behavior across
+all JavaScript environments.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

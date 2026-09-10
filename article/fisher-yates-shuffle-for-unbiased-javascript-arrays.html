@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fisher-Yates Shuffle for Unbiased JavaScript Arrays - javascript</title>
+    <meta name="description" content="This article explores how the Fisher-Yates shuffle algorithm produces mathematically unbiased permutations of JavaScript arrays. It explains the inherent flaws of common naive shuffling methods, breaks down the step-by-step mechanics of the modern Fisher">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/fisher-yates-shuffle-for-unbiased-javascript-arrays">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fisher-Yates Shuffle for Unbiased JavaScript Arrays - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/fisher-yates-shuffle-for-unbiased-javascript-arrays" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Fisher-Yates shuffle algorithm produces mathematically unbiased permutations of JavaScript arrays. It explains the inherent flaws of common naive shuffling methods, breaks down the step-by-step mechanics of the modern Fisher" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="fisher-yates-shuffle-for-unbiased-javascript-arrays">Fisher-Yates
+Shuffle for Unbiased JavaScript Arrays</h1>
+<p>This article explores how the Fisher-Yates shuffle algorithm produces
+mathematically unbiased permutations of JavaScript arrays. It explains
+the inherent flaws of common naive shuffling methods, breaks down the
+step-by-step mechanics of the modern Fisher-Yates (also known as the
+Knuth) algorithm, and demonstrates the mathematical principles that
+guarantee an equal <span class="math inline">\(1/n!\)</span> probability
+for every possible ordering. Finally, it provides an optimized
+JavaScript implementation alongside practical considerations regarding
+random number generation.</p>
+<h2 id="the-flaw-in-naive-shuffling">The Flaw in Naive Shuffling</h2>
+<p>A common pattern for shuffling arrays in JavaScript is using the
+built-in <code>sort()</code> method with a randomized comparator:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Flawed implementation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>array<span class="op">.</span><span class="fu">sort</span>(() <span class="kw">=&gt;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">-</span> <span class="fl">0.5</span>)<span class="op">;</span></span></code></pre></div>
+<p>While concise, this approach does not produce an unbiased shuffle.
+The ECMAScript specification does not guarantee sorting stability or a
+specific sorting algorithm, meaning engines like V8 use implementations
+(such as Timsort) that assume a consistent, transitive comparison
+function. Because <code>Math.random() - 0.5</code> is non-transitive
+(element <span class="math inline">\(A &gt; B\)</span> and <span
+class="math inline">\(B &gt; C\)</span> does not mean <span
+class="math inline">\(A &gt; C\)</span>), elements do not have an equal
+chance of landing in every position. Some permutations occur
+significantly more frequently than others.</p>
+<h2 id="how-the-fisher-yates-algorithm-operates">How the Fisher-Yates
+Algorithm Operates</h2>
+<p>The modern Fisher-Yates algorithm, popularized by Donald Knuth, runs
+in <span class="math inline">\(O(n)\)</span> linear time and operates
+in-place without requiring extra memory allocation.</p>
+<p>The algorithm works backwards through the array:</p>
+<ol type="1">
+<li>Start at the final index of the array (<span class="math inline">\(i
+= n - 1\)</span>).</li>
+<li>Generate a random integer <span class="math inline">\(j\)</span>
+such that <span class="math inline">\(0 \le j \le i\)</span>.</li>
+<li>Swap the element at index <span class="math inline">\(i\)</span>
+with the element at index <span class="math inline">\(j\)</span>.</li>
+<li>Decrement <span class="math inline">\(i\)</span> by 1 and repeat the
+process until reaching index 0.</li>
+</ol>
+<p>By progressively shrinking the range of selectable indices, the
+algorithm separates the array into two partitions: the shuffled
+partition at the end and the unshuffled partition at the beginning.</p>
+<h2 id="why-the-permutations-are-unbiased">Why the Permutations Are
+Unbiased</h2>
+<p>An unbiased shuffle requires that all <span
+class="math inline">\(n!\)</span> (n factorial) possible permutations of
+an array of length <span class="math inline">\(n\)</span> have an
+identical probability of occurring: exactly <span
+class="math inline">\(1/n!\)</span>.</p>
+<p>Fisher-Yates satisfies this requirement by ensuring the number of
+possible execution paths matches the number of permutations:</p>
+<ul>
+<li>On the first step, there are <span class="math inline">\(n\)</span>
+possible choices for the last position.</li>
+<li>On the second step, there are <span class="math inline">\(n -
+1\)</span> choices for the second-to-last position.</li>
+<li>This continues down to the final step, where there is only <span
+class="math inline">\(1\)</span> choice remaining.</li>
+</ul>
+<p>The total number of outcomes generated by the algorithm is:</p>
+<p><span class="math display">\[n \times (n - 1) \times (n - 2) \times
+\dots \times 1 = n!\]</span></p>
+<p>Because each choice at step <span class="math inline">\(i\)</span> is
+uniformly distributed across the remaining unplaced items with a
+probability of <span class="math inline">\(1/(i + 1)\)</span>, every
+single permutation is generated with an identical probability:</p>
+<p><span class="math display">\[\prod_{i=1}^{n} \frac{1}{i} =
+\frac{1}{n!}\]</span></p>
+<p>Unlike naive methods, Fisher-Yates produces no modular bias or uneven
+distribution because the number of decision paths perfectly divides into
+the number of valid permutations.</p>
+<h2 id="javascript-implementation">JavaScript Implementation</h2>
+<p>Below is the standard, in-place implementation of the Fisher-Yates
+shuffle using modern JavaScript:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">shuffle</span>(array) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> array<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&gt;</span> <span class="dv">0</span><span class="op">;</span> i<span class="op">--</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Generate a random integer between 0 and i (inclusive)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> j <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> (i <span class="op">+</span> <span class="dv">1</span>))<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Swap elements using array destructuring</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    [array[i]<span class="op">,</span> array[j]] <span class="op">=</span> [array[j]<span class="op">,</span> array[i]]<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> array<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="random-number-generator-considerations">Random Number Generator
+Considerations</h2>
+<p>While the Fisher-Yates algorithm is mathematically unbiased, the
+quality of the shuffle in JavaScript also depends on the pseudo-random
+number generator (PRNG).</p>
+<p><code>Math.random()</code> is sufficient for general UI tasks, casual
+games, and non-sensitive operations. However, because standard PRNGs
+have finite internal state and are not cryptographically secure,
+applications requiring unpredictable randomness—such as card games
+involving real money or cryptographic key generation—should substitute
+<code>Math.random()</code> with the Web Crypto API
+(<code>crypto.getRandomValues()</code>) to prevent predictable sequence
+generation.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

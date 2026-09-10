@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Regex Catastrophic Backtracking Explained - javascript</title>
+    <meta name="description" content="Catastrophic backtracking is a severe performance issue in regular expressions that can freeze applications, spike CPU utilization to 100%, and lead to Regular Expression Denial of Service (ReDoS) vulnerabilities. This article explains how JavaScript’s">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-regex-catastrophic-backtracking-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Regex Catastrophic Backtracking Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-regex-catastrophic-backtracking-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Catastrophic backtracking is a severe performance issue in regular expressions that can freeze applications, spike CPU utilization to 100%, and lead to Regular Expression Denial of Service (ReDoS) vulnerabilities. This article explains how JavaScript’s" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-regex-catastrophic-backtracking-explained">JavaScript
+Regex Catastrophic Backtracking Explained</h1>
+<p>Catastrophic backtracking is a severe performance issue in regular
+expressions that can freeze applications, spike CPU utilization to 100%,
+and lead to Regular Expression Denial of Service (ReDoS)
+vulnerabilities. This article explains how JavaScript’s regex engine
+processes patterns, why nested and ambiguous quantifiers trigger
+exponential execution times, and the concrete strategies developers can
+use to diagnose and eliminate backtracking issues in their
+codebases.</p>
+<h2 id="how-catastrophic-backtracking-occurs">How Catastrophic
+Backtracking Occurs</h2>
+<p>JavaScript uses a Traditional Non-Deterministic Finite Automaton
+(NFA) regex engine. The NFA engine evaluates strings character by
+character and attempts to match patterns greedily. When a sub-pattern
+matches successfully, the engine moves forward. If a subsequent part of
+the regex fails to match, the engine steps backward (backtracks) to the
+most recent decision point, adopts an alternative path, and tries
+again.</p>
+<p>Catastrophic backtracking happens when a regular expression contains
+nested quantifiers or overlapping alternative paths combined with an
+input string that almost matches, but fails at or near the very end.</p>
+<p>Consider the following classic example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> regex <span class="op">=</span> <span class="ss">/</span><span class="sc">(</span><span class="ss">a</span><span class="sc">+)+</span><span class="ss">b/</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> input <span class="op">=</span> <span class="st">&quot;aaaaaaaaaaaaaaaaaaaaaaaaaaaaac&quot;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>regex<span class="op">.</span><span class="fu">test</span>(input)<span class="op">;</span></span></code></pre></div>
+<p>In this pattern:</p>
+<ol type="1">
+<li><code>(a+)</code> can match any sequence of "a" characters.</li>
+<li>The outer <code>+</code> quantifier can repeat that group in
+multiple combinations.</li>
+<li>The string contains 29 "a" characters followed by a "c".</li>
+<li>Because the pattern requires a final "b", the match will inevitably
+fail.</li>
+</ol>
+<p>Before concluding that the string does not match, the engine attempts
+every permutation of distributing those 29 "a"s across the nested
+groups:</p>
+<ul>
+<li>29 "a"s in 1 group</li>
+<li>28 "a"s in group 1, 1 "a" in group 2</li>
+<li>27 "a"s in group 1, 2 "a"s in group 2</li>
+<li>And so on.</li>
+</ul>
+<p>The number of combinations grows exponentially with the length of the
+input string (<span class="math inline">\(O(2^n)\)</span>). For an input
+with roughly 30 characters, the engine evaluates over one billion
+permutations. In JavaScript’s single-threaded event loop, this
+completely blocks execution, rendering the application unresponsive.</p>
+<h2 id="how-to-prevent-catastrophic-backtracking">How to Prevent
+Catastrophic Backtracking</h2>
+<h3 id="1-eliminate-nested-quantifiers">1. Eliminate Nested
+Quantifiers</h3>
+<p>The most effective way to prevent catastrophic backtracking is to
+refactor expressions to remove ambiguous nested repetitions like
+<code>(x+)+</code>, <code>(x*)*</code>, or <code>(x|y)*</code>. Ensure
+that inner and outer patterns cannot match the same characters.</p>
+<p><strong>Vulnerable:</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vulnerable <span class="op">=</span> <span class="ss">/</span><span class="sc">^([a-zA-Z0-9]+</span><span class="ss">_</span><span class="sc">?)*$</span><span class="ss">/</span><span class="op">;</span></span></code></pre></div>
+<p><strong>Secure:</strong></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> secure <span class="op">=</span> <span class="ss">/</span><span class="sc">^[a-zA-Z0-9]+(</span><span class="ss">_</span><span class="sc">[a-zA-Z0-9]+)*$</span><span class="ss">/</span><span class="op">;</span></span></code></pre></div>
+<p>By making the separator explicit and ensuring it cannot match the
+surrounding characters, the engine has only one valid path forward and
+does not need to guess partitions.</p>
+<h3 id="2-make-alternatives-mutually-exclusive">2. Make Alternatives
+Mutually Exclusive</h3>
+<p>When using alternation (<code>|</code>), ensure that the options do
+not overlap on the same prefix.</p>
+<p><strong>Vulnerable:</strong></p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Both sides of the alternation can match &quot;user&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vulnerable <span class="op">=</span> <span class="ss">/</span><span class="sc">^(</span><span class="ss">user</span><span class="sc">|</span><span class="ss">users-</span><span class="sc">\w+)$</span><span class="ss">/</span><span class="op">;</span></span></code></pre></div>
+<p><strong>Secure:</strong></p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> secure <span class="op">=</span> <span class="ss">/</span><span class="sc">^</span><span class="ss">user</span><span class="sc">(</span><span class="ss">s-</span><span class="sc">\w+)?$</span><span class="ss">/</span><span class="op">;</span></span></code></pre></div>
+<h3 id="3-emulate-atomic-grouping">3. Emulate Atomic Grouping</h3>
+<p>Some languages support atomic groups <code>(?&gt;...)</code> or
+possessive quantifiers <code>a++</code>, which instruct the engine to
+discard backtracking points once a match is found. While standard
+JavaScript does not natively support atomic grouping syntax, you can
+emulate atomic groups using lookaheads and backreferences:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Emulates an atomic group for (a+)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> atomicRegex <span class="op">=</span> <span class="ss">/</span><span class="sc">(?</span><span class="ss">=</span><span class="sc">((</span><span class="ss">a</span><span class="sc">+)))\1</span><span class="ss">b/</span><span class="op">;</span></span></code></pre></div>
+<p>Because a lookahead is an assertion that executes independently, the
+inner group inside <code>(?=(...))</code> will match greedily once, and
+the engine will not retain backtracking points for it when the match
+fails later.</p>
+<h3 id="4-validate-input-length">4. Validate Input Length</h3>
+<p>Always enforce strict length boundaries on user inputs before
+evaluating them against complex regular expressions:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">validateInput</span>(str) {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">typeof</span> str <span class="op">!==</span> <span class="st">&quot;string&quot;</span> <span class="op">||</span> str<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">100</span>) {</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> myRegex<span class="op">.</span><span class="fu">test</span>(str)<span class="op">;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Capping input size prevents malicious users from providing
+arbitrarily long payloads designed to trigger worst-case exponential
+complexity.</p>
+<h3 id="5-use-alternative-parsers-or-linear-time-engines">5. Use
+Alternative Parsers or Linear-Time Engines</h3>
+<p>If you are processing untrusted patterns or complex user-provided
+regexes, JavaScript's built-in engine is inherently risky. In such
+cases:</p>
+<ul>
+<li>Use string manipulation methods (<code>indexOf</code>,
+<code>startsWith</code>, <code>slice</code>) instead of regex for simple
+checks.</li>
+<li>Use a dedicated grammar parser (like a lexer/parser generator) for
+complex syntaxes.</li>
+<li>Utilize linear-time regex libraries, such as WebAssembly bindings
+for Google's RE2, which guarantee execution in <span
+class="math inline">\(O(n)\)</span> time by running a DFA (Deterministic
+Finite Automaton) engine that never backtracks.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

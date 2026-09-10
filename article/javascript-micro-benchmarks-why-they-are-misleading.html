@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Micro-Benchmarks: Why They Are Misleading - javascript</title>
+    <meta name="description" content="Micro-benchmarks are isolated performance tests designed to measure the execution time of small, specific code snippets, such as comparing a for loop against a map() function. While they seem like an intuitive way to identify faster code patterns, they f">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-micro-benchmarks-why-they-are-misleading">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Micro-Benchmarks: Why They Are Misleading - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-micro-benchmarks-why-they-are-misleading" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Micro-benchmarks are isolated performance tests designed to measure the execution time of small, specific code snippets, such as comparing a for loop against a map() function. While they seem like an intuitive way to identify faster code patterns, they f" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-micro-benchmarks-why-they-are-misleading">JavaScript
+Micro-Benchmarks: Why They Are Misleading</h1>
+<p>Micro-benchmarks are isolated performance tests designed to measure
+the execution time of small, specific code snippets, such as comparing a
+<code>for</code> loop against a <code>map()</code> function. While they
+seem like an intuitive way to identify faster code patterns, they
+frequently produce misleading results in JavaScript. Modern JavaScript
+engines use sophisticated runtime optimizations that behave drastically
+differently in synthetic, isolated tests compared to complex, real-world
+applications.</p>
+<h2 id="what-are-micro-benchmarks">What Are Micro-Benchmarks?</h2>
+<p>A micro-benchmark measures the performance of a minimal unit of code
+in isolation. Developers typically run an operation millions of times in
+a tight loop to calculate execution time down to milliseconds or
+nanoseconds. Common examples include comparing:</p>
+<ul>
+<li><code>for</code> loops versus
+<code>Array.prototype.forEach</code></li>
+<li>String concatenation (<code>+</code>) versus template literals
+(<code>`${}`</code>)</li>
+<li>Object property access versus array indexing</li>
+<li><code>Math.floor()</code> versus bitwise operators
+(<code>| 0</code>)</li>
+</ul>
+<p>While these tests provide accurate measurements of isolated snippets
+under synthetic conditions, they rarely reflect the performance
+characteristics of that same code within a complete application.</p>
+<h2 id="why-javascript-micro-benchmarks-fail">Why JavaScript
+Micro-Benchmarks Fail</h2>
+<p>Modern JavaScript runtimes (like V8 in Node.js and Chrome,
+SpiderMonkey in Firefox, and JavaScriptCore in Safari) do not simply
+interpret code line-by-line. They use Just-In-Time (JIT) compilers that
+dynamically analyze and optimize code during execution. Micro-benchmarks
+distort this process in several critical ways.</p>
+<h3 id="1-dead-code-elimination">1. Dead Code Elimination</h3>
+<p>JIT compilers actively remove code that does not affect the program's
+output. In many micro-benchmarks, an operation is performed in a loop
+without its result being used elsewhere. The compiler recognizes this
+and eliminates the loop entirely, resulting in an artificially near-zero
+execution time. The benchmark ends up measuring an empty loop rather
+than the operation itself.</p>
+<h3 id="2-monomorphism-vs-polymorphism">2. Monomorphism vs.
+Polymorphism</h3>
+<p>JavaScript engines optimize functions based on the shape ("hidden
+class" or "structure") of the objects passed to them.</p>
+<ul>
+<li><strong>Monomorphic calls:</strong> When a function receives objects
+with the exact same structure repeatedly, the engine generates
+hyper-optimized machine code.</li>
+<li><strong>Polymorphic / Megamorphic calls:</strong> When different
+object shapes are passed to the same function, the engine falls back to
+slower, generic code paths.</li>
+</ul>
+<p>Micro-benchmarks almost always feed identical data types into
+functions, creating an artificial monomorphic environment. In
+production, real-world data is often polymorphic, meaning the optimized
+speed measured in the benchmark will not occur in practice.</p>
+<h3 id="3-aggressive-inlining-and-loop-unrolling">3. Aggressive Inlining
+and Loop Unrolling</h3>
+<p>When an engine detects a small, repetitive function inside a tight
+loop, it frequently "inlines" the function (replacing the function call
+with the actual function body) and unrolls the loop. This eliminates
+function call overhead entirely. In a larger application with complex
+call stacks and memory pressure, the engine may choose not to inline the
+same function, yielding different performance outcomes.</p>
+<h3 id="4-distorted-garbage-collection">4. Distorted Garbage
+Collection</h3>
+<p>Micro-benchmarks often execute quickly enough to avoid triggering
+Garbage Collection (GC), or they trigger GC cycles that distort the
+timing of specific iterations. In production, memory allocation, object
+lifetimes, and heap management play a major role in perceived speed and
+responsiveness, which isolated tests fail to capture.</p>
+<h3 id="5-overlooking-real-world-bottlenecks">5. Overlooking Real-World
+Bottlenecks</h3>
+<p>Micro-benchmarking focuses on CPU-bound micro-operations. In web and
+backend applications, the real performance bottlenecks are almost
+always:</p>
+<ul>
+<li>Network latency and I/O operations</li>
+<li>DOM manipulation and layout thrashing</li>
+<li>Inefficient database queries</li>
+<li>Suboptimal algorithmic complexity (e.g., <span
+class="math inline">\(O(n^2)\)</span> vs. <span
+class="math inline">\(O(n \log n)\)</span>)</li>
+</ul>
+<p>Optimizing a loop to save two nanoseconds is negligible if the
+application is blocked by an unoptimized network request or excessive
+DOM rendering.</p>
+<h2 id="better-alternatives-to-micro-benchmarking">Better Alternatives
+to Micro-Benchmarking</h2>
+<p>Instead of relying on micro-benchmarks to drive architectural
+decisions, adopt strategies that measure real impact:</p>
+<ol type="1">
+<li><strong>Profile Real Applications:</strong> Use browser developer
+tools (Performance tab) or Node.js profilers to identify actual
+bottlenecks in production or staging environments.</li>
+<li><strong>Macro-Benchmarking:</strong> Measure the end-to-end
+performance of entire features, workflows, or API endpoints under
+realistic load conditions.</li>
+<li><strong>Prioritize Code Clarity:</strong> Write clean, readable, and
+maintainable code first. Modern JIT compilers are designed to optimize
+standard, idiomatic JavaScript patterns better than unconventional
+"hacky" micro-optimizations.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

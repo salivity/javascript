@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concurrent Rendering in Modern JavaScript Frameworks - javascript</title>
+    <meta name="description" content="Modern JavaScript frameworks handle intensive user interface updates without freezing the browser by decoupling rendering computation from DOM updates through concurrent scheduling. By breaking large rendering tasks into small, prioritized chunks, framew">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/concurrent-rendering-in-modern-javascript-frameworks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Concurrent Rendering in Modern JavaScript Frameworks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/concurrent-rendering-in-modern-javascript-frameworks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern JavaScript frameworks handle intensive user interface updates without freezing the browser by decoupling rendering computation from DOM updates through concurrent scheduling. By breaking large rendering tasks into small, prioritized chunks, framew" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="concurrent-rendering-in-modern-javascript-frameworks">Concurrent
+Rendering in Modern JavaScript Frameworks</h1>
+<p>Modern JavaScript frameworks handle intensive user interface updates
+without freezing the browser by decoupling rendering computation from
+DOM updates through concurrent scheduling. By breaking large rendering
+tasks into small, prioritized chunks, frameworks yield control back to
+the browser’s main thread to handle urgent events such as user input,
+gestures, and animations. This article explores the mechanics behind
+non-blocking concurrent rendering, including the JavaScript event loop
+limitations, cooperative multitasking, task prioritization, low-level
+scheduling primitives, and how architectures like React Fiber and
+fine-grained reactivity execute this strategy.</p>
+<h2 id="the-main-thread-bottleneck">The Main Thread Bottleneck</h2>
+<p>The browser executes JavaScript, handles layout calculation,
+processes style recalibrations, and paints pixels on a single main
+thread. In traditional synchronous rendering, when a framework processes
+a large state change, it reconciles the entire component tree in one
+uninterrupted call stack.</p>
+<p>If this work exceeds the frame budget—roughly 16.6 milliseconds for a
+60Hz display or 8.3ms for a 120Hz display—the browser drops frames. More
+critically, the browser cannot respond to user inputs like typing or
+clicking until the call stack clears, resulting in an unresponsive
+interface.</p>
+<h2 id="time-slicing-and-cooperative-multitasking">Time-Slicing and
+Cooperative Multitasking</h2>
+<p>To eliminate input delay, modern frameworks employ cooperative
+multitasking via a technique called time-slicing. Instead of processing
+an entire update synchronously, the engine breaks the rendering process
+into granular units of work.</p>
+<p>During rendering, the framework continuously checks how much time has
+elapsed:</p>
+<ol type="1">
+<li>A chunk of the component tree or reactive graph is evaluated.</li>
+<li>The framework checks the remaining time in its allocated slice
+(typically around 5 milliseconds).</li>
+<li>If time remains, it immediately processes the next unit.</li>
+<li>If the time slice has expired, the framework yields control back to
+the browser to paint or execute queued user interactions.</li>
+<li>Once the main thread is free, the framework picks up work where it
+left off.</li>
+</ol>
+<h2 id="task-prioritization-and-interruptibility">Task Prioritization
+and Interruptibility</h2>
+<p>Not all UI updates carry equal urgency. Modern schedulers categorize
+updates into distinct priority tiers:</p>
+<ul>
+<li><strong>Immediate / Discrete Updates:</strong> Direct user
+interactions such as typing in a text field, clicking buttons, or
+toggling switches require immediate feedback.</li>
+<li><strong>Transition / Deferred Updates:</strong> Large list
+filtering, data visualizations, and screen transitions can tolerate
+minor delays without hurting perceived performance.</li>
+</ul>
+<p>When an immediate update occurs while a low-priority transition is
+rendering in the background, the scheduler interrupts or discards the
+low-priority work. The main thread processes the critical interaction
+immediately. Once resolved, the scheduler restarts or resumes the
+lower-priority render using the newly updated state.</p>
+<h2 id="low-level-scheduling-primitives">Low-Level Scheduling
+Primitives</h2>
+<p>JavaScript does not expose native OS-level thread preemption, forcing
+frameworks to implement cooperative scheduling on top of platform
+APIs.</p>
+<h3 id="why-microtasks-are-insufficient">Why Microtasks Are
+Insufficient</h3>
+<p>Frameworks cannot rely on microtasks (such as
+<code>Promise.resolve().then()</code> or <code>queueMicrotask</code>)
+for time-slicing. The browser runs the microtask queue to exhaustion
+before returning control to the rendering pipeline. Yielding via
+microtasks still starves the main thread and prevents paints and user
+input processing.</p>
+<h3 id="macrotasks-and-messagechannel">Macrotasks and
+MessageChannel</h3>
+<p>Frameworks historically rely on macrotasks to yield to the browser.
+While <code>setTimeout(fn, 0)</code> is an option, browsers enforce a
+minimum clamp of 4 milliseconds for nested timeouts, wasting precious
+frame time.</p>
+<p>Instead, schedulers commonly use <code>MessageChannel</code>. Posting
+a message to a <code>MessageChannel</code> port schedules a macrotask
+that runs immediately after the browser paints and processes pending
+input events, with near-zero millisecond artificial overhead:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> channel <span class="op">=</span> <span class="kw">new</span> <span class="bu">MessageChannel</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>channel<span class="op">.</span><span class="at">port1</span><span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> <span class="kw">function</span> <span class="fu">workLoop</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Perform a 5ms slice of rendering work</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">performWorkUntilDeadline</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// If more work remains, re-queue the task</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (hasMoreWork) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    channel<span class="op">.</span><span class="at">port2</span><span class="op">.</span><span class="fu">postMessage</span>(<span class="kw">null</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="the-native-scheduler-api">The Native Scheduler API</h3>
+<p>Modern browsers are implementing dedicated scheduling primitives via
+the <code>window.scheduler</code> API:</p>
+<ul>
+<li><code>scheduler.yield()</code>: Explicitly pauses execution, allows
+the browser to paint and handle high-priority input, and resumes
+execution immediately after.</li>
+<li><code>scheduler.postTask()</code>: Allows tasks to be posted with
+explicit priority levels (<code>user-blocking</code>,
+<code>user-visible</code>, <code>background</code>) and integrated abort
+signals.</li>
+</ul>
+<p>Framework schedulers detect and adopt these native APIs when
+available, falling back to <code>MessageChannel</code> when
+necessary.</p>
+<h2 id="the-split-phase-lifecycle-render-vs-commit">The Split-Phase
+Lifecycle: Render vs. Commit</h2>
+<p>To make rendering interruptible without displaying a broken or
+half-updated UI to the user, frameworks split the update lifecycle into
+two distinct phases:</p>
+<ol type="1">
+<li><strong>The Render / Reconciliation Phase (Concurrent &amp;
+Interruptible):</strong> The framework computes changes in memory. It
+traverses component trees, resolves hooks or signals, and builds a list
+of necessary DOM modifications. Because no actual changes are applied to
+the live DOM in this phase, it can be paused, throttled, or aborted
+without visual side effects.</li>
+<li><strong>The Commit Phase (Synchronous &amp; Non-Blocking to the
+User):</strong> Once the entire render phase completes, the framework
+enters the commit phase. It applies all computed DOM mutations
+synchronously in a single fast pass. Because the layout calculations and
+tree reconciliation are already finished, this phase runs quickly,
+preventing visual tearing and ensuring the UI remains consistent.</li>
+</ol>
+<h2 id="architectural-implementations">Architectural
+Implementations</h2>
+<p>Different frameworks implement non-blocking updates depending on
+their core reactivity models:</p>
+<h3 id="react-fiber">React Fiber</h3>
+<p>React replaced its synchronous recursive renderer with "Fiber," a
+custom singly-linked-list implementation of the call stack. Each Fiber
+node represents a component and its state. Because state traversal is
+linked rather than recursive, React can pause tree traversal at any
+node, store the pointer in memory, yield to the browser, and resume from
+that exact pointer on the next macrotask.</p>
+<h3 id="fine-grained-reactive-frameworks">Fine-Grained Reactive
+Frameworks</h3>
+<p>Frameworks utilizing fine-grained reactivity (such as SolidJS, Vue,
+or Svelte) avoid heavy virtual DOM diffing. Instead of traversing
+component trees, state updates trigger direct subscriber graphs.</p>
+<p>For concurrency, these frameworks typically defer reading newly
+updated signals or batch signal propagation inside transition
+boundaries. They compute derived state graphs asynchronously in the
+background while keeping current DOM nodes connected to the previous
+stable state until the entire transition completes.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Detection vs User-Agent Sniffing in JavaScript - javascript</title>
+    <meta name="description" content="When building cross-browser web applications, developers must decide how to handle features that may not be supported in every environment. This article explores why feature detection has replaced user-agent (UA) sniffing as the industry standard for wri">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/feature-detection-vs-user-agent-sniffing-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Feature Detection vs User-Agent Sniffing in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/feature-detection-vs-user-agent-sniffing-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When building cross-browser web applications, developers must decide how to handle features that may not be supported in every environment. This article explores why feature detection has replaced user-agent (UA) sniffing as the industry standard for wri" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="feature-detection-vs-user-agent-sniffing-in-javascript">Feature
+Detection vs User-Agent Sniffing in JavaScript</h1>
+<p>When building cross-browser web applications, developers must decide
+how to handle features that may not be supported in every environment.
+This article explores why feature detection has replaced user-agent (UA)
+sniffing as the industry standard for writing robust JavaScript. It
+highlights the core limitations of parsing user-agent strings, details
+the mechanics of feature detection, and explains how checking for direct
+API capabilities produces more reliable, maintainable, and future-proof
+code.</p>
+<hr />
+<h3 id="what-is-user-agent-sniffing">What is User-Agent Sniffing?</h3>
+<p>User-agent sniffing relies on reading the
+<code>navigator.userAgent</code> string in JavaScript to identify the
+client's browser name, version, and operating system, and then
+conditionally executing code based on those assumptions.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example of UA Sniffing</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="bu">navigator</span><span class="op">.</span><span class="at">userAgent</span><span class="op">.</span><span class="fu">indexOf</span>(<span class="st">&quot;Firefox&quot;</span>) <span class="op">&gt;</span> <span class="op">-</span><span class="dv">1</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Execute Firefox-specific code</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>While simple in concept, user-agent sniffing is fundamentally flawed
+for several reasons:</p>
+<ul>
+<li><strong>Inaccurate and Spoofed Strings:</strong> Users and browser
+extensions can easily modify or spoof UA strings.</li>
+<li><strong>Complex UA Formatting:</strong> Modern UA strings contain
+legacy tokens for backward compatibility (for example, Chrome strings
+often include <code>Mozilla</code>, <code>AppleWebKit</code>, and
+<code>Safari</code>), making regex parsing error-prone.</li>
+<li><strong>Maintenance Overhead:</strong> As new browsers or browser
+versions release, UA parsing logic must be constantly updated to avoid
+breaking functionality.</li>
+</ul>
+<hr />
+<h3 id="what-is-feature-detection">What is Feature Detection?</h3>
+<p>Feature detection tests whether a specific API, object, method, or
+property actually exists and is executable in the current runtime
+environment before attempting to use it.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example of Feature Detection</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&#39;geolocation&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">navigator</span><span class="op">.</span><span class="at">geolocation</span><span class="op">.</span><span class="fu">getCurrentPosition</span>(successCallback<span class="op">,</span> errorCallback)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fallback for browsers that lack geolocation support</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Instead of guessing what a browser can do based on its name and
+version, feature detection confirms the capability directly.</p>
+<hr />
+<h3 id="why-feature-detection-is-superior">Why Feature Detection is
+Superior</h3>
+<h4 id="1-future-proof-code">1. Future-Proof Code</h4>
+<p>When a browser updates to support a new web API, code using feature
+detection automatically takes advantage of the native functionality
+without requiring code updates. Conversely, UA sniffing often fails to
+recognize that a newly updated browser now supports the feature.</p>
+<h4 id="2-granular-and-accurate-testing">2. Granular and Accurate
+Testing</h4>
+<p>Feature detection checks only the exact feature your application
+needs. This eliminates false assumptions where a developer assumes that
+because a browser is "Version X," it must support all features
+associated with that release.</p>
+<h4 id="3-seamless-polyfilling-and-fallbacks">3. Seamless Polyfilling
+and Fallbacks</h4>
+<p>Feature detection enables clean implementation of conditional
+polyfills. If an API is missing, you can load a fallback script
+dynamically:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="op">!</span><span class="bu">window</span><span class="op">.</span><span class="at">IntersectionObserver</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Dynamically load an IntersectionObserver polyfill</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="4-independence-from-browser-identity">4. Independence from
+Browser Identity</h4>
+<p>Modern web engines (such as Chromium, WebKit, and Gecko) power
+hundreds of different browsers across desktops, mobile devices, and
+embedded systems. Feature detection works consistently across all of
+them because it focuses on engine capabilities rather than branding.</p>
+<hr />
+<h3 id="best-practices-for-implementing-feature-detection">Best
+Practices for Implementing Feature Detection</h3>
+<ul>
+<li><strong>Test for the specific property or method:</strong> Check for
+the exact function you plan to call (e.g.,
+<code>'fetch' in window</code>).</li>
+<li><strong>Avoid negative assumptions:</strong> Do not assume that if
+Feature A is missing, Feature B must also be missing. Test each feature
+independently.</li>
+<li><strong>Provide sensible fallbacks:</strong> Always write a graceful
+fallback or user notification when a critical feature is
+unavailable.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript disconnectedCallback in Custom Elements - javascript</title>
+    <meta name="description" content="This article provides a comprehensive overview of the disconnectedCallback lifecycle method in JavaScript Custom Elements. It explores what the callback is, when it executes, and why it is critical for managing cleanup tasks, freeing system resources, an">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-disconnectedcallback-in-custom-elements">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript disconnectedCallback in Custom Elements - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-disconnectedcallback-in-custom-elements" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the disconnectedCallback lifecycle method in JavaScript Custom Elements. It explores what the callback is, when it executes, and why it is critical for managing cleanup tasks, freeing system resources, an" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-disconnectedcallback-in-custom-elements">JavaScript
+disconnectedCallback in Custom Elements</h1>
+<p>This article provides a comprehensive overview of the
+<code>disconnectedCallback</code> lifecycle method in JavaScript Custom
+Elements. It explores what the callback is, when it executes, and why it
+is critical for managing cleanup tasks, freeing system resources, and
+preventing memory leaks when elements are removed from the Document
+Object Model (DOM).</p>
+<h2 id="what-is-disconnectedcallback">What is disconnectedCallback?</h2>
+<p>The <code>disconnectedCallback</code> is a native lifecycle hook
+defined by the Web Components standard. It is invoked synchronously
+whenever a custom element is removed from the DOM. This method serves as
+the primary mechanism for tearing down component state and performing
+cleanup operations before the browser marks the element for garbage
+collection.</p>
+<h2 id="primary-uses-of-disconnectedcallback">Primary Uses of
+disconnectedCallback</h2>
+<p>JavaScript's automatic garbage collection cannot always clean up
+references tied to external APIs, global objects, or ongoing background
+tasks. Without explicit cleanup inside
+<code>disconnectedCallback</code>, removed elements can remain trapped
+in memory, causing performance degradation and unexpected behavior.</p>
+<h3 id="1-removing-global-and-external-event-listeners">1. Removing
+Global and External Event Listeners</h3>
+<p>When a component adds event listeners to objects outside its own
+shadow or light DOM—such as <code>window</code>, <code>document</code>,
+or another global emitter—those listeners persist even after the element
+is detached.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">disconnectedCallback</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">window</span><span class="op">.</span><span class="fu">removeEventListener</span>(<span class="st">&#39;resize&#39;</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">handleResize</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">document</span><span class="op">.</span><span class="fu">removeEventListener</span>(<span class="st">&#39;keydown&#39;</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">handleKeydown</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-clearing-timers-and-animation-frames">2. Clearing Timers and
+Animation Frames</h3>
+<p>Active intervals created with <code>setInterval</code>, pending
+timeouts created with <code>setTimeout</code>, or
+<code>requestAnimationFrame</code> loops continue running in the
+background if not cancelled explicitly.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">disconnectedCallback</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">clearInterval</span>(<span class="kw">this</span><span class="op">.</span><span class="at">pollingInterval</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cancelAnimationFrame</span>(<span class="kw">this</span><span class="op">.</span><span class="at">animationId</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-disconnecting-observers">3. Disconnecting Observers</h3>
+<p>Web platform observers—such as <code>IntersectionObserver</code>,
+<code>MutationObserver</code>, and <code>ResizeObserver</code>—maintain
+references to observed DOM nodes. They should be disconnected to free up
+memory and stop tracking layout changes.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">disconnectedCallback</span>() {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">observer</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">observer</span><span class="op">.</span><span class="fu">disconnect</span>()<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">observer</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-aborting-network-requests-and-closing-sockets">4. Aborting
+Network Requests and Closing Sockets</h3>
+<p>If a component initiates long-running network operations, WebSockets,
+or Server-Sent Events, <code>disconnectedCallback</code> can abort
+in-flight requests using <code>AbortController</code> or close active
+connections to preserve network bandwidth.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">disconnectedCallback</span>() {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">abortController</span>) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">abortController</span><span class="op">.</span><span class="fu">abort</span>()<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">socket</span>) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span><span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="5-destroying-third-party-library-instances">5. Destroying
+Third-Party Library Instances</h3>
+<p>When wrapping third-party libraries (such as charting engines,
+rich-text editors, or mapping tools) within a custom element, their
+destruction methods must be called inside
+<code>disconnectedCallback</code> to allow the underlying library to
+clean up its own DOM nodes and event bindings.</p>
+<h2 id="important-considerations">Important Considerations</h2>
+<ul>
+<li><strong>Detached vs. Destroyed:</strong> A custom element being
+removed from the DOM does not necessarily mean it is permanently
+destroyed. An element can be moved to a different place in the DOM tree,
+which triggers <code>disconnectedCallback</code> upon removal and
+<code>connectedCallback</code> upon re-insertion. Cleanup code should
+reset states properly so the element can safely reconnect if
+necessary.</li>
+<li><strong>Component-Level Listeners:</strong> Event listeners attached
+directly to the custom element itself (or elements inside its Shadow
+DOM) do not strictly need manual removal, provided there are no circular
+references holding the element in global scope. They will be
+garbage-collected along with the element.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

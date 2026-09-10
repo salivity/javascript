@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Pollution via URL Query String Parsers - javascript</title>
+    <meta name="description" content="Prototype pollution is a critical vulnerability in JavaScript applications where attackers manipulate the base Object.prototype to inject unintended properties across all objects. This vulnerability frequently arises in URL query string parsers that supp">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/prototype-pollution-via-url-query-string-parsers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Prototype Pollution via URL Query String Parsers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/prototype-pollution-via-url-query-string-parsers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Prototype pollution is a critical vulnerability in JavaScript applications where attackers manipulate the base Object.prototype to inject unintended properties across all objects. This vulnerability frequently arises in URL query string parsers that supp" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="prototype-pollution-via-url-query-string-parsers">Prototype
+Pollution via URL Query String Parsers</h1>
+<p>Prototype pollution is a critical vulnerability in JavaScript
+applications where attackers manipulate the base
+<code>Object.prototype</code> to inject unintended properties across all
+objects. This vulnerability frequently arises in URL query string
+parsers that support nested object notation, such as parsing
+<code>?user[name]=John</code> into a nested object structure. If the
+parser recursively merges or assigns properties without blocking
+internal object keys like <code>__proto__</code> or
+<code>constructor.prototype</code>, untrusted user input can alter
+global object prototypes, leading to privilege escalation, denial of
+service, or remote code execution.</p>
+<h3 id="how-query-parsers-create-nested-objects">How Query Parsers
+Create Nested Objects</h3>
+<p>Standard URL query parsers like <code>URLSearchParams</code> treat
+query strings as flat key-value pairs. However, modern web frameworks
+often employ advanced parsers (such as older or misconfigured versions
+of the <code>qs</code> library) to allow complex data structures in
+URLs.</p>
+<p>For instance, a query string such as:</p>
+<pre class="text"><code>?filter[status]=active&amp;filter[role]=admin</code></pre>
+<p>is parsed recursively into a structured JavaScript object:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">filter</span><span class="op">:</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">status</span><span class="op">:</span> <span class="st">&quot;active&quot;</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">role</span><span class="op">:</span> <span class="st">&quot;admin&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>To build this structure, the parsing logic traverses the keys and
+dynamically creates or merges intermediate objects.</p>
+<h3 id="the-injection-vector">The Injection Vector</h3>
+<p>A prototype pollution vulnerability occurs when the parser evaluates
+special object properties during traversal. In JavaScript, every object
+inherits properties from <code>Object.prototype</code>. The internal
+prototype of an object can be accessed using the <code>__proto__</code>
+accessor property or via <code>constructor.prototype</code>.</p>
+<p>When a query parser does not sanitize incoming keys, an attacker can
+supply a query string such as:</p>
+<pre class="text"><code>?__proto__[isAdmin]=true</code></pre>
+<p>or using constructor-based notation:</p>
+<pre class="text"><code>?constructor[prototype][isAdmin]=true</code></pre>
+<p>During execution, a vulnerable parser performs an operation
+functionally equivalent to:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>target[<span class="st">&#39;__proto__&#39;</span>][<span class="st">&#39;isAdmin&#39;</span>] <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span></code></pre></div>
+<p>Because <code>target.__proto__</code> points directly to
+<code>Object.prototype</code>, this assignment modifies the prototype of
+all plain objects in the runtime environment. Consequently, any newly
+instantiated object—or existing object without its own
+<code>isAdmin</code> property—will inherit
+<code>isAdmin: true</code>:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(user<span class="op">.</span><span class="at">isAdmin</span>)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h3 id="potential-impact">Potential Impact</h3>
+<p>Prototype pollution introduced via query strings is particularly
+dangerous because URL parameters are easily manipulated via GET requests
+without requiring authentication. The consequences depend on how the
+application handles object properties:</p>
+<ol type="1">
+<li><strong>Authentication and Authorization Bypass:</strong> If an
+application checks permissions using conditions like
+<code>if (user.isAdmin)</code> without checking
+<code>Object.hasOwn(user, 'isAdmin')</code>, polluted properties can
+grant unauthorized access.</li>
+<li><strong>Denial of Service (DoS):</strong> Overwriting built-in
+prototype methods, such as <code>toString</code>, <code>valueOf</code>,
+or array traversal methods, can cause uncaught exceptions, crashing
+Node.js processes.</li>
+<li><strong>Remote Code Execution (RCE):</strong> In Node.js
+environments, prototype pollution can be chained with "gadgets"—pieces
+of code executed in libraries like child process spawners or template
+engines—that evaluate polluted properties during command execution.</li>
+</ol>
+<h3 id="mitigation-strategies">Mitigation Strategies</h3>
+<p>To prevent prototype pollution when parsing query strings, developers
+should apply the following defenses:</p>
+<ul>
+<li><strong>Use Safe Parser Configurations:</strong> When using query
+parsing libraries such as <code>qs</code>, configure them to ignore
+prototype-altering keys. In modern versions of <code>qs</code>, parsing
+<code>__proto__</code> is disabled by default, but it can explicitly be
+secured by ensuring settings do not re-enable prototype parsing.</li>
+<li><strong>Filter Blacklisted Keys:</strong> Implement strict input
+validation or key sanitization to strip <code>__proto__</code>,
+<code>constructor</code>, and <code>prototype</code> keys before passing
+query parameters to merging or parsing functions.</li>
+<li><strong>Use Prototype-Less Objects:</strong> Store parsed data in
+objects created with <code>Object.create(null)</code>, which have no
+prototype chain and are impervious to prototype pollution.</li>
+<li><strong>Adopt Native Map Structures:</strong> Use JavaScript
+<code>Map</code> objects rather than plain objects for dynamic key-value
+storage, as <code>Map</code> keys do not interact with prototype
+inheritance.</li>
+<li><strong>Freeze the Prototype:</strong> In Node.js applications,
+running <code>Object.freeze(Object.prototype)</code> at startup prevents
+modifications to the base prototype, neutralizing attempts to mutate it
+at runtime.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Microtask Queue in Promise Resolution - javascript</title>
+    <meta name="description" content="The microtask queue plays a vital role in JavaScript's asynchronous architecture by managing the execution order of Promise callbacks. When a Promise resolves or rejects, its associated handlers are not executed immediately in the call stack, nor are the">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-microtask-queue-in-promise-resolution">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Microtask Queue in Promise Resolution - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-microtask-queue-in-promise-resolution" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The microtask queue plays a vital role in JavaScript's asynchronous architecture by managing the execution order of Promise callbacks. When a Promise resolves or rejects, its associated handlers are not executed immediately in the call stack, nor are the" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-microtask-queue-in-promise-resolution">JavaScript
+Microtask Queue in Promise Resolution</h1>
+<p>The microtask queue plays a vital role in JavaScript's asynchronous
+architecture by managing the execution order of Promise callbacks. When
+a Promise resolves or rejects, its associated handlers are not executed
+immediately in the call stack, nor are they deferred to the standard
+task queue. Instead, they are scheduled in the microtask queue, giving
+them immediate priority over other asynchronous operations like timers
+and I/O events. This article explains how the microtask queue operates
+during Promise resolution, its interaction with the Event Loop, and why
+its priority model is essential for predictable asynchronous code.</p>
+<h3 id="the-javascript-event-loop-and-queue-hierarchy">The JavaScript
+Event Loop and Queue Hierarchy</h3>
+<p>JavaScript runs on a single-threaded execution model, meaning it can
+only process one command at a time on the Call Stack. To handle
+asynchronous operations without blocking the main thread, JavaScript
+relies on the Event Loop, which coordinates between two primary
+queues:</p>
+<ol type="1">
+<li><strong>Macrotask Queue (Task Queue):</strong> Handles callbacks
+from sources such as <code>setTimeout</code>, <code>setInterval</code>,
+<code>setImmediate</code>, and standard I/O operations.</li>
+<li><strong>Microtask Queue:</strong> Handles high-priority callbacks,
+primarily those registered by resolved or rejected Promises
+(<code>.then()</code>, <code>.catch()</code>, <code>.finally()</code>),
+<code>queueMicrotask()</code>, and <code>MutationObserver</code>
+events.</li>
+</ol>
+<h3 id="how-promise-resolution-uses-the-microtask-queue">How Promise
+Resolution Uses the Microtask Queue</h3>
+<p>When a Promise transitions from a <code>pending</code> state to
+either <code>fulfilled</code> or <code>rejected</code>, JavaScript does
+not instantly interrupt the running code on the Call Stack to execute
+the <code>.then()</code> or <code>.catch()</code> handlers. Instead, the
+runtime captures these callbacks and pushes them into the microtask
+queue.</p>
+<p>The lifecycle of a Promise resolution proceeds in the following
+sequence:</p>
+<ol type="1">
+<li><strong>Synchronous Execution:</strong> The current synchronous
+script runs to completion on the Call Stack.</li>
+<li><strong>Settlement and Enqueuing:</strong> When
+<code>resolve()</code> or <code>reject()</code> is invoked, the
+associated <code>.then()</code>, <code>.catch()</code>, or
+<code>.finally()</code> callback functions are placed directly into the
+microtask queue.</li>
+<li><strong>Microtask Drain:</strong> As soon as the Call Stack becomes
+completely empty, the Event Loop checks the microtask queue before doing
+anything else.</li>
+<li><strong>Execution:</strong> The engine pulls and executes jobs from
+the microtask queue one by one until the queue is completely
+drained.</li>
+</ol>
+<h3 id="microtask-priority-over-macrotasks">Microtask Priority Over
+Macrotasks</h3>
+<p>The key distinction of the microtask queue is its priority over the
+macrotask queue. Even if a <code>setTimeout</code> callback was
+scheduled before a Promise resolved, the Promise handler will always
+execute first once the Call Stack is clear.</p>
+<p>Furthermore, the Event Loop will process every single microtask in
+the queue—including any new microtasks queued by running
+microtasks—before moving forward to DOM rendering cycles or the next
+macrotask.</p>
+<h3 id="why-the-microtask-queue-is-essential">Why the Microtask Queue Is
+Essential</h3>
+<ul>
+<li><strong>State Consistency:</strong> By deferring Promise resolution
+to the microtask queue, JavaScript guarantees that Promise handlers run
+asynchronously, maintaining predictable execution order without waiting
+for the next full turn of the Event Loop.</li>
+<li><strong>Performance:</strong> Microtasks execute within the same
+tick of the Event Loop, allowing sequential asynchronous operations to
+complete quickly before the browser recalculates styles, renders
+layouts, or handles user input.</li>
+<li><strong>Microtask Starvation Awareness:</strong> Because the engine
+empties the entire microtask queue before moving to rendering or other
+tasks, recursively scheduling microtasks will block the main thread and
+prevent the browser from updating the user interface.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is XSSI and How Do Tokens Protect APIs? - javascript</title>
+    <meta name="description" content="Cross-Site Script Inclusion (XSSI) is a web security vulnerability that allows an attacker's website to steal sensitive, authenticated data from another application by abusing the way web browsers handle the <script> tag. Because script tags are exempt f">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/what-is-xssi-and-how-do-tokens-protect-apis">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is XSSI and How Do Tokens Protect APIs? - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/what-is-xssi-and-how-do-tokens-protect-apis" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Cross-Site Script Inclusion (XSSI) is a web security vulnerability that allows an attacker's website to steal sensitive, authenticated data from another application by abusing the way web browsers handle the <script> tag. Because script tags are exempt f" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="what-is-xssi-and-how-do-tokens-protect-apis">What Is XSSI and
+How Do Tokens Protect APIs?</h1>
+<p>Cross-Site Script Inclusion (XSSI) is a web security vulnerability
+that allows an attacker's website to steal sensitive, authenticated data
+from another application by abusing the way web browsers handle the
+<code>&lt;script&gt;</code> tag. Because script tags are exempt from the
+Same-Origin Policy (SOP), an external domain can include dynamic,
+user-specific JavaScript or JSON resources and capture their contents.
+Implementing unpredictable token mechanisms protects JavaScript data
+APIs by requiring requests to carry cryptographically secure tokens or
+custom headers, which malicious third-party <code>&lt;script&gt;</code>
+tags cannot generate or supply.</p>
+<h2 id="understanding-cross-site-script-inclusion-xssi">Understanding
+Cross-Site Script Inclusion (XSSI)</h2>
+<p>The Same-Origin Policy typically prevents one website from reading
+data hosted on another origin. However, the HTML
+<code>&lt;script&gt;</code> tag is fundamentally designed to allow
+cross-origin execution to load libraries, analytics, and frameworks.</p>
+<p>XSSI occurs when an application exposes sensitive user data through
+endpoints that output executable JavaScript, JSONP, or improperly
+formatted JSON. When an authenticated user visits an attacker-controlled
+webpage, the malicious site includes a script tag pointing directly to
+the vulnerable data API:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://example.com/api/user-profile.js&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>When the victim's browser requests this script, it automatically
+includes the victim's session cookies. If the API responds with
+JavaScript containing sensitive data (such as global variables or
+executable functions), the attacker's script can read that data directly
+from the browser's execution context.</p>
+<h3 id="variations-of-xssi-exploitation">Variations of XSSI
+Exploitation</h3>
+<ul>
+<li><strong>Dynamic JavaScript Files:</strong> Endpoints returning
+sensitive variables assigned directly to the global <code>window</code>
+scope.</li>
+<li><strong>JSONP Endpoints:</strong> Endpoints that wrap JSON data in a
+user-defined callback function, allowing attackers to intercept the
+payload by defining the callback function on their own page.</li>
+<li><strong>Prototype Pollution and Object Override:</strong> Historical
+exploits where attackers manipulated array constructors or prototypes to
+capture naked JSON arrays evaluated by the browser.</li>
+</ul>
+<h2 id="how-token-mechanisms-protect-javascript-data-apis">How Token
+Mechanisms Protect JavaScript Data APIs</h2>
+<p>Because the browser's default behavior sends cookies automatically
+with cross-origin <code>&lt;script&gt;</code> requests, relying solely
+on cookie-based authentication leaves dynamic JavaScript APIs
+vulnerable. Token mechanisms effectively neutralize this threat.</p>
+<h3 id="1-synchronizer-token-pattern-anti-csrf--anti-xssi-tokens">1.
+Synchronizer Token Pattern (Anti-CSRF / Anti-XSSI Tokens)</h3>
+<p>Token-based defense involves issuing a unique, cryptographically
+random token tied to the user's current session. When the client
+application requests sensitive data from an API:</p>
+<ul>
+<li>The server generates a dynamic token and embeds it in the initial
+authenticated page or sends it via a secure handshake.</li>
+<li>Every subsequent data request must explicitly include this token as
+a request parameter or within the payload.</li>
+<li>When a third-party site attempts to invoke the endpoint via a
+<code>&lt;script&gt;</code> tag, it cannot guess or access the token
+because the Same-Origin Policy prevents it from reading the victim's
+current token from the legitimate site.</li>
+<li>The API rejects any request that lacks a valid, matching token,
+blocking the execution of the dynamic script.</li>
+</ul>
+<h3 id="2-custom-http-headers-and-bearer-tokens">2. Custom HTTP Headers
+and Bearer Tokens</h3>
+<p>Modern web APIs frequently use stateless authorization tokens (such
+as JSON Web Tokens) transmitted through custom HTTP headers (e.g.,
+<code>Authorization: Bearer &lt;token&gt;</code> or
+<code>X-Requested-With</code>).</p>
+<p>HTML <code>&lt;script&gt;</code> tags can only perform standard
+<code>GET</code> requests and cannot set custom HTTP headers.
+Consequently:</p>
+<ul>
+<li>The cross-origin <code>&lt;script&gt;</code> tag cannot attach
+custom headers automatically.</li>
+<li>If an attacker attempts to use <code>fetch()</code> or
+<code>XMLHttpRequest</code> to set custom headers, the browser enforces
+Cross-Origin Resource Sharing (CORS) rules.</li>
+<li>Unless the API explicitly permits the attacker's origin via CORS
+headers, the browser blocks the request before any data can be
+read.</li>
+</ul>
+<h2 id="complementary-mitigations-for-api-protection">Complementary
+Mitigations for API Protection</h2>
+<p>While token mechanisms provide strong protection, implementing
+defense-in-depth ensures complete immunity against XSSI:</p>
+<ul>
+<li><strong>Use Pure JSON:</strong> Always return data as standard JSON
+objects (<code>application/json</code>) rather than executable
+JavaScript files or dynamic scripts.</li>
+<li><strong>Avoid JSONP:</strong> Deprecate JSONP callbacks entirely in
+favor of CORS-enabled REST or GraphQL APIs.</li>
+<li><strong>Employ JSON Vulnerability Prefixes:</strong> Prepend data
+responses with non-executable strings such as <code>)]}',\n</code> or
+infinite loops like <code>while(1);</code>. Legitimate AJAX parsers
+strip this prefix before reading the JSON, while a browser attempting to
+execute the response via a <code>&lt;script&gt;</code> tag will throw a
+syntax error and halt execution.</li>
+<li><strong>Configure <code>SameSite</code> Cookie Attributes:</strong>
+Set session cookies with <code>SameSite=Lax</code> or
+<code>SameSite=Strict</code> to prevent cookies from being sent
+automatically during cross-site resource inclusions.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

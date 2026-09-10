@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Decorator Metadata Explained - javascript</title>
+    <meta name="description" content="The JavaScript Decorator Metadata proposal introduces a standardized mechanism to attach, collect, and inspect custom configuration data directly on classes and class elements. By exposing a dedicated metadata object within each decorator's execution con">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-decorator-metadata-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Decorator Metadata Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-decorator-metadata-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The JavaScript Decorator Metadata proposal introduces a standardized mechanism to attach, collect, and inspect custom configuration data directly on classes and class elements. By exposing a dedicated metadata object within each decorator's execution con" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-decorator-metadata-explained">JavaScript Decorator
+Metadata Explained</h1>
+<p>The JavaScript Decorator Metadata proposal introduces a standardized
+mechanism to attach, collect, and inspect custom configuration data
+directly on classes and class elements. By exposing a dedicated
+<code>metadata</code> object within each decorator's execution context
+and making it accessible through <code>Symbol.metadata</code>, custom
+decorators can associate custom runtime configurations—such as
+validation rules, dependency injection tokens, or routing
+information—without relying on third-party reflection libraries.</p>
+<h3 id="the-role-of-contextmetadata">The Role of
+<code>context.metadata</code></h3>
+<p>Under the Stage 3 decorators specification, every decorator function
+receives two arguments: the target value being decorated and a
+<code>context</code> object containing information about the declaration
+(such as its name, kind, and private/static status).</p>
+<p>The Decorator Metadata proposal adds a <code>metadata</code> property
+to this <code>context</code> object. This <code>context.metadata</code>
+is a plain JavaScript object that is shared among all decorators applied
+to the same class, including field, method, getter, setter, and
+class-level decorators.</p>
+<p>When a decorator executes, it can read from or write directly to this
+object:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Route</span>(path) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">function</span> (value<span class="op">,</span> context) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (context<span class="op">.</span><span class="at">kind</span> <span class="op">===</span> <span class="st">&quot;method&quot;</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>      context<span class="op">.</span><span class="at">metadata</span><span class="op">.</span><span class="at">routes</span> <span class="op">=</span> context<span class="op">.</span><span class="at">metadata</span><span class="op">.</span><span class="at">routes</span> <span class="op">||</span> []<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      context<span class="op">.</span><span class="at">metadata</span><span class="op">.</span><span class="at">routes</span><span class="op">.</span><span class="fu">push</span>({</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">methodName</span><span class="op">:</span> context<span class="op">.</span><span class="at">name</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">path</span><span class="op">:</span> path<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Because every decorator on a given class shares access to the same
+<code>context.metadata</code> instance during definition time, multiple
+decorators can independently contribute to a unified configuration
+registry without stepping on each other's state.</p>
+<h3 id="accessing-metadata-with-symbolmetadata">Accessing Metadata with
+<code>Symbol.metadata</code></h3>
+<p>Once the class definition finishes evaluating, the runtime
+automatically assigns the populated metadata object to the class
+constructor under the well-known symbol
+<code>Symbol.metadata</code>.</p>
+<p>Consumers can inspect the accumulated configuration directly from the
+constructor:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> UserController {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  @<span class="fu">Route</span>(<span class="st">&quot;/users&quot;</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getUsers</span>() {}</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  @<span class="fu">Route</span>(<span class="st">&quot;/users/:id&quot;</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getUserById</span>() {}</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> metadata <span class="op">=</span> UserController[<span class="bu">Symbol</span><span class="op">.</span><span class="at">metadata</span>]<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(metadata<span class="op">.</span><span class="at">routes</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: </span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">// [</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">//   { methodName: &#39;getUsers&#39;, path: &#39;/users&#39; },</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">//   { methodName: &#39;getUserById&#39;, path: &#39;/users/:id&#39; }</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">// ]</span></span></code></pre></div>
+<h3 id="prototypal-inheritance">Prototypal Inheritance</h3>
+<p>The metadata object naturally respects JavaScript's inheritance
+hierarchy. When a subclass extends a base class, the subclass's metadata
+object inherits prototypically from the base class's
+<code>Symbol.metadata</code> object via
+<code>Object.create(BaseClass[Symbol.metadata])</code>.</p>
+<p>This prototype chain ensures that:</p>
+<ul>
+<li>Subclasses automatically inherit configuration defined on base
+classes.</li>
+<li>Modifying metadata on a subclass does not mutate or overwrite the
+metadata of the parent class.</li>
+<li>Frameworks can easily look up inherited properties through regular
+JavaScript property access without custom inheritance resolution
+logic.</li>
+</ul>
+<h3 id="elimination-of-reflection-polyfills">Elimination of Reflection
+Polyfills</h3>
+<p>Historically, JavaScript frameworks relied on non-standard libraries
+such as <code>reflect-metadata</code> to assign metadata through
+side-channel WeakMaps or property mutations. The native Decorator
+Metadata proposal provides a first-class, performant, and memory-safe
+standard that binds configuration directly to class objects at
+definition time, standardizing how meta-programming is handled across
+modern JavaScript runtimes.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

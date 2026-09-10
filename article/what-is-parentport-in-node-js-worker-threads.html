@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is parentPort in Node.js worker_threads? - javascript</title>
+    <meta name="description" content="This article explores the purpose and usage of the parentPort object within the Node.js workerthreads module. It explains how parentPort acts as the primary communication bridge between a background worker thread and the main execution thread, details it">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/what-is-parentport-in-node-js-worker-threads">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is parentPort in Node.js worker_threads? - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/what-is-parentport-in-node-js-worker-threads" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the purpose and usage of the parentPort object within the Node.js workerthreads module. It explains how parentPort acts as the primary communication bridge between a background worker thread and the main execution thread, details it" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="what-is-parentport-in-nodejs-worker_threads">What Is parentPort
+in Node.js worker_threads?</h1>
+<p>This article explores the purpose and usage of the
+<code>parentPort</code> object within the Node.js
+<code>worker_threads</code> module. It explains how
+<code>parentPort</code> acts as the primary communication bridge between
+a background worker thread and the main execution thread, details its
+core methods and events, and provides practical code examples
+demonstrating bidirectional data exchange in multi-threaded JavaScript
+applications.</p>
+<h2 id="what-is-parentport">What Is parentPort?</h2>
+<p>In Node.js multi-threading, the <code>parentPort</code> object is an
+instance of <code>MessagePort</code> automatically provided inside any
+spawned worker thread. Its primary purpose is to allow the worker thread
+to communicate with the thread that created it (the parent or main
+thread).</p>
+<p>When code runs on the main thread, <code>parentPort</code> is
+<code>null</code>. Inside a worker thread, however,
+<code>parentPort</code> represents the child's end of a bidirectional
+message channel, enabling event-driven, non-blocking data exchange.</p>
+<h2 id="primary-roles-of-parentport">Primary Roles of parentPort</h2>
+<ol type="1">
+<li><strong>Returning Results:</strong> The most common use case for a
+worker thread is offloading CPU-intensive calculations. Once the
+computation is complete, the worker uses
+<code>parentPort.postMessage()</code> to send the final result back to
+the main thread.</li>
+<li><strong>Receiving Instructions:</strong> A worker can listen for
+incoming commands or input data from the main thread using the
+<code>parentPort.on('message', ...)</code> event listener.</li>
+<li><strong>Status and Progress Updates:</strong> For long-running
+background tasks, <code>parentPort</code> can emit periodic progress
+events back to the parent without blocking execution.</li>
+<li><strong>Lifecycle Control:</strong> Calling
+<code>parentPort.close()</code> terminates the connection port, allowing
+the worker thread to exit cleanly if there are no other active handles
+in its event loop.</li>
+</ol>
+<h2 id="core-methods-and-events">Core Methods and Events</h2>
+<ul>
+<li><strong><code>parentPort.postMessage(value)</code></strong>:
+Transmits a JavaScript value to the parent thread. Values are serialized
+using the HTML structured clone algorithm, meaning objects, arrays, and
+primitive types are copied safely between memory boundaries.</li>
+<li><strong><code>parentPort.on('message', callback)</code></strong>:
+Registers a listener that triggers whenever the parent thread sends data
+via its corresponding worker instance.</li>
+<li><strong><code>parentPort.on('close', callback)</code></strong>:
+Fires when the communication channel between parent and child is
+severed.</li>
+<li><strong><code>parentPort.close()</code></strong>: Closes the port
+from the worker side, stopping further transmission of messages.</li>
+</ul>
+<h2 id="basic-implementation-example">Basic Implementation Example</h2>
+<p>The following example demonstrates how <code>parentPort</code> sends
+and receives data inside a typical Node.js application.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { <span class="bu">Worker</span><span class="op">,</span> isMainThread<span class="op">,</span> parentPort } <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;worker_threads&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (isMainThread) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Main Thread Logic</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> worker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="bu">__filename</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Send a task to the worker</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  worker<span class="op">.</span><span class="fu">postMessage</span>({ <span class="dt">number</span><span class="op">:</span> <span class="dv">40</span> })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Receive the processed result from the worker</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  worker<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;message&#39;</span><span class="op">,</span> (result) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Result from worker: </span><span class="sc">${</span>result<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Worker Thread Logic: parentPort handles communication</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  parentPort<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;message&#39;</span><span class="op">,</span> (data) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Perform intensive task</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> result <span class="op">=</span> data<span class="op">.</span><span class="at">number</span> <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Send the result back to the parent thread</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    parentPort<span class="op">.</span><span class="fu">postMessage</span>(result)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="important-considerations">Important Considerations</h2>
+<ul>
+<li><strong>Value Cloning:</strong> Data passed through
+<code>parentPort.postMessage()</code> is cloned, not shared by
+reference. For sharing raw memory directly between threads without
+cloning overhead, consider passing <code>SharedArrayBuffer</code>
+instances instead.</li>
+<li><strong>Presence Check:</strong> Before interacting with
+<code>parentPort</code>, verify that <code>isMainThread</code> is
+<code>false</code> or that <code>parentPort !== null</code> to avoid
+runtime errors when sharing code files between main and worker
+contexts.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

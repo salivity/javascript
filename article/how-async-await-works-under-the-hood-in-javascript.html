@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Async Await Works Under the Hood in JavaScript - javascript</title>
+    <meta name="description" content="The async and await keywords in JavaScript provide a clean, readable syntax for handling asynchronous operations without nesting callbacks or chaining .then() handlers. Under the hood, this syntax is not a new concurrency model; it is syntactic sugar bui">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-async-await-works-under-the-hood-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Async Await Works Under the Hood in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-async-await-works-under-the-hood-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The async and await keywords in JavaScript provide a clean, readable syntax for handling asynchronous operations without nesting callbacks or chaining .then() handlers. Under the hood, this syntax is not a new concurrency model; it is syntactic sugar bui" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-async-await-works-under-the-hood-in-javascript">How Async
+Await Works Under the Hood in JavaScript</h1>
+<p>The <code>async</code> and <code>await</code> keywords in JavaScript
+provide a clean, readable syntax for handling asynchronous operations
+without nesting callbacks or chaining <code>.then()</code> handlers.
+Under the hood, this syntax is not a new concurrency model; it is
+syntactic sugar built on top of native JavaScript Promises and Generator
+functions. This article breaks down the internal mechanics of
+<code>async/await</code>, exploring how JavaScript engines use execution
+contexts, the microtask queue, and state machines to suspend and resume
+functions seamlessly without blocking the main execution thread.</p>
+<h3 id="the-foundation-promises-and-generators">The Foundation: Promises
+and Generators</h3>
+<p>To understand <code>async/await</code>, you must understand that the
+engine converts it into a combination of Promises and Generators
+(coroutines).</p>
+<ul>
+<li><strong>Promises</strong> provide a standardized way to represent
+the eventual completion or failure of an asynchronous operation.</li>
+<li><strong>Generators</strong> (<code>function*</code> and
+<code>yield</code>) allow a function to pause its execution at a
+specific point and yield control back to the caller, maintaining its
+internal state until execution is resumed via <code>.next()</code>.</li>
+</ul>
+<p>An <code>async</code> function behaves essentially like an
+automatically managed generator function wrapped in a promise-resolving
+runner.</p>
+<hr />
+<h3 id="what-happens-with-the-async-keyword">What Happens with the
+<code>async</code> Keyword?</h3>
+<p>When you declare a function with <code>async</code>, the JavaScript
+engine modifies two fundamental behaviors:</p>
+<ol type="1">
+<li><strong>Automatic Promise Wrapping:</strong> The function is
+guaranteed to return a Promise. If the function returns a primitive
+value or an object, the engine implicitly wraps it using
+<code>Promise.resolve(returnValue)</code>.</li>
+<li><strong>Asynchronous Execution Context:</strong> The engine sets up
+the function's internal execution context to allow it to be suspended
+and resumed without destroying its local variable scope.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">getData</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="st">&quot;data loaded&quot;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Under the hood, this is equivalent to:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getData</span>() {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="bu">Promise</span><span class="op">.</span><span class="fu">resolve</span>(<span class="st">&quot;data loaded&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="what-happens-with-the-await-keyword">What Happens with the
+<code>await</code> Keyword?</h3>
+<p>The <code>await</code> keyword can only be used inside an
+<code>async</code> function (or at the top level in modern ES modules).
+When the engine encounters <code>await expression</code>:</p>
+<ol type="1">
+<li><strong>Evaluation:</strong> The engine evaluates the expression
+following <code>await</code>. If it is not a Promise, it implicitly
+transforms it into one via
+<code>Promise.resolve(expression)</code>.</li>
+<li><strong>Suspension:</strong> The engine pauses the execution of the
+current <code>async</code> function. The function's local variables,
+arguments, and current execution pointer are saved in memory.</li>
+<li><strong>Yielding Control:</strong> The <code>async</code> function
+immediately returns an unresolved Promise to its outer caller. Control
+returns to whatever called the <code>async</code> function, allowing the
+call stack to continue executing synchronous code.</li>
+<li><strong>Attaching Handlers:</strong> The engine attaches an internal
+fulfillment handler and rejection handler to the awaited Promise.</li>
+</ol>
+<hr />
+<h3 id="the-event-loop-and-microtask-queue-integration">The Event Loop
+and Microtask Queue Integration</h3>
+<p>When the awaited Promise resolves (or rejects), the JavaScript
+runtime does not immediately resume the paused <code>async</code>
+function synchronously. Instead, it leverages the <strong>Microtask
+Queue</strong>:</p>
+<ol type="1">
+<li>Once the awaited Promise settles, a resumption callback is placed
+into the microtask queue.</li>
+<li>The JavaScript Event Loop continues executing whatever synchronous
+tasks remain on the Call Stack.</li>
+<li>When the Call Stack is empty, the Event Loop checks the Microtask
+Queue before moving on to rendering or macrotasks (such as
+<code>setTimeout</code>).</li>
+<li>The microtask executes, restoring the saved execution context of the
+<code>async</code> function.</li>
+<li>The awaited value is injected back into the function, and execution
+resumes from the exact line where it was suspended.</li>
+</ol>
+<hr />
+<h3 id="conceptual-implementation-the-runner-pattern">Conceptual
+Implementation: The Runner Pattern</h3>
+<p>Before <code>async/await</code> was native to the language,
+developers used libraries like <code>co</code> or Babel transpilers to
+achieve the same result using generators and promises.</p>
+<p>Under the hood, an <code>async</code> function functions similarly to
+this engine-level implementation:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">runner</span>(generatorFn) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">function</span> (<span class="op">...</span>args) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> gen <span class="op">=</span> <span class="fu">generatorFn</span>(<span class="op">...</span>args)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve<span class="op">,</span> reject) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">function</span> <span class="fu">step</span>(nextFn) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">let</span> result<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>          result <span class="op">=</span> <span class="fu">nextFn</span>()<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">catch</span> (error) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> <span class="fu">reject</span>(error)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (result<span class="op">.</span><span class="at">done</span>) {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> <span class="fu">resolve</span>(result<span class="op">.</span><span class="at">value</span>)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Promise</span><span class="op">.</span><span class="fu">resolve</span>(result<span class="op">.</span><span class="at">value</span>)</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>          <span class="op">.</span><span class="fu">then</span>((value) <span class="kw">=&gt;</span> <span class="fu">step</span>(() <span class="kw">=&gt;</span> gen<span class="op">.</span><span class="fu">next</span>(value)))</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>          <span class="op">.</span><span class="fu">catch</span>((err) <span class="kw">=&gt;</span> <span class="fu">step</span>(() <span class="kw">=&gt;</span> gen<span class="op">.</span><span class="fu">throw</span>(err)))<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>      <span class="fu">step</span>(() <span class="kw">=&gt;</span> gen<span class="op">.</span><span class="fu">next</span>())<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="error-handling-under-the-hood">Error Handling Under the
+Hood</h3>
+<p>When an awaited Promise rejects, the engine handles the rejection by
+throwing an exception inside the suspended function context at the point
+of the <code>await</code> expression.</p>
+<p>If the <code>await</code> statement is wrapped inside a
+<code>try/catch</code> block, the <code>catch</code> block intercepts
+the error synchronously from the perspective of the function. If the
+error is not caught inside the function, the Promise returned by the
+<code>async</code> function itself transitions to the
+<code>rejected</code> state with that error.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

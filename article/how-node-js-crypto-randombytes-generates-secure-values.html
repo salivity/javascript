@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Node.js crypto.randomBytes Generates Secure Values - javascript</title>
+    <meta name="description" content="This article examines the internal architecture of Node.js's node:crypto randomBytes method, explaining how it produces cryptographically secure pseudorandom numbers. It covers the delegation path from the JavaScript API down to native C++ bindings, the">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-node-js-crypto-randombytes-generates-secure-values">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Node.js crypto.randomBytes Generates Secure Values - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-node-js-crypto-randombytes-generates-secure-values" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines the internal architecture of Node.js's node:crypto randomBytes method, explaining how it produces cryptographically secure pseudorandom numbers. It covers the delegation path from the JavaScript API down to native C++ bindings, the" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-nodejs-cryptorandombytes-generates-secure-values">How
+Node.js crypto.randomBytes Generates Secure Values</h1>
+<p>This article examines the internal architecture of Node.js's
+<code>node:crypto</code> <code>randomBytes</code> method, explaining how
+it produces cryptographically secure pseudorandom numbers. It covers the
+delegation path from the JavaScript API down to native C++ bindings, the
+role of OpenSSL, the underlying operating system entropy sources, and
+the difference between synchronous and asynchronous generation.</p>
+<h3 id="the-javascript-to-c-delegation">The JavaScript to C++
+Delegation</h3>
+<p>In JavaScript, standard pseudorandom generators like
+<code>Math.random()</code> rely on deterministic algorithms—such as
+xorshift128+—which are fast but entirely predictable once previous
+internal states are observed. When generating security-critical values
+like cryptographic keys, session tokens, or nonces, predictability
+creates severe vulnerabilities.</p>
+<p>Node.js addresses this through the <code>node:crypto</code> module.
+Calling <code>crypto.randomBytes(size)</code> does not generate numbers
+in the V8 JavaScript engine. Instead, the call immediately routes
+through Node.js’s native C++ binding layer
+(<code>src/node_crypto.cc</code>). This layer interfaces directly with
+OpenSSL (or BoringSSL in certain distributions), invoking the OpenSSL
+API function <code>RAND_bytes()</code>.</p>
+<h3 id="harvesting-system-entropy">Harvesting System Entropy</h3>
+<p>OpenSSL does not rely on a static seed. To achieve cryptographic
+security, it requires raw environmental noise—referred to as system
+entropy. When <code>RAND_bytes()</code> is invoked, OpenSSL requests
+randomness from the host operating system's kernel:</p>
+<ul>
+<li><strong>Linux:</strong> Uses the <code>getrandom()</code> system
+call or reads from <code>/dev/urandom</code>. These sources aggregate
+unpredictable events from hardware interrupts, disk activity, and
+keyboard or mouse timings.</li>
+<li><strong>macOS / iOS:</strong> Relies on the
+<code>getentropy()</code> system call or reads from
+<code>/dev/urandom</code>.</li>
+<li><strong>Windows:</strong> Interfaces with the Cryptography API: Next
+Generation (CNG) via the <code>BCryptGenRandom</code> system
+function.</li>
+</ul>
+<p>By sourcing data from unpredictable kernel-level physical states, the
+foundation of the generated bytes remains non-deterministic.</p>
+<h3 id="cryptographic-prng-csprng-construction">Cryptographic PRNG
+(CSPRNG) Construction</h3>
+<p>Accessing OS-level entropy repeatedly can cause performance
+bottlenecks or deplete system entropy reserves. To balance speed with
+security, OpenSSL implements a Cryptographically Secure Pseudorandom
+Number Generator (CSPRNG), typically a deterministic random bit
+generator (DRBG) conforming to NIST SP 800-90A standards (such as
+AES-CTR DRBG or Hash DRBG).</p>
+<p>The OS entropy serves as an unpredictable seed for this generator.
+The internal state is continuously mixed and periodically reseeded from
+the kernel. Even if an attacker analyzes large amounts of output from
+<code>randomBytes</code>, the one-way cryptographic properties of the
+underlying cipher prevent backward calculation of previous states or
+forward prediction of future outputs.</p>
+<h3 id="synchronous-vs-asynchronous-execution">Synchronous vs.
+Asynchronous Execution</h3>
+<p>The <code>randomBytes</code> method provides two modes of execution
+that handle thread safety and performance differently:</p>
+<ol type="1">
+<li><strong>Synchronous
+(<code>crypto.randomBytes(size)</code>):</strong> Blocks the V8
+execution thread until the requested number of secure bytes is
+generated. If the request size is large or system entropy is temporarily
+unavailable, this call can introduce latency into the main Node.js event
+loop.</li>
+<li><strong>Asynchronous
+(<code>crypto.randomBytes(size, callback)</code>):</strong> Offloads the
+OpenSSL generation work to the libuv threadpool. The main event loop
+remains free to process network requests and other tasks. Once the
+random buffer is populated by a background worker thread, the provided
+callback or promise is resolved on the event loop.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

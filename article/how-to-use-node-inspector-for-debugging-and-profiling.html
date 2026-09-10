@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use node:inspector for Debugging and Profiling - javascript</title>
+    <meta name="description" content="The node:inspector module provides a built-in API that allows developers to interact directly with the V8 engine's debugging and profiling tools via the Chrome DevTools Protocol (CDP). By exposing programmatic control over debugging sessions, CPU profili">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-to-use-node-inspector-for-debugging-and-profiling">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use node:inspector for Debugging and Profiling - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-to-use-node-inspector-for-debugging-and-profiling" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The node:inspector module provides a built-in API that allows developers to interact directly with the V8 engine's debugging and profiling tools via the Chrome DevTools Protocol (CDP). By exposing programmatic control over debugging sessions, CPU profili" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-to-use-nodeinspector-for-debugging-and-profiling">How to Use
+node:inspector for Debugging and Profiling</h1>
+<p>The <code>node:inspector</code> module provides a built-in API that
+allows developers to interact directly with the V8 engine's debugging
+and profiling tools via the Chrome DevTools Protocol (CDP). By exposing
+programmatic control over debugging sessions, CPU profiling, and heap
+snapshots, this module enables developers to diagnose performance
+bottlenecks, capture memory leaks, and debug execution flow entirely
+within code, without relying solely on manual command-line flags or
+external debugger interfaces.</p>
+<h3 id="core-architecture-and-the-inspector-session">Core Architecture
+and the Inspector Session</h3>
+<p>At the center of programmatic interaction is the
+<code>inspector.Session</code> class. A session acts as a communication
+channel between your JavaScript runtime and the V8 inspector. Through
+this session, you can send protocol commands and listen for engine-level
+events.</p>
+<p>To start interacting with the runtime programmatically, create and
+connect a session:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> inspector <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;node:inspector&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> session <span class="op">=</span> <span class="kw">new</span> inspector<span class="op">.</span><span class="fu">Session</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>session<span class="op">.</span><span class="fu">connect</span>()<span class="op">;</span></span></code></pre></div>
+<p>Once connected, commands are dispatched using
+<code>session.post()</code>. This method takes a protocol method name,
+optional parameters, and a callback that handles the result or any
+runtime errors.</p>
+<h3 id="programmatic-cpu-profiling">Programmatic CPU Profiling</h3>
+<p>The <code>node:inspector</code> module allows you to isolate
+performance tracking to specific functions or transactions rather than
+profiling the entire lifecycle of an application. This is done through
+the <code>Profiler</code> domain of the V8 protocol.</p>
+<p>To record CPU usage:</p>
+<ol type="1">
+<li>Enable the profiler domain:
+<code>session.post('Profiler.enable')</code>.</li>
+<li>Start recording: <code>session.post('Profiler.start')</code>.</li>
+<li>Execute the workload you want to analyze.</li>
+<li>Stop recording:
+<code>session.post('Profiler.stop', (err, { profile }) =&gt; { ... })</code>.</li>
+</ol>
+<p>The resulting <code>profile</code> object contains execution call
+trees, sample timings, and hit counts formatted according to the Chrome
+DevTools profile specification. This data can be serialized to JSON and
+loaded directly into the DevTools Performance panel for visual
+analysis.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fs <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;node:fs&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> inspector <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;node:inspector&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> session <span class="op">=</span> <span class="kw">new</span> inspector<span class="op">.</span><span class="fu">Session</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>session<span class="op">.</span><span class="fu">connect</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>session<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;Profiler.enable&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  session<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;Profiler.start&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Run the target workload</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">doHeavyWork</span>()<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    session<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;Profiler.stop&#39;</span><span class="op">,</span> (err<span class="op">,</span> { profile }) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>err) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        fs<span class="op">.</span><span class="fu">writeFileSync</span>(<span class="st">&#39;cpu-profile.cpuprofile&#39;</span><span class="op">,</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(profile))<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      session<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;Profiler.disable&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      session<span class="op">.</span><span class="fu">disconnect</span>()<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="memory-profiling-and-heap-snapshots">Memory Profiling and Heap
+Snapshots</h3>
+<p>Memory diagnostics can be triggered dynamically based on runtime
+metrics, such as crossing a specific memory threshold. The
+<code>HeapProfiler</code> domain provides methods to inspect allocated
+objects and generate complete heap dumps.</p>
+<p>Using <code>HeapProfiler.takeHeapSnapshot</code>, the V8 engine
+streams the heap state in chunks:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fs <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;node:fs&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> inspector <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;node:inspector&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> session <span class="op">=</span> <span class="kw">new</span> inspector<span class="op">.</span><span class="fu">Session</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fd <span class="op">=</span> fs<span class="op">.</span><span class="fu">openSync</span>(<span class="st">&#39;memory.heapsnapshot&#39;</span><span class="op">,</span> <span class="st">&#39;w&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>session<span class="op">.</span><span class="fu">connect</span>()<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Listen for chunks of the snapshot</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>session<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;HeapProfiler.addHeapSnapshotChunk&#39;</span><span class="op">,</span> (m) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  fs<span class="op">.</span><span class="fu">writeSync</span>(fd<span class="op">,</span> m<span class="op">.</span><span class="at">params</span><span class="op">.</span><span class="at">chunk</span>)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>session<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;HeapProfiler.takeHeapSnapshot&#39;</span><span class="op">,</span> <span class="kw">null</span><span class="op">,</span> (err) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  fs<span class="op">.</span><span class="fu">closeSync</span>(fd)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  session<span class="op">.</span><span class="fu">disconnect</span>()<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Because snapshots are streamed as events, they can be written to disk
+with minimal additional memory overhead.</p>
+<h3 id="programmatic-debugging-and-flow-control">Programmatic Debugging
+and Flow Control</h3>
+<p>Beyond diagnostic profiling, the <code>Debugger</code> domain enables
+internal control over JavaScript execution. You can pause execution,
+evaluate variables in current scopes, and inspect call stacks
+programmatically.</p>
+<p>Key methods include:</p>
+<ul>
+<li><code>Debugger.enable</code>: Activates debugging hooks within the
+V8 engine.</li>
+<li><code>Debugger.pause</code>: Halts execution at the next JavaScript
+statement.</li>
+<li><code>Debugger.setBreakpoint</code> or
+<code>Debugger.setBreakpointByUrl</code>: Sets line-level
+breakpoints.</li>
+<li><code>Debugger.resume</code>: Continues script execution.</li>
+</ul>
+<p>When a breakpoint is hit, the session emits the
+<code>Debugger.paused</code> event, providing the
+<code>callFrames</code> array. Each frame exposes local variables, scope
+hierarchies, and script locations, enabling custom logging or
+conditional inspection directly in the runtime.</p>
+<h3 id="dynamic-socket-management">Dynamic Socket Management</h3>
+<p>The module also controls the network interface for external debugging
+clients via top-level methods:</p>
+<ul>
+<li><code>inspector.open([port[, host[, wait]]])</code>: Opens the
+inspector port dynamically on a specified host and port, allowing an
+external debugger (like Chrome DevTools or VS Code) to attach to an
+already running process without restarting it with
+<code>--inspect</code>.</li>
+<li><code>inspector.close()</code>: Deactivates the listening port to
+secure the process once debugging is complete.</li>
+<li><code>inspector.url()</code>: Returns the active WebSocket URL
+required by external clients to connect.</li>
+</ul>
+<h3 id="production-utility">Production Utility</h3>
+<p>The <code>node:inspector</code> module transforms diagnostics from a
+passive development tool into an active production capability. By
+integrating it into error-handling pipelines or health-check routines,
+Node.js applications can automatically capture targeted CPU profiles
+during latency spikes or dump heap snapshots when memory usage becomes
+critical.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How document.cookie Parses and Writes Cookies - javascript</title>
+    <meta name="description" content="The document.cookie property in browser JavaScript provides an interface to read and write HTTP cookies associated with the current document. Rather than acting as a standard string variable, document.cookie functions as a getter and setter with distinct">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-document-cookie-parses-and-writes-cookies">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How document.cookie Parses and Writes Cookies - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-document-cookie-parses-and-writes-cookies" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The document.cookie property in browser JavaScript provides an interface to read and write HTTP cookies associated with the current document. Rather than acting as a standard string variable, document.cookie functions as a getter and setter with distinct" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-documentcookie-parses-and-writes-cookies">How
+document.cookie Parses and Writes Cookies</h1>
+<p>The <code>document.cookie</code> property in browser JavaScript
+provides an interface to read and write HTTP cookies associated with the
+current document. Rather than acting as a standard string variable,
+<code>document.cookie</code> functions as a getter and setter with
+distinct behavioral rules for parsing and assignment. This article
+explains how the browser handles writes through this property, how it
+exposes existing cookies for reading, and how to effectively parse and
+serialize cookie strings.</p>
+<h2 id="how-writing-cookies-works-the-setter">How Writing Cookies Works
+(The Setter)</h2>
+<p>When you assign a string to <code>document.cookie</code>, you do not
+overwrite the entire cookie store. Instead, the browser's setter
+intercepts the assignment, parses the string as a single cookie
+definition, and updates the browser's internal cookie jar.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="at">cookie</span> <span class="op">=</span> <span class="st">&quot;username=JohnDoe; max-age=3600; path=/; Secure; SameSite=Lax&quot;</span><span class="op">;</span></span></code></pre></div>
+<h3 id="the-structure-of-a-write-string">The Structure of a Write
+String</h3>
+<p>A write string consists of a primary <code>name=value</code> pair
+followed by optional semicolon-separated control attributes
+(directives):</p>
+<ul>
+<li><strong><code>name=value</code></strong>: The data payload. Special
+characters (spaces, semicolons, commas, equals signs) must be encoded
+using <code>encodeURIComponent()</code>.</li>
+<li><strong><code>path=path_value</code></strong>: Defines the URL path
+prefix required for the cookie to be sent. Defaults to the current
+document's path.</li>
+<li><strong><code>domain=domain_value</code></strong>: Specifies which
+hosts can receive the cookie. Defaults to the current host (excluding
+subdomains unless explicitly defined).</li>
+<li><strong><code>max-age=seconds</code> /
+<code>expires=date</code></strong>: Determines the lifetime of the
+cookie. Without these, the cookie acts as a session cookie and is
+removed when the browser closes.</li>
+<li><strong><code>secure</code></strong>: Restricts cookie transmission
+to encrypted (HTTPS) connections.</li>
+<li><strong><code>samesite=Strict|Lax|None</code></strong>: Controls
+whether the cookie is sent with cross-site requests.</li>
+</ul>
+<h3 id="behavior-and-limitations-of-the-setter">Behavior and Limitations
+of the Setter</h3>
+<ol type="1">
+<li><strong>One at a Time:</strong> You cannot set multiple cookies in a
+single assignment. Setting <code>document.cookie = "a=1; b=2"</code>
+sets the cookie named <code>a</code> with the value <code>1</code> and
+treats <code>b=2</code> as an invalid directive, ignoring it.</li>
+<li><strong>Deletion:</strong> To delete a cookie, set its
+<code>max-age</code> to <code>0</code> (or its expiration date to the
+past) using the exact matching <code>name</code>, <code>path</code>, and
+<code>domain</code> attributes.</li>
+<li><strong>No HttpOnly Access:</strong> JavaScript cannot set the
+<code>HttpOnly</code> flag; this directive can only be set by the server
+via the <code>Set-Cookie</code> HTTP response header.</li>
+</ol>
+<hr />
+<h2 id="how-reading-cookies-works-the-getter">How Reading Cookies Works
+(The Getter)</h2>
+<p>Accessing <code>document.cookie</code> invokes an internal getter
+that queries the browser's cookie storage, filters the accessible
+cookies, and concatenates them into a single string.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">document</span><span class="op">.</span><span class="at">cookie</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &quot;theme=dark; username=JohnDoe; session_id=abc123&quot;</span></span></code></pre></div>
+<h3 id="key-rules-of-the-getter-output">Key Rules of the Getter
+Output</h3>
+<ul>
+<li><strong>Format:</strong> The returned string contains only
+<code>name=value</code> pairs separated by a semicolon and a space
+(<code>; </code>).</li>
+<li><strong>Missing Metadata:</strong> Attributes such as
+<code>expires</code>, <code>path</code>, <code>domain</code>,
+<code>SameSite</code>, and <code>Secure</code> are never returned by the
+getter.</li>
+<li><strong>Omission of HttpOnly:</strong> Any cookie marked with the
+<code>HttpOnly</code> flag is completely hidden from
+<code>document.cookie</code> for security reasons.</li>
+<li><strong>Ordering:</strong> The order of the key-value pairs in the
+returned string is not guaranteed by browser specifications.</li>
+</ul>
+<hr />
+<h2 id="parsing-documentcookie-into-a-javascript-object">Parsing
+<code>document.cookie</code> into a JavaScript Object</h2>
+<p>Because the getter returns a flat string, client-side code must parse
+it to access specific values. A standard parsing approach splits the
+string and decodes the components:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getCookies</span>() {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cookies <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span><span class="bu">document</span><span class="op">.</span><span class="at">cookie</span>) <span class="cf">return</span> cookies<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">document</span><span class="op">.</span><span class="at">cookie</span><span class="op">.</span><span class="fu">split</span>(<span class="st">&quot;; &quot;</span>)<span class="op">.</span><span class="fu">forEach</span>(cookie <span class="kw">=&gt;</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> [name<span class="op">,</span> <span class="op">...</span>valueParts] <span class="op">=</span> cookie<span class="op">.</span><span class="fu">split</span>(<span class="st">&quot;=&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> value <span class="op">=</span> valueParts<span class="op">.</span><span class="fu">join</span>(<span class="st">&quot;=&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    cookies[<span class="pp">decodeURIComponent</span>(name)] <span class="op">=</span> <span class="pp">decodeURIComponent</span>(value)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> cookies<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Example usage:</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> allCookies <span class="op">=</span> <span class="fu">getCookies</span>()<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(allCookies<span class="op">.</span><span class="at">username</span>)<span class="op">;</span> <span class="co">// &quot;JohnDoe&quot;</span></span></code></pre></div>
+<hr />
+<h2 id="the-modern-alternative-cookie-store-api">The Modern Alternative:
+Cookie Store API</h2>
+<p>Modern browsers support the asynchronous <code>cookieStore</code>
+API, which replaces the manual string parsing and serialization required
+by <code>document.cookie</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Reading a cookie</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">readTheme</span>() {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cookie <span class="op">=</span> <span class="cf">await</span> cookieStore<span class="op">.</span><span class="fu">get</span>(<span class="st">&quot;theme&quot;</span>)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(cookie<span class="op">?.</span><span class="at">value</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Writing a cookie</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">setTheme</span>() {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> cookieStore<span class="op">.</span><span class="fu">set</span>({</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;theme&quot;</span><span class="op">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">value</span><span class="op">:</span> <span class="st">&quot;dark&quot;</span><span class="op">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">path</span><span class="op">:</span> <span class="st">&quot;/&quot;</span><span class="op">,</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">sameSite</span><span class="op">:</span> <span class="st">&quot;lax&quot;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The Cookie Store API provides standard JavaScript objects, supports
+service workers, and avoids synchronous blocking of the main thread.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Web Workers and postMessage Guide - javascript</title>
+    <meta name="description" content="Web Workers bring multithreading to JavaScript by running scripts in background threads isolated from the main execution thread. Because workers do not share memory with the main thread, they rely on a communication system known as message passing. This">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-web-workers-and-postmessage-guide">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Web Workers and postMessage Guide - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-web-workers-and-postmessage-guide" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Web Workers bring multithreading to JavaScript by running scripts in background threads isolated from the main execution thread. Because workers do not share memory with the main thread, they rely on a communication system known as message passing. This" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-web-workers-and-postmessage-guide">JavaScript Web
+Workers and postMessage Guide</h1>
+<p>Web Workers bring multithreading to JavaScript by running scripts in
+background threads isolated from the main execution thread. Because
+workers do not share memory with the main thread, they rely on a
+communication system known as message passing. This article explores how
+Web Workers exchange data, how the <code>postMessage()</code> API
+functions, and the primary mechanisms used to transmit data—specifically
+structured cloning and transferable objects.</p>
+<h2 id="understanding-message-passing-in-web-workers">Understanding
+Message Passing in Web Workers</h2>
+<p>JavaScript operates on a single-threaded event loop by default. When
+performing CPU-intensive tasks—such as image processing, complex
+mathematical calculations, or large dataset parsing—the main thread can
+freeze, causing the user interface (UI) to become unresponsive.</p>
+<p>Web Workers resolve this by running tasks in separate background
+threads. To prevent concurrency issues like race conditions and
+deadlocks, Web Workers cannot directly access the DOM, the
+<code>window</code> object, or variables from the main thread. Instead,
+the main thread and worker threads interact exclusively by sending
+messages back and forth asynchronously using an event-driven messaging
+system.</p>
+<h2 id="the-postmessage-api">The <code>postMessage()</code> API</h2>
+<p>The <code>postMessage()</code> method is the standard interface for
+sending data between the main thread and a worker. Communication works
+symmetrically: the main thread sends data to the worker, and the worker
+can send results back to the main thread.</p>
+<h3 id="sending-and-receiving-messages">Sending and Receiving
+Messages</h3>
+<ol type="1">
+<li><strong>Main Thread to Worker</strong>: The main thread creates a
+worker instance and calls <code>worker.postMessage(data)</code> to
+dispatch information.</li>
+<li><strong>Listening in the Worker</strong>: The worker listens for
+incoming messages using the <code>onmessage</code> event handler or
+<code>self.addEventListener('message', callback)</code>.</li>
+<li><strong>Worker to Main Thread</strong>: The worker calls
+<code>self.postMessage(result)</code> to return processed data.</li>
+<li><strong>Listening in the Main Thread</strong>: The main thread
+handles the response via <code>worker.onmessage</code>.</li>
+</ol>
+<h3 id="basic-example">Basic Example</h3>
+<p><strong>main.js</strong></p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Instantiate the worker</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> myWorker <span class="op">=</span> <span class="kw">new</span> <span class="bu">Worker</span>(<span class="st">&#39;worker.js&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Send data to the worker</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>myWorker<span class="op">.</span><span class="fu">postMessage</span>({ <span class="dt">task</span><span class="op">:</span> <span class="st">&#39;calculate&#39;</span><span class="op">,</span> <span class="dt">value</span><span class="op">:</span> <span class="dv">42</span> })<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Receive the result from the worker</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>myWorker<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> <span class="kw">function</span>(<span class="bu">event</span>) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Result from worker:&#39;</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p><strong>worker.js</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Listen for messages from the main thread</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> <span class="kw">function</span>(<span class="bu">event</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { task<span class="op">,</span> value } <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">data</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (task <span class="op">===</span> <span class="st">&#39;calculate&#39;</span>) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> result <span class="op">=</span> value <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Send the result back</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        self<span class="op">.</span><span class="fu">postMessage</span>(result)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="how-postmessage-transfers-data">How <code>postMessage</code>
+Transfers Data</h2>
+<p>When transferring data with <code>postMessage()</code>, JavaScript
+uses one of two methods: the <strong>Structured Clone Algorithm</strong>
+or <strong>Transferable Objects</strong>.</p>
+<h3 id="1-the-structured-clone-algorithm-copying-data">1. The Structured
+Clone Algorithm (Copying Data)</h3>
+<p>By default, <code>postMessage()</code> serializes the data using the
+structured clone algorithm. This creates a deep copy of the message
+object in memory before passing it to the receiving thread.</p>
+<ul>
+<li><strong>Supported Types</strong>: Primitive types, objects, arrays,
+Maps, Sets, Dates, RegExps, Blobs, and <code>ArrayBuffer</code>
+objects.</li>
+<li><strong>Limitations</strong>: Functions, DOM nodes, and certain
+object prototypes cannot be cloned. Attempting to send them throws a
+<code>DataCloneError</code>.</li>
+<li><strong>Performance Impact</strong>: Because data is copied in
+memory, passing massive datasets (such as a 500MB array) can create high
+memory overhead and introduce latency during serialization and
+deserialization.</li>
+</ul>
+<h3 id="2-transferable-objects-zero-copy-transfer">2. Transferable
+Objects (Zero-Copy Transfer)</h3>
+<p>For high-performance applications working with large binary data,
+JavaScript provides Transferable Objects. Instead of copying the data,
+ownership of the memory buffer is transferred entirely from one context
+to another.</p>
+<p>Once an object is transferred, it becomes neutered (inaccessible) in
+the sending context, meaning its byte length becomes zero and it can no
+longer be read or modified by the sender. This zero-copy operation
+occurs nearly instantaneously regardless of data size.</p>
+<p>Common transferable types include:</p>
+<ul>
+<li><code>ArrayBuffer</code></li>
+<li><code>MessagePort</code></li>
+<li><code>ImageBitmap</code></li>
+<li><code>OffscreenCanvas</code></li>
+</ul>
+<h4 id="transferable-objects-syntax">Transferable Objects Syntax</h4>
+<p>To transfer ownership, pass the object as the second argument (an
+array of transferables) in <code>postMessage()</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Create an ArrayBuffer (32MB)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> buffer <span class="op">=</span> <span class="kw">new</span> <span class="bu">ArrayBuffer</span>(<span class="dv">32</span> <span class="op">*</span> <span class="dv">1024</span> <span class="op">*</span> <span class="dv">1024</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Transfer the buffer to the worker</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// The second argument specifies which objects inside the payload should be transferred</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>myWorker<span class="op">.</span><span class="fu">postMessage</span>({ <span class="dt">data</span><span class="op">:</span> buffer }<span class="op">,</span> [buffer])<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">// The buffer is now detached on the main thread</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(buffer<span class="op">.</span><span class="at">byteLength</span>)<span class="op">;</span> <span class="co">// Outputs: 0</span></span></code></pre></div>
+<h2 id="error-handling-and-worker-termination">Error Handling and Worker
+Termination</h2>
+<p>Proper lifecycle management ensures robust worker communication:</p>
+<ul>
+<li><strong>Handling Errors</strong>: Catch errors thrown inside the
+worker using <code>worker.onerror = function(error) { ... }</code>.</li>
+<li><strong>Terminating Workers</strong>: If a background process is
+complete or needs to be aborted, call <code>worker.terminate()</code>
+from the main thread or <code>self.close()</code> from within the worker
+to immediately free system resources.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

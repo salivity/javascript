@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How esbuild onResolve and onLoad Hooks Work - javascript</title>
+    <meta name="description" content="The esbuild bundler provides an extensible plugin API centered around two primary lifecycle hooks: onResolve and onLoad. Together, these hooks intercept and redefine how esbuild locates modules on the filesystem and how it processes their contents. By co">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-esbuild-onresolve-and-onload-hooks-work">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How esbuild onResolve and onLoad Hooks Work - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-esbuild-onresolve-and-onload-hooks-work" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The esbuild bundler provides an extensible plugin API centered around two primary lifecycle hooks: onResolve and onLoad. Together, these hooks intercept and redefine how esbuild locates modules on the filesystem and how it processes their contents. By co" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-esbuild-onresolve-and-onload-hooks-work">How esbuild
+onResolve and onLoad Hooks Work</h1>
+<p>The esbuild bundler provides an extensible plugin API centered around
+two primary lifecycle hooks: <code>onResolve</code> and
+<code>onLoad</code>. Together, these hooks intercept and redefine how
+esbuild locates modules on the filesystem and how it processes their
+contents. By controlling the mapping from import paths to concrete
+identifiers and supplying transformed or synthetic source code directly
+to the compiler, developers can customize module resolution, implement
+virtual modules, compile non-standard file types, and integrate custom
+compilers.</p>
+<h2 id="the-module-resolution-pipeline">The Module Resolution
+Pipeline</h2>
+<p>When esbuild bundles source code, it traverses an Abstract Syntax
+Tree (AST) looking for import statements, <code>require()</code> calls,
+and export directives. For every module reference encountered, esbuild
+follows a two-step process: resolving the path to an absolute location
+and loading the contents of that location into memory. Plugins tap into
+this pipeline using <code>onResolve</code> for the first step and
+<code>onLoad</code> for the second.</p>
+<h2 id="the-onresolve-hook">The <code>onResolve</code> Hook</h2>
+<p>The <code>onResolve</code> hook intercepts import paths before
+esbuild checks the filesystem. Whenever the bundler encounters an import
+string (such as <code>import x from './utils'</code> or
+<code>import config from 'env:production'</code>), it evaluates all
+registered <code>onResolve</code> callbacks.</p>
+<p>Each <code>onResolve</code> registration requires a regular
+expression filter to limit which import paths it intercepts:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>build<span class="op">.</span><span class="fu">onResolve</span>({ <span class="dt">filter</span><span class="op">:</span> <span class="ss">/</span><span class="sc">^</span><span class="ss">env:/</span> }<span class="op">,</span> (args) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">path</span><span class="op">:</span> args<span class="op">.</span><span class="at">path</span><span class="op">.</span><span class="fu">replace</span>(<span class="ss">/</span><span class="sc">^</span><span class="ss">env:/</span><span class="op">,</span> <span class="st">&#39;&#39;</span>)<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">namespace</span><span class="op">:</span> <span class="st">&#39;env-ns&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="key-parameters-and-return-values">Key Parameters and Return
+Values</h3>
+<ul>
+<li><strong><code>args.path</code></strong>: The raw path string as
+written in the source file.</li>
+<li><strong><code>args.importer</code></strong>: The absolute path of
+the file containing the import statement.</li>
+<li><strong><code>args.namespace</code></strong>: The namespace of the
+importing file (defaults to <code>file</code>).</li>
+<li><strong><code>args.resolveDir</code></strong>: The directory from
+which relative paths should be resolved.</li>
+</ul>
+<p>The callback returns an object that directs esbuild's next
+action:</p>
+<ul>
+<li><strong><code>path</code></strong>: The canonical path or unique key
+identifying the module.</li>
+<li><strong><code>namespace</code></strong>: A custom identifier that
+groups related modules. Non-file namespaces tell esbuild not to look for
+the file on the standard filesystem.</li>
+<li><strong><code>external</code></strong>: If set to <code>true</code>,
+tells esbuild to omit the module from the bundle and preserve the import
+call at runtime.</li>
+</ul>
+<h2 id="the-onload-hook">The <code>onLoad</code> Hook</h2>
+<p>Once a path is resolved and assigned a namespace, esbuild triggers
+the <code>onLoad</code> hook to retrieve the file's source code. If no
+plugin intercepts the load step, esbuild reads the file from disk using
+the default <code>file</code> namespace.</p>
+<p>Like <code>onResolve</code>, the <code>onLoad</code> hook uses regex
+filters to match paths, but it can also filter by namespace:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>build<span class="op">.</span><span class="fu">onLoad</span>({ <span class="dt">filter</span><span class="op">:</span> <span class="ss">/.</span><span class="sc">*</span><span class="ss">/</span><span class="op">,</span> <span class="dt">namespace</span><span class="op">:</span> <span class="st">&#39;env-ns&#39;</span> }<span class="op">,</span> (args) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">contents</span><span class="op">:</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(<span class="bu">process</span><span class="op">.</span><span class="at">env</span>[args<span class="op">.</span><span class="at">path</span>] <span class="op">||</span> <span class="kw">null</span>)<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">loader</span><span class="op">:</span> <span class="st">&#39;json&#39;</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="key-parameters-and-return-values-1">Key Parameters and Return
+Values</h3>
+<ul>
+<li><strong><code>args.path</code></strong>: The resolved path
+determined during the resolution phase.</li>
+<li><strong><code>args.namespace</code></strong>: The namespace assigned
+during the resolution phase.</li>
+</ul>
+<p>The callback returns an object specifying the code and how to parse
+it:</p>
+<ul>
+<li><strong><code>contents</code></strong>: The file contents as a
+string or Uint8Array.</li>
+<li><strong><code>loader</code></strong>: The built-in esbuild loader
+used to interpret the contents (e.g., <code>'js'</code>,
+<code>'ts'</code>, <code>'jsx'</code>, <code>'tsx'</code>,
+<code>'json'</code>, <code>'css'</code>, <code>'text'</code>).</li>
+<li><strong><code>resolveDir</code></strong>: The directory used to
+resolve subsequent relative imports found inside
+<code>contents</code>.</li>
+</ul>
+<h2 id="how-the-hooks-coordinate">How the Hooks Coordinate</h2>
+<p>The interaction between <code>onResolve</code> and
+<code>onLoad</code> allows for complete decoupling of import specifiers
+from the physical disk:</p>
+<ol type="1">
+<li><strong>Discovery</strong>: esbuild parses a file and finds
+<code>import data from 'custom:userData'</code>.</li>
+<li><strong>Resolution (<code>onResolve</code>)</strong>: A plugin
+matches <code>^custom:</code> via its filter. The callback tags the
+module with <code>namespace: 'custom-virtual'</code> and
+<code>path: 'userData'</code>.</li>
+<li><strong>Dispatch</strong>: esbuild checks for an <code>onLoad</code>
+hook listening for the <code>custom-virtual</code> namespace.</li>
+<li><strong>Loading (<code>onLoad</code>)</strong>: The matching
+<code>onLoad</code> hook generates the module code on the fly (for
+example, by querying a database or an API) and returns
+<code>{ contents: 'export default { id: 1 };', loader: 'js' }</code>.</li>
+<li><strong>Compilation</strong>: esbuild treats the generated string as
+standard JavaScript, parses its AST, bundles it, and continues scanning
+for further nested dependencies.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

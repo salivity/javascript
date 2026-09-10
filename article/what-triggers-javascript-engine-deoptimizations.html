@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Triggers JavaScript Engine Deoptimizations - javascript</title>
+    <meta name="description" content="Modern JavaScript engines, such as V8, SpiderMonkey, and JavaScriptCore, utilize Just-In-Time (JIT) compilation to transform hot, frequently executed code into highly optimized machine code based on runtime type assumptions. When dynamic code violates th">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/what-triggers-javascript-engine-deoptimizations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Triggers JavaScript Engine Deoptimizations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/what-triggers-javascript-engine-deoptimizations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern JavaScript engines, such as V8, SpiderMonkey, and JavaScriptCore, utilize Just-In-Time (JIT) compilation to transform hot, frequently executed code into highly optimized machine code based on runtime type assumptions. When dynamic code violates th" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="what-triggers-javascript-engine-deoptimizations">What Triggers
+JavaScript Engine Deoptimizations</h1>
+<p>Modern JavaScript engines, such as V8, SpiderMonkey, and
+JavaScriptCore, utilize Just-In-Time (JIT) compilation to transform hot,
+frequently executed code into highly optimized machine code based on
+runtime type assumptions. When dynamic code violates these speculative
+assumptions, the engine initiates a deoptimization bailout, discarding
+the compiled machine code and safely dropping execution back to the
+baseline compiler or bytecode interpreter. This article explains the
+primary runtime triggers that force engines to bail out of optimized
+execution.</p>
+<h3 id="shape-and-hidden-class-mutations">Shape and Hidden Class
+Mutations</h3>
+<p>JavaScript engines rely on hidden classes (often referred to as
+"Shapes" or "Maps") to optimize object property access. The JIT compiler
+speculates that an object’s shape will remain constant at a given call
+site. A deoptimization bailout occurs when:</p>
+<ul>
+<li><strong>Properties are added out of order:</strong> Creating objects
+of the same intended structure but assigning properties in different
+sequences creates distinct hidden class transition trees.</li>
+<li><strong>Properties are dynamically deleted:</strong> Using the
+<code>delete</code> operator alters the object's transition chain, often
+degrading it to dictionary (hash table) mode and breaking inline
+caches.</li>
+<li><strong>Objects are dynamically mutated:</strong> Adding new
+properties to an object after it has already been passed to an optimized
+function invalidates the compiled offset assumptions.</li>
+</ul>
+<h3 id="type-feedback-invalidation-polymorphism">Type Feedback
+Invalidation (Polymorphism)</h3>
+<p>JIT compilers generate monomorphic inline caches under the assumption
+that operations (like addition, comparison, or function calls) will
+consistently receive the same concrete types. Bailouts are triggered
+when:</p>
+<ul>
+<li><strong>Primitive types change:</strong> A function optimized for
+primitive numbers suddenly receives a string, an object, or
+<code>undefined</code>.</li>
+<li><strong>Megamorphic call sites emerge:</strong> An inline cache that
+observed one or two object shapes suddenly encounters too many
+variations (typically more than four), forcing the engine to give up on
+speculative inlining.</li>
+</ul>
+<h3 id="array-kind-and-element-transitions">Array Kind and Element
+Transitions</h3>
+<p>V8 and other engines track array internal representations—such as
+Packed vs. Holey and Small Integer (SMI) vs. Double vs. Tagged Elements.
+Deoptimizations occur when:</p>
+<ul>
+<li><strong>SMI arrays transition to Double or Objects:</strong>
+Inserting a floating-point number or an object reference into an array
+previously containing only integers triggers a layout transition.</li>
+<li><strong>Holey arrays are created:</strong> Accessing out-of-bounds
+indices or leaving gaps in an array forces a transition to a "holey"
+element kind. When code optimized for packed arrays encounters a hole,
+it must bail out to consult the prototype chain.</li>
+</ul>
+<h3 id="arithmetic-and-numeric-overflows">Arithmetic and Numeric
+Overflows</h3>
+<p>Optimizing compilers attempt to represent numbers as 31-bit or 32-bit
+signed integers (SMIs) whenever possible to avoid heap allocations and
+use direct CPU registers. Bailouts happen when:</p>
+<ul>
+<li><strong>Integer overflow:</strong> An arithmetic operation exceeds
+the 32-bit integer range and overflows into a 64-bit floating-point
+number.</li>
+<li><strong>Negative zero generation:</strong> Operations like
+<code>-0</code> or operations resulting in <code>-0</code> (e.g.,
+<code>0 * -1</code>) cannot be represented as standard integers in
+JavaScript's spec, forcing a bailout to floating-point
+representation.</li>
+</ul>
+<h3 id="prototype-chain-and-global-state-modifications">Prototype Chain
+and Global State Modifications</h3>
+<p>Optimized code often inlines methods directly from prototypes under
+the assumption that the prototype chain is immutable. A global bailout
+occurs when:</p>
+<ul>
+<li><strong>Prototype alteration:</strong> Modifying
+<code>Object.prototype</code>, <code>Array.prototype</code>, or custom
+prototype chains invalidates validity cells globally, causing immediate
+mass deoptimization across all functions relying on those
+prototypes.</li>
+<li><strong>Global property deletion or redefinition:</strong> Altering
+global variables that were previously assumed to be constant
+shapes.</li>
+</ul>
+<h3 id="deoptimization-handling-via-osr">Deoptimization Handling via
+OSR</h3>
+<p>When a bailout occurs during a long-running loop, engines employ
+On-Stack Replacement (OSR) in reverse. The execution state, including
+CPU register values, stack frames, and local variables, is reconstructed
+into the interpreter's format so execution can proceed without
+restarting the function. If the pattern stabilizes with new type
+feedback, the engine may recompile the function at a later stage, though
+continuous bailouts can permanently mark the function as
+non-optimizable.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clickjacking Explained and Frame-Options Defense - javascript</title>
+    <meta name="description" content="Clickjacking is a deceptive cyberattack where malicious websites trick users into clicking invisible or disguised interface elements on a trusted site. This article explains the mechanics behind clickjacking attacks, their specific threat to JavaScript-d">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/clickjacking-explained-and-frame-options-defense">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Clickjacking Explained and Frame-Options Defense - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/clickjacking-explained-and-frame-options-defense" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Clickjacking is a deceptive cyberattack where malicious websites trick users into clicking invisible or disguised interface elements on a trusted site. This article explains the mechanics behind clickjacking attacks, their specific threat to JavaScript-d" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="clickjacking-explained-and-frame-options-defense">Clickjacking
+Explained and Frame-Options Defense</h1>
+<p>Clickjacking is a deceptive cyberattack where malicious websites
+trick users into clicking invisible or disguised interface elements on a
+trusted site. This article explains the mechanics behind clickjacking
+attacks, their specific threat to JavaScript-driven user interfaces, and
+how developers can eliminate this vulnerability using the
+<code>X-Frame-Options</code> HTTP response header and modern Content
+Security Policies.</p>
+<h2 id="how-clickjacking-works">How Clickjacking Works</h2>
+<p>Clickjacking, also known as a UI redressing attack, exploits the
+browser's ability to embed external web pages inside HTML
+<code>&lt;iframe&gt;</code> elements.</p>
+<p>In a typical clickjacking scenario:</p>
+<ol type="1">
+<li><strong>The Attacker Builds a Decoy Page:</strong> The attacker
+creates an attractive or misleading webpage (e.g., a "Claim your prize"
+button or an online game).</li>
+<li><strong>Embedding the Target Application:</strong> The attacker
+embeds the target website (such as an email client, banking portal, or
+social network) inside a transparent <code>&lt;iframe&gt;</code>
+directly over the decoy content.</li>
+<li><strong>Aligning Elements:</strong> Using CSS properties like
+<code>opacity: 0</code>, <code>z-index</code>, and absolute positioning,
+the attacker places a sensitive button from the embedded target site
+directly beneath the decoy button.</li>
+<li><strong>The Trigger:</strong> When an authenticated victim clicks
+the decoy element, they are actually clicking the hidden button inside
+the embedded target frame, executing an unintended action under their
+own active session.</li>
+</ol>
+<h2 id="the-risk-to-javascript-ui-elements">The Risk to JavaScript UI
+Elements</h2>
+<p>Modern web applications heavily rely on JavaScript to manage
+client-side state, modal interactions, and single-click API triggers.
+These elements are prime targets for clickjacking:</p>
+<ul>
+<li><strong>OAuth Consent and Permissions:</strong> Attackers can trick
+users into granting third-party application permissions with a single
+click.</li>
+<li><strong>One-Click Actions:</strong> JavaScript-driven "Like,"
+"Follow," "Delete Account," or "Transfer Funds" buttons execute
+instantly when clicked without requiring a secondary page reload.</li>
+<li><strong>Form Auto-Submissions:</strong> Attackers can manipulate
+keystrokes or focus states to fill and submit sensitive
+JavaScript-managed forms.</li>
+</ul>
+<p>Because JavaScript UI elements often execute immediate asynchronous
+requests via <code>fetch</code> or <code>XMLHttpRequest</code>, a single
+framed click can compromise user accounts or trigger irreversible state
+changes.</p>
+<h2 id="how-frame-options-headers-protect-ui-elements">How Frame-Options
+Headers Protect UI Elements</h2>
+<p>The primary defense against clickjacking is restricting whether a
+webpage can be embedded within a frame by other domains. Browsers
+enforce this restriction through HTTP response headers sent by the
+server.</p>
+<h3 id="the-x-frame-options-header">The X-Frame-Options Header</h3>
+<p>The <code>X-Frame-Options</code> HTTP response header informs the
+browser whether it is allowed to render a page inside a
+<code>&lt;frame&gt;</code>, <code>&lt;iframe&gt;</code>,
+<code>&lt;embed&gt;</code>, or <code>&lt;object&gt;</code>.</p>
+<p>There are two primary standard directives:</p>
+<ul>
+<li><strong><code>X-Frame-Options: DENY</code></strong><br />
+Completely disables framing. The page cannot be displayed in a frame,
+regardless of which site attempts to do so, including the site itself.
+This is the most secure setting for pages that do not require
+framing.</li>
+<li><strong><code>X-Frame-Options: SAMEORIGIN</code></strong><br />
+Allows the page to be framed, but only if the framing site shares the
+exact same origin (protocol, domain, and port) as the page being
+framed.</li>
+</ul>
+<p>When a browser receives a page containing an
+<code>X-Frame-Options</code> header, it evaluates the framing context
+before rendering. If an unauthorized domain attempts to load the page
+inside an iframe, the browser halts rendering and displays a blank space
+or an error, rendering the attacker's invisible overlay useless.</p>
+<h3 id="modern-alternative-csp-frame-ancestors">Modern Alternative: CSP
+<code>frame-ancestors</code></h3>
+<p>While <code>X-Frame-Options</code> is widely supported across legacy
+and modern browsers, the <code>Content-Security-Policy</code> (CSP)
+<code>frame-ancestors</code> directive provides more granular control
+and is the modern standard:</p>
+<ul>
+<li><code>Content-Security-Policy: frame-ancestors 'none';</code>
+(Equivalent to <code>DENY</code>)</li>
+<li><code>Content-Security-Policy: frame-ancestors 'self';</code>
+(Equivalent to <code>SAMEORIGIN</code>)</li>
+<li><code>Content-Security-Policy: frame-ancestors 'self' https://trusted-partner.com;</code>
+(Allows specific trusted domains)</li>
+</ul>
+<p>Implementing either <code>X-Frame-Options: DENY</code> or
+<code>Content-Security-Policy: frame-ancestors 'none'</code> ensures
+that JavaScript UI elements cannot be embedded or manipulated within
+unauthorized third-party contexts.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

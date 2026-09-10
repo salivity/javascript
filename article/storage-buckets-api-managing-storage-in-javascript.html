@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Buckets API: Managing Storage in JavaScript - javascript</title>
+    <meta name="description" content="The Storage Buckets API is a modern web platform feature that allows developers to split an application’s client-side storage into multiple, isolated storage pools known as "buckets." Traditionally, all data stored by an origin—whether via IndexedDB,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/storage-buckets-api-managing-storage-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Storage Buckets API: Managing Storage in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/storage-buckets-api-managing-storage-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Storage Buckets API is a modern web platform feature that allows developers to split an application’s client-side storage into multiple, isolated storage pools known as "buckets." Traditionally, all data stored by an origin—whether via IndexedDB," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="storage-buckets-api-managing-storage-in-javascript">Storage
+Buckets API: Managing Storage in JavaScript</h1>
+<p>The Storage Buckets API is a modern web platform feature that allows
+developers to split an application’s client-side storage into multiple,
+isolated storage pools known as "buckets." Traditionally, all data
+stored by an origin—whether via IndexedDB, Cache Storage, or the File
+System API—was lumped into a single bucket and treated as a single unit
+during storage eviction. This article explains what the Storage Buckets
+API is, why it is necessary, and how to use its JavaScript interface to
+create, access, and manage independent storage pools with custom
+persistence and eviction rules.</p>
+<h3 id="the-limitation-of-the-default-storage-model">The Limitation of
+the Default Storage Model</h3>
+<p>Web applications rely on several client-side storage APIs:</p>
+<ul>
+<li><strong>IndexedDB</strong> for structured data</li>
+<li><strong>Cache Storage</strong> for network request/response
+pairs</li>
+<li><strong>Origin Private File System (OPFS)</strong> for file-based
+binary operations</li>
+</ul>
+<p>Under the classic storage model, an origin shares a single, unified
+storage quota and eviction policy. If the user’s device experiences
+storage pressure, the browser may purge the origin’s entire cache or
+non-persistent storage. This "all-or-nothing" approach means critical
+data (such as unsaved user drafts or offline account records) can be
+deleted alongside easily re-fetchable data (such as thumbnail image
+caches).</p>
+<h3 id="what-is-the-storage-buckets-api">What Is the Storage Buckets
+API?</h3>
+<p>The Storage Buckets API provides a mechanism to segment an origin's
+storage into distinct, independent compartments called buckets. Each
+bucket acts as a self-contained container capable of hosting its own
+instances of:</p>
+<ul>
+<li><code>indexedDB</code></li>
+<li><code>caches</code></li>
+<li><code>getDirectory()</code> (OPFS)</li>
+</ul>
+<p>By organizing storage this way, developers can assign different
+priorities, lifespans, and eviction policies to different types of data
+within the same web application.</p>
+<h3 id="key-capabilities-of-storage-buckets">Key Capabilities of Storage
+Buckets</h3>
+<ol type="1">
+<li><strong>Independent Eviction Policies</strong>: You can mark
+specific buckets as <code>persisted</code>, instructing the browser not
+to evict them under storage pressure, while keeping other buckets marked
+as <code>best-effort</code> to allow safe automatic cleanup.</li>
+<li><strong>Granular Deletion</strong>: Instead of clearing the entire
+site's data, an application can programmatically delete a specific
+bucket (e.g., clearing cached media files for a logged-out user profile
+while retaining offline settings).</li>
+<li><strong>Isolated Namespaces</strong>: Data stored inside one bucket
+cannot collide with data in another, even if databases or object stores
+share identical names.</li>
+</ol>
+<h3 id="how-to-use-the-storage-buckets-api-in-javascript">How to Use the
+Storage Buckets API in JavaScript</h3>
+<p>The API is exposed via the <code>navigator.storageBuckets</code>
+interface.</p>
+<h4 id="1-creating-or-opening-a-bucket">1. Creating or Opening a
+Bucket</h4>
+<p>To create a new bucket or open an existing one, use
+<code>navigator.storageBuckets.open()</code>. You can pass options
+specifying whether the bucket should be persisted and its expiration
+date.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Open or create a bucket dedicated to offline media</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mediaBucket <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storageBuckets</span><span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;offline-media&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">durability</span><span class="op">:</span> <span class="st">&#39;relaxed&#39;</span><span class="op">,</span> <span class="co">// &#39;strict&#39; or &#39;relaxed&#39;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">persisted</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span>      <span class="co">// Can be evicted under storage pressure</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">expires</span><span class="op">:</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>() <span class="op">+</span> <span class="dv">7</span> <span class="op">*</span> <span class="dv">24</span> <span class="op">*</span> <span class="dv">60</span> <span class="op">*</span> <span class="dv">60</span> <span class="op">*</span> <span class="dv">1000</span> <span class="co">// Expire in 7 days</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Open or create a critical bucket for user drafts</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> draftsBucket <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storageBuckets</span><span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;user-drafts&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">persisted</span><span class="op">:</span> <span class="kw">true</span>        <span class="co">// Request browser not to evict this bucket</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="2-accessing-storage-apis-inside-a-bucket">2. Accessing Storage
+APIs Inside a Bucket</h4>
+<p>Once a bucket handle is obtained, you access storage mechanisms
+directly through the bucket instance rather than the global
+<code>window</code> object:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Using Cache Storage within the media bucket</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cache <span class="op">=</span> <span class="cf">await</span> mediaBucket<span class="op">.</span><span class="at">caches</span><span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;audio-cache&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> cache<span class="op">.</span><span class="fu">add</span>(<span class="st">&#39;/audio/track-1.mp3&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Using IndexedDB within the drafts bucket</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> request <span class="op">=</span> draftsBucket<span class="op">.</span><span class="at">indexedDB</span><span class="op">.</span><span class="fu">open</span>(<span class="st">&#39;DraftsDatabase&#39;</span><span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>request<span class="op">.</span><span class="at">onupgradeneeded</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  db<span class="op">.</span><span class="fu">createObjectStore</span>(<span class="st">&#39;drafts&#39;</span><span class="op">,</span> { <span class="dt">keyPath</span><span class="op">:</span> <span class="st">&#39;id&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Accessing OPFS within a bucket</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rootDir <span class="op">=</span> <span class="cf">await</span> mediaBucket<span class="op">.</span><span class="fu">getDirectory</span>()<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fileHandle <span class="op">=</span> <span class="cf">await</span> rootDir<span class="op">.</span><span class="fu">getFileHandle</span>(<span class="st">&#39;temp.dat&#39;</span><span class="op">,</span> { <span class="dt">create</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span></code></pre></div>
+<h4 id="3-inspecting-and-managing-buckets">3. Inspecting and Managing
+Buckets</h4>
+<p>The API includes methods to inspect existing buckets and determine
+their status:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// List all bucket names for the origin</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bucketNames <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storageBuckets</span><span class="op">.</span><span class="fu">keys</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(bucketNames)<span class="op">;</span> <span class="co">// [&#39;offline-media&#39;, &#39;user-drafts&#39;]</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Check the persistence status of a specific bucket</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> isPersisted <span class="op">=</span> <span class="cf">await</span> draftsBucket<span class="op">.</span><span class="fu">persisted</span>()<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Drafts bucket persisted: </span><span class="sc">${</span>isPersisted<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Get storage estimates for a specific bucket</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> estimate <span class="op">=</span> <span class="cf">await</span> draftsBucket<span class="op">.</span><span class="fu">estimate</span>()<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Usage: </span><span class="sc">${</span>estimate<span class="op">.</span><span class="at">usage</span><span class="sc">}</span><span class="vs"> bytes out of </span><span class="sc">${</span>estimate<span class="op">.</span><span class="at">quota</span><span class="sc">}</span><span class="vs"> bytes`</span>)<span class="op">;</span></span></code></pre></div>
+<h4 id="4-deleting-a-bucket">4. Deleting a Bucket</h4>
+<p>When a dataset is no longer needed, the entire bucket can be removed
+in a single call, instantly freeing space and purging all associated
+caches, IndexedDB databases, and files:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storageBuckets</span><span class="op">.</span><span class="fu">delete</span>(<span class="st">&#39;offline-media&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="summary">Summary</h3>
+<p>The Storage Buckets API replaces the rigid single-pool architecture
+of client-side storage with a modular, multi-pool design. By grouping
+resources into distinct buckets, applications can safely separate
+disposable caches from mission-critical offline records,
+programmatically expire temporary files, and gain finer control over
+browser data eviction.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

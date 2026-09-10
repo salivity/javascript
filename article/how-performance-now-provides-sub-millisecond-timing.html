@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How performance.now Provides Sub-Millisecond Timing - javascript</title>
+    <meta name="description" content="In JavaScript, performance.now() provides high-resolution time measurements with sub-millisecond precision by reading from a monotonic hardware clock rather than the system's wall clock. This article explains the underlying mechanisms of the High Resolut">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-performance-now-provides-sub-millisecond-timing">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How performance.now Provides Sub-Millisecond Timing - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-performance-now-provides-sub-millisecond-timing" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript, performance.now() provides high-resolution time measurements with sub-millisecond precision by reading from a monotonic hardware clock rather than the system's wall clock. This article explains the underlying mechanisms of the High Resolut" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-performancenow-provides-sub-millisecond-timing">How
+performance.now Provides Sub-Millisecond Timing</h1>
+<p>In JavaScript, <code>performance.now()</code> provides
+high-resolution time measurements with sub-millisecond precision by
+reading from a monotonic hardware clock rather than the system's wall
+clock. This article explains the underlying mechanisms of the High
+Resolution Time API, how floating-point timestamps deliver
+fractional-millisecond accuracy, why monotonic clocks prevent timing
+skews, and how modern browser security considerations affect
+precision.</p>
+<h3 id="the-mechanism-behind-sub-millisecond-accuracy">The Mechanism
+Behind Sub-Millisecond Accuracy</h3>
+<p>Unlike <code>Date.now()</code>, which returns an integer value
+representing whole milliseconds elapsed since the Unix epoch (January 1,
+1970), <code>performance.now()</code> returns a
+<code>DOMHighResTimeStamp</code>. This value is a double-precision
+floating-point number representing milliseconds elapsed since the
+context's <code>timeOrigin</code> (usually the moment the page or worker
+started navigation).</p>
+<p>Because the returned value is a floating-point number, the fractional
+portion represents fractions of a millisecond. For example, a value of
+<code>1024.125</code> translates to 1,024 milliseconds and 125
+microseconds (or 0.125 milliseconds).</p>
+<h3 id="monotonic-clocks-vs-system-time">Monotonic Clocks vs. System
+Time</h3>
+<p>The precision and reliability of <code>performance.now()</code> stem
+from its use of a monotonic clock:</p>
+<ol type="1">
+<li><strong>Immunity to Time Drift:</strong> System wall clocks can jump
+backward or forward due to Network Time Protocol (NTP) synchronizations,
+manual user adjustments, or daylight saving time transitions. A
+monotonic clock strictly increments forward at a steady rate, making it
+suitable for benchmarking intervals.</li>
+<li><strong>Direct Hardware Timer Access:</strong> Under the hood, the
+browser communicates with low-level operating system APIs (such as
+<code>clock_gettime(CLOCK_MONOTONIC)</code> on Linux/POSIX,
+<code>QueryPerformanceCounter</code> on Windows, or
+<code>mach_absolute_time</code> on macOS). These OS APIs query hardware
+counters, such as the CPU's Time Stamp Counter (TSC) or the High
+Precision Event Timer (HPET), enabling measurement intervals far finer
+than a single millisecond.</li>
+</ol>
+<h3 id="the-role-of-timeorigin">The Role of <code>timeOrigin</code></h3>
+<p>The baseline for <code>performance.now()</code> is
+<code>performance.timeOrigin</code>, recorded at the start of the
+environment lifecycle. By decoupling timing calculations from the global
+epoch and measuring purely against an internal origin, the runtime
+eliminates overhead associated with date formatting and global time
+translation, enabling lightweight and continuous high-precision
+measurements.</p>
+<h3 id="precision-clamping-and-security">Precision Clamping and
+Security</h3>
+<p>While hardware and API specifications support nanosecond-level
+resolution, modern web browsers intentionally reduce the granularity of
+<code>performance.now()</code>. To mitigate side-channel timing attacks
+(such as Spectre) and browser fingerprinting, browsers clamp the
+precision (typically rounding to 5, 20, or 100 microseconds) and
+introduce slight jitter. Despite this clamping,
+<code>performance.now()</code> remains significantly more precise than
+whole-millisecond alternatives, delivering the sub-millisecond
+resolution required for performance profiling, animation
+synchronization, and network latency tracking.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

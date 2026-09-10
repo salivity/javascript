@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using IndexedDB Cursors and Key Ranges in JavaScript - javascript</title>
+    <meta name="description" content="This article provides an overview of IndexedDB cursors and explains how to iterate through records using filtered key ranges in JavaScript. You will learn the fundamental mechanisms of IDBCursor and IDBKeyRange, how to construct precise boundary conditio">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/using-indexeddb-cursors-and-key-ranges-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using IndexedDB Cursors and Key Ranges in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/using-indexeddb-cursors-and-key-ranges-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of IndexedDB cursors and explains how to iterate through records using filtered key ranges in JavaScript. You will learn the fundamental mechanisms of IDBCursor and IDBKeyRange, how to construct precise boundary conditio" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="using-indexeddb-cursors-and-key-ranges-in-javascript">Using
+IndexedDB Cursors and Key Ranges in JavaScript</h1>
+<p>This article provides an overview of IndexedDB cursors and explains
+how to iterate through records using filtered key ranges in JavaScript.
+You will learn the fundamental mechanisms of <code>IDBCursor</code> and
+<code>IDBKeyRange</code>, how to construct precise boundary conditions,
+and how to write efficient traversal logic to query client-side
+databases without loading entire datasets into memory.</p>
+<h2 id="understanding-indexeddb-cursors">Understanding IndexedDB
+Cursors</h2>
+<p>An IndexedDB cursor (<code>IDBCursor</code>) is a pointer that
+enables sequential traversal over multiple records in an object store or
+index. Instead of fetching all matching records into memory at once with
+methods like <code>getAll()</code>, a cursor loads records individually
+on demand. This makes cursors memory-efficient and ideal for working
+with large datasets, generating reports, or modifying records during
+traversal.</p>
+<p>When iterating with cursors, you typically use
+<code>IDBCursorWithValue</code>, which gives access to both the primary
+key (<code>cursor.key</code>), the primary index key
+(<code>cursor.primaryKey</code>), and the stored object itself
+(<code>cursor.value</code>).</p>
+<h2 id="defining-filtered-key-ranges-with-idbkeyrange">Defining Filtered
+Key Ranges with IDBKeyRange</h2>
+<p>The <code>IDBKeyRange</code> interface defines criteria to limit
+which records a cursor visits. Instead of scanning the entire store, a
+key range restricts traversal to keys that satisfy specific boundary
+conditions.</p>
+<p>The <code>IDBKeyRange</code> utility provides four static factory
+methods:</p>
+<ul>
+<li><strong><code>IDBKeyRange.only(value)</code></strong>: Matches a
+single exact key value.</li>
+<li><strong><code>IDBKeyRange.lowerBound(lower, [isOpen])</code></strong>:
+Matches all keys greater than (or equal to, if <code>isOpen</code> is
+<code>false</code>) the specified lower limit.</li>
+<li><strong><code>IDBKeyRange.upperBound(upper, [isOpen])</code></strong>:
+Matches all keys less than (or equal to, if <code>isOpen</code> is
+<code>false</code>) the specified upper limit.</li>
+<li><strong><code>IDBKeyRange.bound(lower, upper, [isLowerOpen], [isUpperOpen])</code></strong>:
+Matches all keys between two bounds. The optional boolean parameters
+specify whether to exclude the boundary values (open intervals).</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches ages between 21 and 65, inclusive</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> standardRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>(<span class="dv">21</span><span class="op">,</span> <span class="dv">65</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches ages strictly greater than 21 and strictly less than 65 (exclusive)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> exclusiveRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>(<span class="dv">21</span><span class="op">,</span> <span class="dv">65</span><span class="op">,</span> <span class="kw">true</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches all prices 100 or greater</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> minimumPrice <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">lowerBound</span>(<span class="dv">100</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="how-javascript-iterates-through-a-key-range">How JavaScript
+Iterates Through a Key Range</h2>
+<p>To iterate through records using a cursor and key range, follow these
+steps:</p>
+<ol type="1">
+<li><strong>Start a Transaction</strong>: Create a <code>readonly</code>
+or <code>readwrite</code> transaction on the target object store.</li>
+<li><strong>Access the Store or Index</strong>: Obtain a reference to
+the object store or an index configured on the field you want to
+filter.</li>
+<li><strong>Open the Cursor</strong>: Call
+<code>openCursor(keyRange, direction)</code> on the store or index.</li>
+<li><strong>Handle the <code>onsuccess</code> Event</strong>: Process
+the current record via <code>event.target.result</code>.</li>
+<li><strong>Advance the Cursor</strong>: Call
+<code>cursor.continue()</code> to move to the next matching item.</li>
+</ol>
+<h3 id="implementation-example">Implementation Example</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">iterateFilteredRecords</span>(db) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> transaction <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>([<span class="st">&#39;users&#39;</span>]<span class="op">,</span> <span class="st">&#39;readonly&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> store <span class="op">=</span> transaction<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;users&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> index <span class="op">=</span> store<span class="op">.</span><span class="fu">index</span>(<span class="st">&#39;ageIndex&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Define a range: ages 18 to 30 inclusive</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ageRange <span class="op">=</span> <span class="bu">IDBKeyRange</span><span class="op">.</span><span class="fu">bound</span>(<span class="dv">18</span><span class="op">,</span> <span class="dv">30</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Open cursor passing the range and optional direction (&#39;next&#39;, &#39;prev&#39;, &#39;nextunique&#39;, &#39;prevunique&#39;)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> request <span class="op">=</span> index<span class="op">.</span><span class="fu">openCursor</span>(ageRange<span class="op">,</span> <span class="st">&#39;next&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  request<span class="op">.</span><span class="at">onsuccess</span> <span class="op">=</span> <span class="kw">function</span> (<span class="bu">event</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> cursor <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">result</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (cursor) {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Access the current matching record</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Key: </span><span class="sc">${</span>cursor<span class="op">.</span><span class="at">key</span><span class="sc">}</span><span class="vs">, Value:`</span><span class="op">,</span> cursor<span class="op">.</span><span class="at">value</span>)<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Advance to the next matching record</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>      cursor<span class="op">.</span><span class="fu">continue</span>()<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Reached the end of the matching range</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Iteration complete.&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  request<span class="op">.</span><span class="at">onerror</span> <span class="op">=</span> <span class="kw">function</span> (<span class="bu">event</span>) {</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Cursor iteration error:&#39;</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">error</span>)<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="controlling-iteration-flow">Controlling Iteration Flow</h2>
+<p>Cursors provide additional methods to control how the iteration
+progresses:</p>
+<ul>
+<li><strong><code>cursor.continue(key)</code></strong>: Advances the
+cursor to the next record, or directly to the specified key if
+provided.</li>
+<li><strong><code>cursor.advance(count)</code></strong>: Skips a
+specified number of records forward in a single operation.</li>
+<li><strong><code>cursor.update(newValue)</code></strong>: Updates the
+record at the current cursor position (requires a <code>readwrite</code>
+transaction).</li>
+<li><strong><code>cursor.delete()</code></strong>: Removes the record at
+the current cursor position from the store.</li>
+</ul>
+<p>By pairing <code>IDBCursor</code> with <code>IDBKeyRange</code>,
+JavaScript applications can query and manipulate indexed client-side
+data with precision, minimal memory overhead, and full directional
+control.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

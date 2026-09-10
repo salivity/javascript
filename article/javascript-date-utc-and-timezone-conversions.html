@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Date UTC and Timezone Conversions - javascript</title>
+    <meta name="description" content="The JavaScript Date object manages time by storing a single numeric value representing milliseconds elapsed since the Unix Epoch in Universal Coordinated Time (UTC). While the internal representation is always timezone-agnostic UTC, the Date object autom">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-date-utc-and-timezone-conversions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Date UTC and Timezone Conversions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-date-utc-and-timezone-conversions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The JavaScript Date object manages time by storing a single numeric value representing milliseconds elapsed since the Unix Epoch in Universal Coordinated Time (UTC). While the internal representation is always timezone-agnostic UTC, the Date object autom" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-date-utc-and-timezone-conversions">JavaScript Date
+UTC and Timezone Conversions</h1>
+<p>The JavaScript <code>Date</code> object manages time by storing a
+single numeric value representing milliseconds elapsed since the Unix
+Epoch in Universal Coordinated Time (UTC). While the internal
+representation is always timezone-agnostic UTC, the <code>Date</code>
+object automatically uses the runtime environment’s local timezone
+settings when parsing input strings and formatting output for display.
+This guide explains how JavaScript handles the distinction between UTC
+and local time, how parsing affects timezone context, and how to convert
+between the two reliably.</p>
+<h2 id="internal-storage-the-unix-epoch">Internal Storage: The Unix
+Epoch</h2>
+<p>Every JavaScript <code>Date</code> instance wraps a single integer:
+the number of milliseconds since January 1, 1970, 00:00:00 UTC. The
+object does not store a timezone identifier (like "America/New_York" or
+"UTC"). Instead, the timezone is applied dynamically whenever you read
+from or write to the <code>Date</code> instance.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> now <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(now<span class="op">.</span><span class="fu">getTime</span>())<span class="op">;</span> <span class="co">// Outputs raw milliseconds since Unix Epoch (UTC)</span></span></code></pre></div>
+<h2 id="parsing-inputs-and-timezone-interpretation">Parsing Inputs and
+Timezone Interpretation</h2>
+<p>How JavaScript interprets a date string depends heavily on its
+format:</p>
+<ul>
+<li><strong>ISO 8601 Date-Only Strings
+(<code>YYYY-MM-DD</code>):</strong> JavaScript parses date-only strings
+as UTC. For example, <code>new Date("2023-10-15")</code> is treated as
+midnight UTC.</li>
+<li><strong>ISO 8601 Date-Time Strings
+(<code>YYYY-MM-DDTHH:mm:ss</code>):</strong> Without a <code>Z</code> or
+timezone offset, standard date-time strings are parsed as local
+time.</li>
+<li><strong>Explicit UTC (<code>YYYY-MM-DDTHH:mm:ssZ</code>):</strong>
+The trailing <code>Z</code> forces the engine to parse the input as
+UTC.</li>
+<li><strong>Explicit Offset
+(<code>YYYY-MM-DDTHH:mm:ss+02:00</code>):</strong> The specified offset
+is used to compute the correct UTC timestamp.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Parsed as UTC midnight</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> utcDate <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>(<span class="st">&quot;2023-10-15&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Parsed as local midnight</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> localDate <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>(<span class="st">&quot;2023-10-15T00:00:00&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Parsed as UTC midnight</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> explicitUtc <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>(<span class="st">&quot;2023-10-15T00:00:00Z&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="accessing-values-local-vs-utc-methods">Accessing Values: Local
+vs. UTC Methods</h2>
+<p>The <code>Date</code> prototype provides two complementary sets of
+getter and setter methods.</p>
+<h3 id="local-time-methods">Local Time Methods</h3>
+<p>Local methods retrieve or set components according to the host
+system's current timezone and Daylight Saving Time (DST) rules:</p>
+<ul>
+<li><code>getFullYear()</code>, <code>getMonth()</code>,
+<code>getDate()</code></li>
+<li><code>getHours()</code>, <code>getMinutes()</code>,
+<code>getSeconds()</code></li>
+<li><code>toString()</code>, <code>toLocaleString()</code></li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> date <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>(<span class="st">&quot;2023-10-15T12:00:00Z&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Outputs values based on your computer&#39;s local timezone</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(date<span class="op">.</span><span class="fu">getHours</span>())<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(date<span class="op">.</span><span class="fu">toString</span>())<span class="op">;</span></span></code></pre></div>
+<h3 id="utc-methods">UTC Methods</h3>
+<p>UTC methods bypass the local timezone and interact directly with the
+UTC values:</p>
+<ul>
+<li><code>getUTCFullYear()</code>, <code>getUTCMonth()</code>,
+<code>getUTCDate()</code></li>
+<li><code>getUTCHours()</code>, <code>getUTCMinutes()</code>,
+<code>getUTCSeconds()</code></li>
+<li><code>toUTCString()</code>, <code>toISOString()</code></li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> date <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>(<span class="st">&quot;2023-10-15T12:00:00Z&quot;</span>)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Always outputs 12, regardless of local timezone</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(date<span class="op">.</span><span class="fu">getUTCHours</span>())<span class="op">;</span> </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(date<span class="op">.</span><span class="fu">toISOString</span>())<span class="op">;</span> <span class="co">// &quot;2023-10-15T12:00:00.000Z&quot;</span></span></code></pre></div>
+<h2 id="determining-the-local-timezone-offset">Determining the Local
+Timezone Offset</h2>
+<p>To determine the difference between the local timezone and UTC, use
+the <code>getTimezoneOffset()</code> method.</p>
+<ul>
+<li>It returns the difference in <strong>minutes</strong>.</li>
+<li>The sign is inverted: positive values indicate timezones behind UTC
+(e.g., Americas), while negative values indicate timezones ahead of UTC
+(e.g., Europe, Asia).</li>
+</ul>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> offset <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>()<span class="op">.</span><span class="fu">getTimezoneOffset</span>()<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">// In New York (EDT, UTC-4), offset is 240</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">// In Tokyo (JST, UTC+9), offset is -540</span></span></code></pre></div>
+<h2 id="converting-to-target-timezones-using-intl">Converting to Target
+Timezones Using <code>Intl</code></h2>
+<p>The standard <code>Date</code> object cannot switch its internal
+context to an arbitrary third timezone (e.g., displaying Tokyo time
+while running in New York). To perform arbitrary timezone conversions,
+use the <code>Intl.DateTimeFormat</code> API:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> date <span class="op">=</span> <span class="kw">new</span> <span class="bu">Date</span>(<span class="st">&quot;2023-10-15T12:00:00Z&quot;</span>)<span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tokyoTime <span class="op">=</span> <span class="kw">new</span> <span class="bu">Intl</span><span class="op">.</span><span class="fu">DateTimeFormat</span>(<span class="st">&quot;en-US&quot;</span><span class="op">,</span> {</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timeZone</span><span class="op">:</span> <span class="st">&quot;Asia/Tokyo&quot;</span><span class="op">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">dateStyle</span><span class="op">:</span> <span class="st">&quot;full&quot;</span><span class="op">,</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timeStyle</span><span class="op">:</span> <span class="st">&quot;long&quot;</span><span class="op">,</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">.</span><span class="fu">format</span>(date)<span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(tokyoTime)<span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

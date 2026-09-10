@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dijkstra's Algorithm in JavaScript: Optimal Routes - javascript</title>
+    <meta name="description" content="This article explores how Dijkstra’s algorithm computes the shortest path between nodes in a weighted graph using core JavaScript data structures. You will learn the underlying mechanics of the algorithm—including edge relaxation and greedy traversal">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/dijkstra-s-algorithm-in-javascript-optimal-routes">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dijkstra's Algorithm in JavaScript: Optimal Routes - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/dijkstra-s-algorithm-in-javascript-optimal-routes" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Dijkstra’s algorithm computes the shortest path between nodes in a weighted graph using core JavaScript data structures. You will learn the underlying mechanics of the algorithm—including edge relaxation and greedy traversal" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="dijkstras-algorithm-in-javascript-optimal-routes">Dijkstra's
+Algorithm in JavaScript: Optimal Routes</h1>
+<p>This article explores how Dijkstra’s algorithm computes the shortest
+path between nodes in a weighted graph using core JavaScript data
+structures. You will learn the underlying mechanics of the
+algorithm—including edge relaxation and greedy traversal—alongside
+practical implementation details using JavaScript objects, Sets, Maps,
+and priority queues to efficiently track and reconstruct optimal
+routes.</p>
+<h3 id="graph-representation-with-adjacency-lists">Graph Representation
+with Adjacency Lists</h3>
+<p>To represent a weighted graph in JavaScript, an adjacency list
+implemented via a plain <code>Object</code> or a <code>Map</code> is the
+most efficient choice. The keys represent the vertices, and the values
+are objects or maps detailing neighboring vertices and the weights of
+the connecting edges:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> graph <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">A</span><span class="op">:</span> { <span class="dt">B</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span> <span class="dt">C</span><span class="op">:</span> <span class="dv">2</span> }<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">B</span><span class="op">:</span> { <span class="dt">A</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span> <span class="dt">E</span><span class="op">:</span> <span class="dv">3</span> }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">C</span><span class="op">:</span> { <span class="dt">A</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="dt">D</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="dt">F</span><span class="op">:</span> <span class="dv">4</span> }<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">D</span><span class="op">:</span> { <span class="dt">C</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="dt">E</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span> <span class="dt">F</span><span class="op">:</span> <span class="dv">1</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">E</span><span class="op">:</span> { <span class="dt">B</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span> <span class="dt">D</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span> <span class="dt">F</span><span class="op">:</span> <span class="dv">1</span> }<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">F</span><span class="op">:</span> { <span class="dt">C</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span> <span class="dt">D</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">E</span><span class="op">:</span> <span class="dv">1</span> }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>This structure allows constant-time <span
+class="math inline">\(O(1)\)</span> lookups for any given node's
+neighbors and their respective edge weights.</p>
+<h3 id="state-management-distances-visited-nodes-and-predecessors">State
+Management: Distances, Visited Nodes, and Predecessors</h3>
+<p>Dijkstra’s algorithm requires tracking three primary pieces of
+state:</p>
+<ol type="1">
+<li><strong>Shortest Distances Table:</strong> A <code>Map</code> or
+plain object storing the minimum known distance from the starting node
+to every other node. All values are initialized to
+<code>Infinity</code>, except the starting node, which is set to
+<code>0</code>.</li>
+<li><strong>Visited Set:</strong> A JavaScript <code>Set</code> storing
+nodes that have been fully evaluated. Once a node is added to this set,
+its optimal distance is finalized and will not be re-evaluated.</li>
+<li><strong>Previous Nodes Map:</strong> An object or <code>Map</code>
+recording the predecessor for each node. This mapping allows the
+algorithm to reconstruct the complete route once the destination is
+reached.</li>
+</ol>
+<h3 id="priority-queue-for-optimal-node-selection">Priority Queue for
+Optimal Node Selection</h3>
+<p>Dijkstra's algorithm operates greedily by always evaluating the
+unvisited node with the smallest tentative distance.</p>
+<p>While a simple array can be sorted or searched linearly using
+<code>Array.prototype.reduce()</code>, this results in an <span
+class="math inline">\(O(V^2)\)</span> time complexity. In production
+JavaScript environments, a Min-Heap (Priority Queue) improves
+performance to <span class="math inline">\(O((V + E) \log
+V)\)</span>.</p>
+<p>The priority queue stores pairs of <code>[node, distance]</code>. On
+each iteration, the node with the lowest distance is extracted:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Conceptual representation of node selection</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> currentNode <span class="op">=</span> priorityQueue<span class="op">.</span><span class="fu">dequeue</span>()<span class="op">;</span> <span class="co">// Returns the unvisited node with the smallest distance</span></span></code></pre></div>
+<h3 id="the-relaxation-process">The Relaxation Process</h3>
+<p>Edge relaxation is the core operation of Dijkstra's algorithm. When
+evaluating <code>currentNode</code>, the algorithm inspects each of its
+unvisited neighbors:</p>
+<ol type="1">
+<li>Calculate the tentative distance:
+<code>distanceToCurrentNode + edgeWeightToNeighbor</code>.</li>
+<li>Compare this value to the neighbor's currently recorded
+distance.</li>
+<li>If the tentative distance is lower, update the neighbor's distance
+in the distances table.</li>
+<li>Record <code>currentNode</code> as the neighbor's predecessor in the
+previous nodes map.</li>
+<li>Insert the neighbor and its updated distance into the priority
+queue.</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">const</span> [neighbor<span class="op">,</span> weight] <span class="kw">of</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">entries</span>(graph[currentNode])) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (visited<span class="op">.</span><span class="fu">has</span>(neighbor)) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> tentativeDistance <span class="op">=</span> distances[currentNode] <span class="op">+</span> weight<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (tentativeDistance <span class="op">&lt;</span> distances[neighbor]) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    distances[neighbor] <span class="op">=</span> tentativeDistance<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    previous[neighbor] <span class="op">=</span> currentNode<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    priorityQueue<span class="op">.</span><span class="fu">enqueue</span>(neighbor<span class="op">,</span> tentativeDistance)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>visited<span class="op">.</span><span class="fu">add</span>(currentNode)<span class="op">;</span></span></code></pre></div>
+<h3 id="reconstructing-the-shortest-path">Reconstructing the Shortest
+Path</h3>
+<p>Once the target node is extracted from the queue or the queue is
+exhausted, the algorithm terminates. To retrieve the route, backtrack
+from the destination node to the starting node using the
+<code>previous</code> mapping, then reverse the resulting array:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getPath</span>(previous<span class="op">,</span> targetNode) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> path <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> current <span class="op">=</span> targetNode<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (current) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    path<span class="op">.</span><span class="fu">unshift</span>(current)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    current <span class="op">=</span> previous[current]<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> path<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By combining a graph adjacency list, a Min-Heap priority queue, and
+constant-time lookup tables for state tracking, JavaScript executes
+Dijkstra's algorithm efficiently to solve complex routing problems.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

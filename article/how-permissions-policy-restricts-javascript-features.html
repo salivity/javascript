@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Permissions Policy Restricts JavaScript Features - javascript</title>
+    <meta name="description" content="The Permissions Policy HTTP header allows website owners to explicitly enable, restrict, or disable access to sensitive browser features and hardware APIs for both the main document and embedded third-party frames. This article explains how the Permissio">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-permissions-policy-restricts-javascript-features">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Permissions Policy Restricts JavaScript Features - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-permissions-policy-restricts-javascript-features" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Permissions Policy HTTP header allows website owners to explicitly enable, restrict, or disable access to sensitive browser features and hardware APIs for both the main document and embedded third-party frames. This article explains how the Permissio" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-permissions-policy-restricts-javascript-features">How
+Permissions Policy Restricts JavaScript Features</h1>
+<p>The Permissions Policy HTTP header allows website owners to
+explicitly enable, restrict, or disable access to sensitive browser
+features and hardware APIs for both the main document and embedded
+third-party frames. This article explains how the Permissions Policy
+header functions, breaks down its syntax and directives, demonstrates
+how it enforces restrictions against JavaScript execution, and details
+the security benefits it offers against unauthorized API usage.</p>
+<h2 id="what-is-the-permissions-policy-header">What is the Permissions
+Policy Header?</h2>
+<p>Permissions Policy (formerly known as Feature Policy) is a standard
+HTTP response header that defines a security contract between a web
+server and the client browser. By declaring a set of directives, a
+server informs the browser which powerful web platform APIs—such as
+geolocation, camera access, microphone inputs, or autoplay—are permitted
+to run in the current context.</p>
+<p>When a browser receives this header, it configures internal
+permission registries before executing page scripts. If a script
+attempts to invoke a disabled API, the browser immediately blocks
+execution at the platform level, preventing unauthorized access
+regardless of user settings or script privileges.</p>
+<h2 id="how-permissions-policy-interacts-with-javascript">How
+Permissions Policy Interacts with JavaScript</h2>
+<p>Permissions Policy enforces restrictions deterministically at the
+browser runtime level, altering how standard JavaScript APIs behave:</p>
+<ol type="1">
+<li><strong>Immediate Promise Rejections:</strong> APIs that rely on
+JavaScript Promises fail automatically. For example, invoking
+<code>navigator.mediaDevices.getUserMedia()</code> when the
+<code>camera</code> policy is disabled will immediately reject with a
+<code>NotAllowedError</code> or <code>SecurityError</code> DOMException
+without prompting the user.</li>
+<li><strong>Synchronous Failures:</strong> Synchronous properties or
+methods associated with blocked features either return
+<code>false</code>, return <code>undefined</code>, or throw an error.
+For instance, <code>document.requestFullscreen()</code> will fail and
+trigger a <code>fullscreenerror</code> event.</li>
+<li><strong>Integration with the Permissions API:</strong> Scripts can
+inspect policy restrictions programmatically using
+<code>navigator.permissions.query()</code>. If a feature is disabled by
+Permissions Policy, the permission state will report as
+<code>denied</code>, allowing developers to write fallback logic.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example: Querying the state of an API restricted by Permissions Policy</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">navigator</span><span class="op">.</span><span class="at">permissions</span><span class="op">.</span><span class="fu">query</span>({ <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;geolocation&#39;</span> })<span class="op">.</span><span class="fu">then</span>((result) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (result<span class="op">.</span><span class="at">state</span> <span class="op">===</span> <span class="st">&#39;denied&#39;</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&#39;Geolocation is blocked by Permissions Policy.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="syntax-and-directive-structure">Syntax and Directive
+Structure</h2>
+<p>The Permissions Policy header uses a structured header syntax
+consisting of feature names assigned to allowlists:</p>
+<pre class="http"><code>Permissions-Policy: &lt;feature&gt;=(&lt;allowlist&gt;), &lt;feature&gt;=(&lt;allowlist&gt;)</code></pre>
+<h3 id="allowlist-values">Allowlist Values</h3>
+<ul>
+<li><strong><code>()</code> (Empty):</strong> Disables the feature
+entirely for all contexts, including the top-level origin and all
+iframes.</li>
+<li><strong><code>self</code>:</strong> Restricts the feature to the
+origin of the document serving the header.</li>
+<li><strong><code>*</code>:</strong> Allows the feature for the current
+origin and any nested browsing context.</li>
+<li><strong><code>"https://example.com"</code>:</strong> Explicitly
+delegates permission to a specific origin.</li>
+</ul>
+<h3 id="example-header-configurations">Example Header
+Configurations</h3>
+<ul>
+<li><p><strong>Block access entirely:</strong></p>
+<pre class="http"><code>Permissions-Policy: camera=(), microphone=(), geolocation=()</code></pre>
+<p>In this configuration, any JavaScript call targeting the camera,
+microphone, or geolocation fails immediately across the entire page and
+all child frames.</p></li>
+<li><p><strong>Allow only for the primary origin:</strong></p>
+<pre class="http"><code>Permissions-Policy: payment=(self), fullscreen=(self)</code></pre>
+<p>Only scripts hosted on the same origin as the top-level document can
+use the Payment Request API or enter fullscreen mode.</p></li>
+<li><p><strong>Delegate to specific third parties:</strong></p>
+<pre class="http"><code>Permissions-Policy: camera=(self &quot;https://trusted-partner.com&quot;)</code></pre>
+<p>Camera access is available to the main site and specifically
+authorized iframes hosted on <code>trusted-partner.com</code>.</p></li>
+</ul>
+<h2 id="restricting-embedded-content-iframes">Restricting Embedded
+Content (iFrames)</h2>
+<p>Permissions Policy provides strict control over third-party scripts
+loaded through <code>&lt;iframe&gt;</code> elements. By default,
+powerful features disabled in the top-level document's HTTP header
+cannot be enabled by an iframe, even if the iframe attempts to override
+the policy.</p>
+<p>To grant an allowed feature to an iframe, the parent document must
+explicitly pass permission using the iframe's <code>allow</code>
+attribute:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- Grants camera access to an embedded partner, assuming the HTTP header permits it --&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">iframe</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://trusted-partner.com/meeting&quot;</span><span class="ot"> allow</span><span class="op">=</span><span class="st">&quot;camera&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">iframe</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>If the parent document's HTTP header disables the feature with
+<code>camera=()</code>, any <code>allow="camera"</code> attribute
+defined on an iframe will be ignored, maintaining absolute enforcement
+from the server's policy.</p>
+<h2 id="security-benefits">Security Benefits</h2>
+<p>Implementing the Permissions Policy header provides several core
+security advantages:</p>
+<ul>
+<li><strong>Mitigating Cross-Site Scripting (XSS) Impact:</strong> If an
+attacker injects malicious JavaScript via an XSS vulnerability, they
+cannot access sensitive hardware like webcams or physical location data
+if those APIs are disabled via the policy.</li>
+<li><strong>Restricting Rogue Third-Party Dependencies:</strong>
+Third-party analytics, ad tags, or external widgets are prevented from
+silently tracking users, polling device sensors, or launching intrusive
+APIs.</li>
+<li><strong>Minimizing Unintended Resource Consumption:</strong>
+Blocking heavy features such as synchronous XMLHttpRequests, autoplay,
+or CPU-intensive sensors improves overall client-side performance and
+battery life.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

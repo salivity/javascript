@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Symbol.asyncIterator Works in JavaScript - javascript</title>
+    <meta name="description" content="Symbol.asyncIterator is a built-in JavaScript symbol that defines the asynchronous iteration protocol for an object. By implementing a method with this symbol, an object can yield values asynchronously over time, allowing it to be consumed by the for awa">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-symbol-asynciterator-works-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Symbol.asyncIterator Works in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-symbol-asynciterator-works-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Symbol.asyncIterator is a built-in JavaScript symbol that defines the asynchronous iteration protocol for an object. By implementing a method with this symbol, an object can yield values asynchronously over time, allowing it to be consumed by the for awa" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-symbolasynciterator-works-in-javascript">How
+Symbol.asyncIterator Works in JavaScript</h1>
+<p><code>Symbol.asyncIterator</code> is a built-in JavaScript symbol
+that defines the asynchronous iteration protocol for an object. By
+implementing a method with this symbol, an object can yield values
+asynchronously over time, allowing it to be consumed by the
+<code>for await...of</code> loop. This mechanism allows developers to
+iterate over data sources that produce results asynchronously—such as
+data streams, paginated API responses, or delayed events—using a clean
+and declarative syntax instead of relying on manual callback chaining or
+complex promise management.</p>
+<h2 id="the-asynchronous-iteration-protocol">The Asynchronous Iteration
+Protocol</h2>
+<p>To understand <code>Symbol.asyncIterator</code>, it helps to compare
+it to standard synchronous iteration:</p>
+<ul>
+<li><strong>Synchronous Iteration
+(<code>Symbol.iterator</code>):</strong> The <code>next()</code> method
+immediately returns an object in the format
+<code>{ value: any, done: boolean }</code>.</li>
+<li><strong>Asynchronous Iteration
+(<code>Symbol.asyncIterator</code>):</strong> The <code>next()</code>
+method returns a <strong>Promise</strong> that resolves to an object in
+the format <code>{ value: any, done: boolean }</code>.</li>
+</ul>
+<p>When an object has a <code>[Symbol.asyncIterator]</code> method,
+JavaScript marks it as an <strong>AsyncIterable</strong>.</p>
+<h2 id="how-for-awaitof-interacts-with-the-symbol">How
+<code>for await...of</code> Interacts with the Symbol</h2>
+<p>The primary consumer of <code>Symbol.asyncIterator</code> is the
+<code>for await...of</code> loop. When the loop executes, the runtime
+performs the following steps:</p>
+<ol type="1">
+<li>It calls the object's <code>[Symbol.asyncIterator]()</code> method
+to retrieve the async iterator instance.</li>
+<li>It invokes <code>.next()</code> on the iterator, which returns a
+Promise.</li>
+<li>It awaits the Promise resolution.</li>
+<li>If <code>done</code> is <code>false</code>, it assigns
+<code>value</code> to the loop variable and executes the loop body.</li>
+<li>It repeats steps 2–4 until the resolved object has
+<code>done: true</code>.</li>
+</ol>
+<h2 id="implementing-a-custom-async-iterable">Implementing a Custom
+Async Iterable</h2>
+<p>You can define <code>[Symbol.asyncIterator]</code> manually on any
+custom object:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> asyncCounter <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">max</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  [<span class="bu">Symbol</span><span class="op">.</span><span class="at">asyncIterator</span>]() {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> current <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> max <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">max</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="kw">async</span> <span class="fu">next</span>() {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (current <span class="op">&lt;=</span> max) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>          <span class="co">// Simulate an asynchronous operation</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>          <span class="cf">await</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve) <span class="kw">=&gt;</span> <span class="pp">setTimeout</span>(resolve<span class="op">,</span> <span class="dv">500</span>))<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> { <span class="dt">value</span><span class="op">:</span> current<span class="op">++,</span> <span class="dt">done</span><span class="op">:</span> <span class="kw">false</span> }<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> { <span class="dt">value</span><span class="op">:</span> <span class="kw">undefined</span><span class="op">,</span> <span class="dt">done</span><span class="op">:</span> <span class="kw">true</span> }<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>(<span class="kw">async</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> <span class="cf">await</span> (<span class="kw">const</span> num <span class="kw">of</span> asyncCounter) {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(num)<span class="op">;</span> <span class="co">// Logs 1, 2, 3 with a 500ms delay between each</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>})()<span class="op">;</span></span></code></pre></div>
+<h2 id="using-async-generators">Using Async Generators</h2>
+<p>Writing manual iterators with boilerplate <code>next()</code> methods
+can be tedious. JavaScript provides <strong>Async Generator
+Functions</strong> (<code>async function*</code>), which automatically
+implement <code>Symbol.asyncIterator</code> under the hood:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span><span class="op">*</span> <span class="fu">fetchPages</span>(urls) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> url <span class="kw">of</span> urls) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(url)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> data <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">json</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">yield</span> data<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Consuming the generator</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>(<span class="kw">async</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> pages <span class="op">=</span> <span class="fu">fetchPages</span>([<span class="st">&#39;/api/page/1&#39;</span><span class="op">,</span> <span class="st">&#39;/api/page/2&#39;</span>])<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> <span class="cf">await</span> (<span class="kw">const</span> page <span class="kw">of</span> pages) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(page)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})()<span class="op">;</span></span></code></pre></div>
+<p>In this example, calling <code>fetchPages()</code> returns an
+AsyncGenerator object that inherently satisfies the async iterable
+protocol through <code>Symbol.asyncIterator</code>.</p>
+<h2 id="practical-use-cases">Practical Use Cases</h2>
+<ul>
+<li><strong>Node.js Streams:</strong> Readable streams in Node.js (and
+the browser Streams API) implement <code>Symbol.asyncIterator</code>,
+enabling you to read incoming chunks of data directly with
+<code>for await...of</code>.</li>
+<li><strong>Database Pagination:</strong> Fetching large query results
+in chunks or cursors without loading the entire dataset into memory at
+once.</li>
+<li><strong>Real-time Feeds:</strong> Consuming incoming WebSocket
+messages or server-sent events sequentially as they arrive.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

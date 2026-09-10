@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How wasm-bindgen Connects Rust and JavaScript - javascript</title>
+    <meta name="description" content="The wasm-bindgen library is an essential tool in the Rust WebAssembly ecosystem that facilitates seamless, high-level interaction between Rust and JavaScript. Because WebAssembly natively supports only basic numeric data types, passing complex informatio">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-wasm-bindgen-connects-rust-and-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How wasm-bindgen Connects Rust and JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-wasm-bindgen-connects-rust-and-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The wasm-bindgen library is an essential tool in the Rust WebAssembly ecosystem that facilitates seamless, high-level interaction between Rust and JavaScript. Because WebAssembly natively supports only basic numeric data types, passing complex informatio" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-wasm-bindgen-connects-rust-and-javascript">How wasm-bindgen
+Connects Rust and JavaScript</h1>
+<p>The <code>wasm-bindgen</code> library is an essential tool in the
+Rust WebAssembly ecosystem that facilitates seamless, high-level
+interaction between Rust and JavaScript. Because WebAssembly natively
+supports only basic numeric data types, passing complex information
+across the language boundary is traditionally difficult. This article
+explains how <code>wasm-bindgen</code> overcomes this limitation by
+automatically generating glue code, handling memory management, and
+abstracting data conversion so that both languages can interoperate
+using idiomatic constructs.</p>
+<h3 id="the-primitive-type-limitation">The Primitive Type
+Limitation</h3>
+<p>At its core, WebAssembly operates on a restricted type system
+consisting primarily of integers and floating-point numbers
+(<code>i32</code>, <code>i64</code>, <code>f32</code>, and
+<code>f64</code>). It possesses no native concept of strings, arrays,
+objects, or functions from high-level languages. Without an abstraction
+layer, passing a string or a complex object between JavaScript and a
+compiled WebAssembly module requires manually serializing data, writing
+it directly into WebAssembly linear memory, passing pointers and
+lengths, and deserializing it on the receiving side.</p>
+<h3 id="automated-code-generation-with-macros">Automated Code Generation
+with Macros</h3>
+<p><code>wasm-bindgen</code> eliminates manual serialization through
+Rust procedural macros. By annotating functions, structs, and enums with
+the <code>#[wasm_bindgen]</code> attribute, developers signal the
+compiler to generate specialized bridge code.</p>
+<p>During the build process, the macro produces two primary
+components:</p>
+<ol type="1">
+<li><strong>Rust Shims:</strong> Low-level Rust functions that unwrap
+incoming primitive pointers, reconstruct native Rust data structures,
+execute the target logic, and convert return values back into primitive
+handles.</li>
+<li><strong>JavaScript Wrappers:</strong> Corresponding JavaScript
+functions generated via companion tools like <code>wasm-pack</code>.
+These wrappers interface with the browser or Node.js environment,
+converting JavaScript values into formats compatible with WebAssembly
+memory before calling the exported module.</li>
+</ol>
+<h3 id="memory-boundary-management">Memory Boundary Management</h3>
+<p>JavaScript and WebAssembly run in separate execution contexts with
+distinct memory models. JavaScript uses an automatic garbage-collected
+heap, while WebAssembly operates on a contiguous, resizable array of raw
+bytes known as linear memory.</p>
+<p>When a string is passed from JavaScript to Rust,
+<code>wasm-bindgen</code> coordinates the transfer:</p>
+<ul>
+<li>The JavaScript wrapper allocates a block of memory inside the
+WebAssembly linear memory using an exported allocator function.</li>
+<li>The wrapper encodes the JavaScript string into UTF-8 bytes and
+writes them directly into the allocated memory space.</li>
+<li>The wrapper passes the memory pointer (an integer) and the length to
+the Rust function.</li>
+<li>Rust accesses the bytes from that memory slice, performs its
+operations, and cleans up the memory when it is no longer required.</li>
+</ul>
+<p>For data flowing in reverse, Rust writes data to linear memory and
+passes a pointer and length to JavaScript, which reads the bytes from
+the module's exported <code>WebAssembly.Memory</code> buffer and decodes
+them into native JavaScript objects.</p>
+<h3 id="exposing-rust-types-as-javascript-classes">Exposing Rust Types
+as JavaScript Classes</h3>
+<p>Beyond standard types, <code>wasm-bindgen</code> enables Rust
+<code>struct</code> definitions to be instantiated and manipulated as
+JavaScript classes. When a Rust struct is annotated with
+<code>#[wasm_bindgen]</code>, the generated JavaScript wrapper wraps a
+pointer to the heap-allocated Rust instance.</p>
+<p>Methods defined in a corresponding <code>#[wasm_bindgen]</code>
+implementation block become member methods on the JavaScript class. When
+JavaScript calls one of these methods, it sends the stored pointer back
+to Rust, allowing Rust to safely dereference the pointer and execute
+code with direct access to <code>self</code>. <code>wasm-bindgen</code>
+also adds an explicit <code>free()</code> method to manage the lifecycle
+of the Rust struct from JavaScript, preventing memory leaks.</p>
+<h3 id="interacting-with-javascript-objects-via-jsvalue">Interacting
+with JavaScript Objects via <code>JsValue</code></h3>
+<p>Communication is bidirectional. Rust can directly manipulate
+arbitrary JavaScript objects through the
+<code>wasm-bindgen::JsValue</code> type. Because Rust cannot natively
+manage garbage-collected JavaScript references,
+<code>wasm-bindgen</code> maintains a heap of JavaScript objects in the
+wrapper layer.</p>
+<p>Rust interacts with these objects via an integer index referencing
+the wrapper's internal table. When a JavaScript object is passed into
+Rust, it is registered in the table, and its index is provided to Rust
+as a <code>JsValue</code>. Through this mechanism, Rust can invoke
+methods, read properties, pass callbacks, and interact directly with Web
+APIs like the DOM or <code>fetch</code> without breaking WebAssembly's
+low-level execution boundaries.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

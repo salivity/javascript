@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unicode Normalization in JavaScript with normalize() - javascript</title>
+    <meta name="description" content="In JavaScript, strings that appear visually identical can fail equality comparisons because Unicode allows accented characters to be encoded in multiple distinct byte sequences. Unicode normalization resolves this inconsistency by converting text into a">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/unicode-normalization-in-javascript-with-normalize">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Unicode Normalization in JavaScript with normalize() - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/unicode-normalization-in-javascript-with-normalize" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript, strings that appear visually identical can fail equality comparisons because Unicode allows accented characters to be encoded in multiple distinct byte sequences. Unicode normalization resolves this inconsistency by converting text into a" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="unicode-normalization-in-javascript-with-normalize">Unicode
+Normalization in JavaScript with normalize()</h1>
+<p>In JavaScript, strings that appear visually identical can fail
+equality comparisons because Unicode allows accented characters to be
+encoded in multiple distinct byte sequences. Unicode normalization
+resolves this inconsistency by converting text into a standardized
+binary form, ensuring predictable searching, sorting, and equality
+checks. This guide explains how Unicode handles accented characters, how
+normalization works under the hood, and how to use JavaScript's built-in
+<code>String.prototype.normalize()</code> method to handle accented text
+reliably.</p>
+<h2 id="the-problem-dual-representations-of-accented-characters">The
+Problem: Dual Representations of Accented Characters</h2>
+<p>Unicode can represent accented characters (diacritics) in two primary
+ways:</p>
+<ol type="1">
+<li><strong>Precomposed Characters:</strong> A single Unicode code point
+represents the character with the accent already applied. For example,
+the character <code>é</code> can be represented as <code>\u00E9</code>
+(Latin Small Letter E with Acute).</li>
+<li><strong>Decomposed Sequences:</strong> A base character is followed
+by one or more non-spacing combining characters. For example,
+<code>e</code> (<code>\u0065</code>) combined with a combining acute
+accent (<code>\u0301</code>) renders visually as <code>é</code>.</li>
+</ol>
+<p>While both appear identical on screen, JavaScript evaluates strings
+at the code point level. As a result, strict equality checks will
+fail:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> precomposed <span class="op">=</span> <span class="st">&#39;</span><span class="sc">\u00E9</span><span class="st">&#39;</span><span class="op">;</span>       <span class="co">// &quot;é&quot;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> decomposed <span class="op">=</span> <span class="st">&#39;e</span><span class="sc">\u0301</span><span class="st">&#39;</span><span class="op">;</span>       <span class="co">// &quot;e&quot; + combining accent</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(precomposed <span class="op">===</span> decomposed)<span class="op">;</span> <span class="co">// false</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(precomposed<span class="op">.</span><span class="at">length</span>)<span class="op">;</span>         <span class="co">// 1</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(decomposed<span class="op">.</span><span class="at">length</span>)<span class="op">;</span>          <span class="co">// 2</span></span></code></pre></div>
+<h2 id="the-four-unicode-normalization-forms">The Four Unicode
+Normalization Forms</h2>
+<p>Unicode defines four normalization forms, categorized by whether they
+compose or decompose characters and whether they preserve canonical or
+compatibility equivalence:</p>
+<ul>
+<li><strong>NFC (Normalization Form Canonical Composition):</strong>
+Decomposes characters into canonical equivalents, then combines them
+into precomposed characters where available. This is the web standard
+and the default in JavaScript.</li>
+<li><strong>NFD (Normalization Form Canonical Decomposition):</strong>
+Decomposes precomposed characters into their base characters and
+separate combining diacritical marks.</li>
+<li><strong>NFKC (Normalization Form Compatibility
+Composition):</strong> Decomposes characters using compatibility rules
+(which also normalizes formatting characters, fractions, and ligatures
+like <code>ﬁ</code> into <code>fi</code>) and then recomposes them into
+precomposed forms.</li>
+<li><strong>NFKD (Normalization Form Compatibility
+Decomposition):</strong> Decomposes characters using compatibility rules
+without recomposing them.</li>
+</ul>
+<h2 id="using-stringprototypenormalize">Using
+<code>String.prototype.normalize()</code></h2>
+<p>The <code>String.prototype.normalize()</code> method accepts an
+optional argument specifying one of the four forms: <code>"NFC"</code>,
+<code>"NFD"</code>, <code>"NFKC"</code>, or <code>"NFKD"</code>. If
+omitted, it defaults to <code>"NFC"</code>.</p>
+<h3 id="1-reliable-string-comparison">1. Reliable String Comparison</h3>
+<p>To compare strings containing potential variations of accented text,
+normalize both sides to NFC:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> str1 <span class="op">=</span> <span class="st">&#39;caf</span><span class="sc">\u00E9</span><span class="st">&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> str2 <span class="op">=</span> <span class="st">&#39;cafe</span><span class="sc">\u0301</span><span class="st">&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> isEqual <span class="op">=</span> str1<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&#39;NFC&#39;</span>) <span class="op">===</span> str2<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&#39;NFC&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(isEqual)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h3 id="2-stripping-accents-diacritics">2. Stripping Accents
+(Diacritics)</h3>
+<p>A frequent requirement in search filters and URL slug generation is
+stripping accents to match search queries (e.g., matching "resume" to
+"résumé").</p>
+<p>This is achieved by decomposing the string with <code>NFD</code> and
+using a regular expression to remove the combining diacritical marks
+(Unicode block <code>\u0300-\u036f</code>):</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">removeAccents</span>(str) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> str</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">normalize</span>(<span class="st">&#39;NFD&#39;</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">replace</span>(<span class="ss">/</span><span class="sc">[\u0300-\u036f]</span><span class="ss">/g</span><span class="op">,</span> <span class="st">&#39;&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">removeAccents</span>(<span class="st">&#39;Crème brûlée&#39;</span>))<span class="op">;</span> <span class="co">// &quot;Creme brulee&quot;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">removeAccents</span>(<span class="st">&#39;München&#39;</span>))<span class="op">;</span>      <span class="co">// &quot;Munchen&quot;</span></span></code></pre></div>
+<h3 id="3-handling-compatibility-normalization-nfkdnfkc">3. Handling
+Compatibility Normalization (NFKD/NFKC)</h3>
+<p>When user input contains symbols, stylized fonts, or ligatures,
+compatibility forms convert them into plain characters:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ligature <span class="op">=</span> <span class="st">&#39;ﬁle&#39;</span><span class="op">;</span> <span class="co">// Single ligature character &quot;ﬁ&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(ligature<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&#39;NFKC&#39;</span>))<span class="op">;</span> <span class="co">// &quot;file&quot; (separate &quot;f&quot; and &quot;i&quot;)</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> superscript <span class="op">=</span> <span class="st">&#39;x²&#39;</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(superscript<span class="op">.</span><span class="fu">normalize</span>(<span class="st">&#39;NFKD&#39;</span>))<span class="op">;</span> <span class="co">// &quot;x2&quot;</span></span></code></pre></div>
+<h2 id="summary">Summary</h2>
+<p><code>String.prototype.normalize()</code> provides a native,
+high-performance way to resolve code-point mismatches in JavaScript. For
+standard string equality and display purposes, normalizing to
+<code>NFC</code> ensures consistent character rendering and length. For
+search indexing and accent removal, decomposing via <code>NFD</code>
+allows combining marks to be isolated and processed independently.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

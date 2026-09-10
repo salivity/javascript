@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How crossOrigin Enables Full JavaScript Stack Traces - javascript</title>
+    <meta name="description" content="When loading JavaScript files hosted on third-party domains or Content Delivery Networks (CDNs), modern web browsers mask runtime error details to prevent cross-origin data leakage, displaying only a generic "Script error." with no stack trace. This arti">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-crossorigin-enables-full-javascript-stack-traces">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How crossOrigin Enables Full JavaScript Stack Traces - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-crossorigin-enables-full-javascript-stack-traces" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When loading JavaScript files hosted on third-party domains or Content Delivery Networks (CDNs), modern web browsers mask runtime error details to prevent cross-origin data leakage, displaying only a generic "Script error." with no stack trace. This arti" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-crossorigin-enables-full-javascript-stack-traces">How
+crossOrigin Enables Full JavaScript Stack Traces</h1>
+<p>When loading JavaScript files hosted on third-party domains or
+Content Delivery Networks (CDNs), modern web browsers mask runtime error
+details to prevent cross-origin data leakage, displaying only a generic
+<code>"Script error."</code> with no stack trace. This article explains
+how applying the <code>crossOrigin</code> attribute to your
+<code>&lt;script&gt;</code> tags, alongside the appropriate server-side
+headers, bypasses this security restriction and restores detailed error
+messages, line numbers, and full stack traces for monitoring and
+debugging.</p>
+<h2 id="the-problem-the-script-error-mask">The Problem: The "Script
+Error." Mask</h2>
+<p>Browsers enforce the Same-Origin Policy to protect user data. When a
+script originates from a domain different from the host webpage (such as
+a CDN like <code>cdn.example.com</code> loaded on
+<code>example.com</code>), the browser assumes the resource might
+contain sensitive information.</p>
+<p>If an unhandled exception occurs inside a cross-origin script, the
+browser's global error handler (<code>window.onerror</code>) receives
+sanitized parameters:</p>
+<ul>
+<li><strong>Message:</strong> <code>"Script error."</code></li>
+<li><strong>URL:</strong> <code>""</code></li>
+<li><strong>Line Number:</strong> <code>0</code></li>
+<li><strong>Column Number:</strong> <code>0</code></li>
+<li><strong>Error Object:</strong> <code>null</code></li>
+</ul>
+<p>This security measure prevents malicious sites from gleaning
+information about third-party scripts by intentionally triggering and
+inspecting error messages. However, it also blinds frontend error
+tracking tools (such as Sentry, LogRocket, or Datadog) from logging
+usable debugging information.</p>
+<h2 id="how-the-crossorigin-attribute-works">How the
+<code>crossOrigin</code> Attribute Works</h2>
+<p>The <code>crossOrigin</code> attribute instructs the browser to fetch
+the external script using standard Cross-Origin Resource Sharing (CORS)
+rules instead of the default opaque cross-origin request mode.</p>
+<p>You can specify the attribute on your script tag like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">script</span><span class="ot"> src</span><span class="op">=</span><span class="st">&quot;https://cdn.example.com/app.js&quot;</span><span class="ot"> crossorigin</span><span class="op">=</span><span class="st">&quot;anonymous&quot;</span><span class="dt">&gt;&lt;/</span><span class="kw">script</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>The attribute accepts two values:</p>
+<ul>
+<li><strong><code>anonymous</code> (or empty
+<code>crossorigin</code>):</strong> Performs a CORS request without
+sending user credentials (cookies, HTTP basic authentication, or client
+certificates).</li>
+<li><strong><code>use-credentials</code>:</strong> Performs a CORS
+request that includes user credentials.</li>
+</ul>
+<p>By explicitly declaring CORS mode, the browser treats the script as
+an inspected, trusted resource rather than an opaque one.</p>
+<h2 id="the-server-side-requirement">The Server-Side Requirement</h2>
+<p>Adding the <code>crossOrigin</code> attribute to the client-side
+markup is only half of the solution. The server or CDN delivering the
+JavaScript file must respond with the appropriate CORS HTTP header:</p>
+<pre class="http"><code>Access-Control-Allow-Origin: *</code></pre>
+<p><em>(Or specify the exact origin instead of the wildcard
+<code>*</code>)</em></p>
+<p>If the <code>crossorigin</code> attribute is present on the
+<code>&lt;script&gt;</code> tag but the server fails to return the
+<code>Access-Control-Allow-Origin</code> header, the browser will block
+the script from executing entirely, resulting in a network CORS
+error.</p>
+<h2 id="the-result-full-stack-trace-visibility">The Result: Full Stack
+Trace Visibility</h2>
+<p>Once the client sends a CORS request via the <code>crossOrigin</code>
+attribute and the server validates it with the appropriate header, the
+browser unmasks runtime errors.</p>
+<p>Global error listeners now receive complete information:</p>
+<ul>
+<li><strong><code>event.message</code> / <code>msg</code>:</strong> The
+actual error message (e.g.,
+<code>TypeError: Cannot read property 'map' of undefined</code>).</li>
+<li><strong><code>event.filename</code> / <code>url</code>:</strong> The
+exact file path.</li>
+<li><strong><code>event.lineno</code> / <code>colno</code>:</strong>
+Accurate line and column numbers.</li>
+<li><strong><code>event.error.stack</code>:</strong> The full JavaScript
+stack trace detailing every function call leading up to the
+failure.</li>
+</ul>
+<p>This enables accurate error logging, simplifies debugging, and allows
+modern source maps to translate production stack traces back to original
+source code.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Compression with Node.js zlib Module - javascript</title>
+    <meta name="description" content="The node:zlib module in Node.js provides native bindings for data compression and decompression using Gzip and Deflate algorithms. By leveraging Node.js Streams—specifically Transform streams—the module processes binary data chunk-by-chunk instead of">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/stream-compression-with-node-js-zlib-module">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stream Compression with Node.js zlib Module - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/stream-compression-with-node-js-zlib-module" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The node:zlib module in Node.js provides native bindings for data compression and decompression using Gzip and Deflate algorithms. By leveraging Node.js Streams—specifically Transform streams—the module processes binary data chunk-by-chunk instead of" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="stream-compression-with-nodejs-zlib-module">Stream Compression
+with Node.js zlib Module</h1>
+<p>The <code>node:zlib</code> module in Node.js provides native bindings
+for data compression and decompression using Gzip and Deflate
+algorithms. By leveraging Node.js Streams—specifically
+<code>Transform</code> streams—the module processes binary data
+chunk-by-chunk instead of loading entire datasets into memory. This
+article explains how <code>node:zlib</code> executes stream-based Gzip
+and Deflate compression, manages backpressure, and handles data
+transformations efficiently in JavaScript applications.</p>
+<h3 id="the-transform-stream-architecture">The Transform Stream
+Architecture</h3>
+<p>At the core of stream compression in <code>node:zlib</code> is the
+<code>Transform</code> stream, a specific type of <code>Duplex</code>
+stream where the output is computed directly from the input. Functions
+such as <code>zlib.createGzip()</code> and
+<code>zlib.createDeflate()</code> return instances of
+<code>zlib.Gzip</code> and <code>zlib.Deflate</code>, which inherit from
+<code>stream.Transform</code>.</p>
+<p>Under the hood, Node.js uses C++ bindings to interface directly with
+the system's underlying <code>zlib</code> C library. When a readable
+stream pushes a chunk of raw data into a compression stream, the
+JavaScript layer passes that buffer to the native layer. The native
+<code>zlib</code> engine compresses the chunk using sliding-window
+dictionary matching (LZ77) and Huffman coding, emits the compressed
+output back into the stream buffer, and signals readiness for the next
+chunk.</p>
+<h3 id="gzip-vs-deflate-in-nodezlib">Gzip vs. Deflate in node:zlib</h3>
+<p>While both formats use the same underlying Deflate compression
+algorithm, <code>node:zlib</code> provides distinct constructors to
+handle their specific container formats and headers:</p>
+<ul>
+<li><strong>Gzip (<code>createGzip</code> /
+<code>createGunzip</code>):</strong> Wraps Deflate data inside a
+standard Gzip container format (RFC 1952). It includes a 10-byte header,
+optional extra headers (such as filenames and timestamps), and an 8-byte
+footer containing a CRC-32 checksum and uncompressed payload
+length.</li>
+<li><strong>Deflate (<code>createDeflate</code> /
+<code>createInflate</code>):</strong> Produces a zlib-wrapped stream
+(RFC 1950). It includes a 2-byte header with compression parameters and
+a 4-byte Adler-32 checksum at the end.</li>
+<li><strong>Raw Deflate (<code>createDeflateRaw</code> /
+<code>createInflateRaw</code>):</strong> Compresses raw bytes using the
+Deflate algorithm (RFC 1951) without any container headers or
+checksums.</li>
+</ul>
+<h3 id="stream-implementation-with-pipeline">Stream Implementation with
+Pipeline</h3>
+<p>The safest and most idiomatic way to manage compression streams is
+using the <code>pipeline</code> utility from the
+<code>node:stream/promises</code> module. It automatically handles
+stream cleanup, error propagation, and resource disposal.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { createReadStream<span class="op">,</span> createWriteStream } <span class="im">from</span> <span class="st">&#39;node:fs&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { createGzip<span class="op">,</span> createDeflate } <span class="im">from</span> <span class="st">&#39;node:zlib&#39;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { pipeline } <span class="im">from</span> <span class="st">&#39;node:stream/promises&#39;</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Gzip Compression Pipeline</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">compressFileGzip</span>(inputPath<span class="op">,</span> outputPath) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> source <span class="op">=</span> <span class="fu">createReadStream</span>(inputPath)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> gzip <span class="op">=</span> <span class="fu">createGzip</span>()<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> destination <span class="op">=</span> <span class="fu">createWriteStream</span>(outputPath)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">pipeline</span>(source<span class="op">,</span> gzip<span class="op">,</span> destination)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Deflate Compression Pipeline</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">compressFileDeflate</span>(inputPath<span class="op">,</span> outputPath) {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> source <span class="op">=</span> <span class="fu">createReadStream</span>(inputPath)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> deflate <span class="op">=</span> <span class="fu">createDeflate</span>()<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> destination <span class="op">=</span> <span class="fu">createWriteStream</span>(outputPath)<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">pipeline</span>(source<span class="op">,</span> deflate<span class="op">,</span> destination)<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="backpressure-and-memory-control">Backpressure and Memory
+Control</h3>
+<p>A key advantage of using <code>node:zlib</code> streams is automatic
+backpressure management. If the output stream (such as a disk write or
+an HTTP socket) writes data slower than <code>zlib</code> can compress
+it, the <code>Transform</code> stream's internal buffer fills up to its
+defined <code>highWaterMark</code>.</p>
+<p>Once this threshold is reached:</p>
+<ol type="1">
+<li>The compression stream signals the source stream to pause reading
+via <code>.pause()</code>.</li>
+<li>The compression engine ceases processing additional input
+buffers.</li>
+<li>As the output stream drains, the compression stream resumes pulling
+data from the source.</li>
+</ol>
+<p>This mechanism ensures that large files (e.g., several gigabytes) can
+be compressed with a near-constant, minimal memory footprint.</p>
+<h3 id="tuning-options">Tuning Options</h3>
+<p>Compression instances accept an options object to balance CPU usage,
+memory consumption, and compression ratios:</p>
+<ul>
+<li><code>level</code>: Sets compression intensity from <code>0</code>
+(no compression) to <code>9</code> (maximum compression). The default is
+<code>constants.Z_DEFAULT_COMPRESSION</code> (usually 6).</li>
+<li><code>chunkSize</code>: Controls the size of the internal buffer
+used by the C++ engine (defaults to 16 KB).</li>
+<li><code>windowBits</code>: Determines the base-2 logarithm of the LZ77
+window size. This dictates the memory footprint of the sliding
+dictionary.</li>
+<li><code>memLevel</code>: Sets how much memory should be allocated for
+internal compression state (ranges from 1 to 9). Higher values use more
+memory for better speed and compression.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

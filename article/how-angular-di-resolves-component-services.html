@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Angular DI Resolves Component Services - javascript</title>
+    <meta name="description" content="Angular's Dependency Injection (DI) system is a hierarchical framework responsible for creating and delivering dependent objects to classes across an application. In JavaScript, the DI container resolves a component's services by inspecting compiled meta">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-angular-di-resolves-component-services">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Angular DI Resolves Component Services - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-angular-di-resolves-component-services" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Angular's Dependency Injection (DI) system is a hierarchical framework responsible for creating and delivering dependent objects to classes across an application. In JavaScript, the DI container resolves a component's services by inspecting compiled meta" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-angular-di-resolves-component-services">How Angular DI
+Resolves Component Services</h1>
+<p>Angular's Dependency Injection (DI) system is a hierarchical
+framework responsible for creating and delivering dependent objects to
+classes across an application. In JavaScript, the DI container resolves
+a component's services by inspecting compiled metadata, traversing a
+dual-tree injector hierarchy (ElementInjector and EnvironmentInjector),
+and instantiating or reusing service instances based on where and how
+they are provided.</p>
+<h3 id="compilation-and-dependency-metadata">Compilation and Dependency
+Metadata</h3>
+<p>During compilation under Angular's Ivy engine, TypeScript source code
+is transformed into plain JavaScript that includes static definitions.
+For a component, the compiler generates a factory function
+(<code>ɵfac</code>) and a component definition (<code>ɵcmp</code>).</p>
+<p>The constructor's parameter types are converted into injection
+tokens. When Angular instantiates a component, its factory function
+invokes internal DI lookup methods (such as
+<code>ɵɵdirectiveInject</code>), passing the token associated with each
+requested service.</p>
+<h3 id="the-dual-injector-hierarchy">The Dual Injector Hierarchy</h3>
+<p>When resolving a service token, Angular searches through two distinct
+injector hierarchies:</p>
+<ol type="1">
+<li><strong>ElementInjector Hierarchy:</strong> Created implicitly at
+each DOM element where a component or directive is applied. If a
+component defines a service in its <code>providers</code> or
+<code>viewProviders</code> array, that instance belongs to its local
+<code>ElementInjector</code>.</li>
+<li><strong>EnvironmentInjector Hierarchy:</strong> Configured at the
+module or application level. This includes
+<code>providedIn: 'root'</code>, platform injectors, and legacy
+<code>NgModule</code> providers.</li>
+</ol>
+<h3 id="the-resolution-algorithm">The Resolution Algorithm</h3>
+<p>When a component requests a service via its constructor, the DI
+container performs the following step-by-step resolution process:</p>
+<ol type="1">
+<li><strong>Current ElementInjector:</strong> The container first checks
+the <code>ElementInjector</code> attached to the requesting component's
+DOM element. If the service is listed in the component's
+<code>providers</code> or <code>viewProviders</code>, the container
+returns the existing instance or instantiates a new one if it has not
+yet been created.</li>
+<li><strong>Parent ElementInjectors:</strong> If the token is not
+provided at the local level, the search bubbles up through the parent
+component nodes in the DOM tree, checking each parent's
+<code>ElementInjector</code>.</li>
+<li><strong>EnvironmentInjector (Root Level):</strong> If the resolution
+reaches the top of the element tree without finding the provider, the
+search shifts to the <code>EnvironmentInjector</code> hierarchy. It
+checks the application root (<code>AppModule</code> or
+<code>provideHttpClient</code>/<code>providedIn: 'root'</code>) and
+platform-level injectors.</li>
+<li><strong>NullInjector:</strong> If the token is not found in either
+hierarchy, the search ends at the <code>NullInjector</code>. Unless
+marked otherwise, Angular throws a <code>NullInjectorError</code>.</li>
+</ol>
+<h3 id="resolution-modifiers">Resolution Modifiers</h3>
+<p>Angular provides resolution modifiers that alter how the DI container
+walks the hierarchy:</p>
+<ul>
+<li><strong><code>@Optional()</code>:</strong> Prevents throwing an
+error if the service is not found, returning <code>null</code>
+instead.</li>
+<li><strong><code>@Self()</code>:</strong> Restricts the lookup
+exclusively to the local component’s <code>ElementInjector</code>.</li>
+<li><strong><code>@SkipSelf()</code>:</strong> Skips the local
+<code>ElementInjector</code> and starts the search directly at the
+parent element.</li>
+<li><strong><code>@Host()</code>:</strong> Limits the search up to the
+host component that renders the current template or directive.</li>
+</ul>
+<p>Through this combination of compiled static properties, hierarchical
+injector trees, and resolution modifiers, Angular resolves component
+services efficiently while maintaining flexible scoping across the
+application lifecycle.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How util.promisify Converts Callbacks to Promises - javascript</title>
+    <meta name="description" content="Node.js introduced the util.promisify module to bridge the gap between traditional error-first callback patterns and modern Promise-based asynchronous workflows. This utility takes a standard callback-driven function and wraps it in a new function that r">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-util-promisify-converts-callbacks-to-promises">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How util.promisify Converts Callbacks to Promises - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-util-promisify-converts-callbacks-to-promises" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Node.js introduced the util.promisify module to bridge the gap between traditional error-first callback patterns and modern Promise-based asynchronous workflows. This utility takes a standard callback-driven function and wraps it in a new function that r" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-utilpromisify-converts-callbacks-to-promises">How
+util.promisify Converts Callbacks to Promises</h1>
+<p>Node.js introduced the <code>util.promisify</code> module to bridge
+the gap between traditional error-first callback patterns and modern
+Promise-based asynchronous workflows. This utility takes a standard
+callback-driven function and wraps it in a new function that returns a
+native JavaScript Promise. This article explains the mechanics behind
+<code>util.promisify</code>, how it handles Node.js callback
+conventions, the internal logic of the wrapper, and how custom promise
+implementations can override default behavior.</p>
+<h2 id="the-error-first-callback-convention">The Error-First Callback
+Convention</h2>
+<p>To understand how <code>util.promisify</code> works, you must first
+understand the Node.js callback convention it targets. Traditionally,
+asynchronous Node.js APIs expect a function whose final argument is a
+callback. This callback must accept an error as its first parameter
+(<code>err</code>) and the operation's result as the second parameter
+(<code>result</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>fs<span class="op">.</span><span class="fu">readFile</span>(<span class="st">&#39;/path/to/file&#39;</span><span class="op">,</span> (err<span class="op">,</span> data) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (err) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// handle error</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// handle data</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p><code>util.promisify</code> is specifically designed to recognize and
+automate this exact pattern.</p>
+<h2 id="the-internal-mechanics-of-the-wrapper">The Internal Mechanics of
+the Wrapper</h2>
+<p>When you pass a function to
+<code>util.promisify(originalFunction)</code>, the utility returns a new
+wrapper function. Rather than modifying the original function directly,
+the wrapper manages the Promise lifecycle using the following steps:</p>
+<ol type="1">
+<li><strong>Returns a Promise:</strong> When invoked, the wrapped
+function immediately constructs and returns a new native
+<code>Promise</code>.</li>
+<li><strong>Injects a Callback:</strong> Inside the Promise constructor,
+it invokes <code>originalFunction.call(this, ...args, callback)</code>.
+It forwards all passed arguments and appends an internally defined
+callback function to the end of the argument list.</li>
+<li><strong>Resolves or Rejects:</strong> When the original operation
+completes, it calls the injected callback. The callback checks the first
+argument:
+<ul>
+<li>If <code>err</code> is truthy, the Promise calls
+<code>reject(err)</code>.</li>
+<li>If <code>err</code> is falsy, the Promise calls
+<code>resolve(value)</code>.</li>
+</ul></li>
+</ol>
+<p>A simplified version of this internal logic looks like this:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">basicPromisify</span>(originalFunction) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">function</span> (<span class="op">...</span>args) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve<span class="op">,</span> reject) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      originalFunction<span class="op">.</span><span class="fu">call</span>(<span class="kw">this</span><span class="op">,</span> <span class="op">...</span>args<span class="op">,</span> (err<span class="op">,</span> result) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (err) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> <span class="fu">reject</span>(err)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">resolve</span>(result)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="handling-multiple-return-values">Handling Multiple Return
+Values</h2>
+<p>If a callback receives multiple success arguments (e.g.,
+<code>callback(null, val1, val2)</code>), standard
+<code>util.promisify</code> only resolves the Promise with the first
+result argument (<code>val1</code>), discarding the rest.</p>
+<p>To overcome this limitation or to handle non-standard callback
+signatures, Node.js provides a unique symbol:
+<code>util.promisify.custom</code>.</p>
+<h2 id="custom-promisified-functions">Custom Promisified Functions</h2>
+<p>Before generating a generic wrapper, <code>util.promisify</code>
+checks if the target function contains a property keyed by the
+<code>util.promisify.custom</code> symbol:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> util <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;util&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">customAsyncFunction</span>(callback) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Non-standard callback pattern</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>customAsyncFunction[util<span class="op">.</span><span class="at">promisify</span><span class="op">.</span><span class="at">custom</span>] <span class="op">=</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Custom resolution logic</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>If this symbol is present, <code>util.promisify</code> bypasses the
+standard wrapping logic entirely and returns the custom function
+instead. Built-in modules like <code>child_process</code> and
+<code>fs</code> use this symbol internally so methods with multiple
+return values (such as <code>child_process.exec</code>, which returns
+both <code>stdout</code> and <code>stderr</code>) can resolve as an
+object containing all expected properties.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

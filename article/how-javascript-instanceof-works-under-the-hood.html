@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript instanceof Works Under the Hood - javascript</title>
+    <meta name="description" content="The instanceof operator in JavaScript tests whether an object has a constructor's prototype property anywhere in its prototype chain. Rather than checking the literal class or instance type of an object directly, it performs a search along the internal p">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-instanceof-works-under-the-hood">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript instanceof Works Under the Hood - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-instanceof-works-under-the-hood" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The instanceof operator in JavaScript tests whether an object has a constructor's prototype property anywhere in its prototype chain. Rather than checking the literal class or instance type of an object directly, it performs a search along the internal p" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-instanceof-works-under-the-hood">How JavaScript
+instanceof Works Under the Hood</h1>
+<p>The <code>instanceof</code> operator in JavaScript tests whether an
+object has a constructor's <code>prototype</code> property anywhere in
+its prototype chain. Rather than checking the literal class or instance
+type of an object directly, it performs a search along the internal
+prototype chain or delegates the check to a custom method defined via
+<code>Symbol.hasInstance</code>. This article explains the underlying
+mechanism of <code>instanceof</code>, how prototype chain traversal
+works, the role of <code>Symbol.hasInstance</code>, and common pitfalls
+like multi-realm execution contexts.</p>
+<h2 id="the-core-mechanism-prototype-chain-traversal">The Core
+Mechanism: Prototype Chain Traversal</h2>
+<p>When you execute <code>object instanceof Constructor</code>,
+JavaScript does not check the constructor function that instantiated the
+object. Instead, it inspects the internal <code>[[Prototype]]</code>
+link (accessible via <code>Object.getPrototypeOf(object)</code>) and
+traverses the chain upward until it either finds
+<code>Constructor.prototype</code> or reaches the end of the chain
+(<code>null</code>).</p>
+<p>Under the hood, the standard algorithm works conceptually like
+this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">customInstanceOf</span>(object<span class="op">,</span> constructor) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Primitives always return false</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (object <span class="op">===</span> <span class="kw">null</span> <span class="op">||</span> (<span class="kw">typeof</span> object <span class="op">!==</span> <span class="st">&quot;object&quot;</span> <span class="op">&amp;&amp;</span> <span class="kw">typeof</span> object <span class="op">!==</span> <span class="st">&quot;function&quot;</span>)) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Ensure the constructor has a prototype object</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> targetPrototype <span class="op">=</span> constructor<span class="op">.</span><span class="at">prototype</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">Object</span>(targetPrototype) <span class="op">!==</span> targetPrototype) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">TypeError</span>(<span class="st">&quot;Right-hand side &#39;prototype&#39; is not an object&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Traverse the prototype chain</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> currentPrototype <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">getPrototypeOf</span>(object)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (currentPrototype <span class="op">!==</span> <span class="kw">null</span>) {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (currentPrototype <span class="op">===</span> targetPrototype) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    currentPrototype <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">getPrototypeOf</span>(currentPrototype)<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="the-role-of-symbolhasinstance">The Role of
+<code>Symbol.hasInstance</code></h2>
+<p>Since ECMAScript 2015 (ES6), the <code>instanceof</code> operator
+does not always default directly to prototype traversal. It first checks
+if the constructor defines a method identified by the well-known symbol
+<code>Symbol.hasInstance</code>.</p>
+<p>When evaluating <code>a instanceof B</code>:</p>
+<ol type="1">
+<li>JavaScript checks if <code>B[Symbol.hasInstance]</code> exists and
+is callable.</li>
+<li>If it is callable, it invokes <code>B[Symbol.hasInstance](a)</code>
+and converts the result to a boolean.</li>
+<li>If <code>Symbol.hasInstance</code> is not defined or is
+<code>undefined</code>/<code>null</code>, it falls back to the standard
+prototype chain lookup algorithm.</li>
+</ol>
+<p>This allows developers to customize instance verification
+dynamically:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> EvenNumber {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">static</span> [<span class="bu">Symbol</span><span class="op">.</span><span class="at">hasInstance</span>](instance) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">typeof</span> instance <span class="op">===</span> <span class="st">&quot;number&quot;</span> <span class="op">&amp;&amp;</span> instance <span class="op">%</span> <span class="dv">2</span> <span class="op">===</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="dv">4</span> <span class="kw">instanceof</span> EvenNumber)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="dv">5</span> <span class="kw">instanceof</span> EvenNumber)<span class="op">;</span> <span class="co">// false</span></span></code></pre></div>
+<h2 id="key-characteristics-and-edge-cases">Key Characteristics and Edge
+Cases</h2>
+<h3 id="1-prototype-mutation-affects-results">1. Prototype Mutation
+Affects Results</h3>
+<p>Because <code>instanceof</code> reads the live prototype chain and
+the current value of <code>Constructor.prototype</code>, mutating either
+property alters the result of subsequent checks:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Animal</span>() {}</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dog <span class="op">=</span> <span class="kw">new</span> <span class="fu">Animal</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(dog <span class="kw">instanceof</span> Animal)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Overwrite the prototype reference</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Animal<span class="op">.</span><span class="at">prototype</span> <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(dog <span class="kw">instanceof</span> Animal)<span class="op">;</span> <span class="co">// false</span></span></code></pre></div>
+<h3 id="2-cross-realm-and-iframe-limitations">2. Cross-Realm and iFrame
+Limitations</h3>
+<p>A known limitation of <code>instanceof</code> occurs in environments
+with multiple execution contexts (such as <code>&lt;iframe&gt;</code>
+elements in browsers or <code>vm</code> modules in Node.js).</p>
+<p>Each realm has its own distinct global scope and built-in prototypes.
+An array created inside an iframe inherits from that iframe's
+<code>Array.prototype</code>. If you test that array in the parent
+window using <code>parentArray instanceof Array</code>, it returns
+<code>false</code> because the iframe's array prototype is not identical
+to the parent window's <code>Array.prototype</code>. For this reason,
+utility methods like <code>Array.isArray()</code> are preferred over
+<code>instanceof Array</code>.</p>
+<h3 id="3-primitive-types">3. Primitive Types</h3>
+<p>Primitive values (such as string literals, numbers, and booleans)
+evaluate to <code>false</code> when evaluated with
+<code>instanceof</code>, even though they have corresponding object
+wrappers:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> strPrimitive <span class="op">=</span> <span class="st">&quot;hello&quot;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> strObject <span class="op">=</span> <span class="kw">new</span> <span class="bu">String</span>(<span class="st">&quot;hello&quot;</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strPrimitive <span class="kw">instanceof</span> <span class="bu">String</span>)<span class="op">;</span> <span class="co">// false</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(strObject <span class="kw">instanceof</span> <span class="bu">String</span>)<span class="op">;</span>    <span class="co">// true</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

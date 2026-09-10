@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safe Text Insertion in JavaScript with textContent - javascript</title>
+    <meta name="description" content="This article explains how the textContent property in JavaScript safely inserts text into the Document Object Model (DOM) without parsing it as HTML. It covers the underlying browser mechanics that treat content purely as plain text, why this behavior el">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/safe-text-insertion-in-javascript-with-textcontent">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Safe Text Insertion in JavaScript with textContent - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/safe-text-insertion-in-javascript-with-textcontent" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the textContent property in JavaScript safely inserts text into the Document Object Model (DOM) without parsing it as HTML. It covers the underlying browser mechanics that treat content purely as plain text, why this behavior el" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="safe-text-insertion-in-javascript-with-textcontent">Safe Text
+Insertion in JavaScript with textContent</h1>
+<p>This article explains how the <code>textContent</code> property in
+JavaScript safely inserts text into the Document Object Model (DOM)
+without parsing it as HTML. It covers the underlying browser mechanics
+that treat content purely as plain text, why this behavior eliminates
+Cross-Site Scripting (XSS) vulnerabilities, and how it differs in
+execution and performance from properties like
+<code>innerHTML</code>.</p>
+<h2 id="direct-interaction-with-the-dom-tree">Direct Interaction with
+the DOM Tree</h2>
+<p>When you set the <code>textContent</code> property on a DOM element,
+the browser does not pass the assigned string to its HTML parser.
+Instead, it directly creates or modifies a <code>Text</code> node inside
+that element.</p>
+<p>In the DOM hierarchy, elements (such as <code>&lt;div&gt;</code> or
+<code>&lt;p&gt;</code>) and text are represented by different node
+types. A standard element is an <code>Element</code> node, while plain
+text is stored within a <code>Text</code> node. Because
+<code>textContent</code> writes directly to a <code>Text</code> node,
+the browser never interprets the string as markup, tags, or executable
+code.</p>
+<h2 id="automatic-character-neutralization">Automatic Character
+Neutralization</h2>
+<p>When working with <code>innerHTML</code>, the browser's HTML parser
+looks for characters like <code>&lt;</code>, <code>&gt;</code>, and
+<code>&amp;</code> to identify tags and HTML entities. If an attacker
+injects <code>&lt;script&gt;</code> or
+<code>&lt;img src="x" onerror="alert(1)"&gt;</code>, the parser
+constructs new element nodes and executes the script.</p>
+<p>With <code>textContent</code>, these characters are treated as raw
+string literals.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> container <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;output&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>container<span class="op">.</span><span class="at">textContent</span> <span class="op">=</span> <span class="st">&#39;&lt;script&gt;alert(&quot;XSS Attack!&quot;);&lt;/script&gt;&#39;</span><span class="op">;</span></span></code></pre></div>
+<p>In the example above, the browser renders the exact string
+<code>&lt;script&gt;alert("XSS Attack!");&lt;/script&gt;</code> on the
+screen. The angle brackets are not parsed as HTML tag delimiters, which
+effectively neutralizes any potential script execution and protects the
+application from stored or reflected XSS vulnerabilities.</p>
+<h2 id="bypassing-the-html-parser">Bypassing the HTML Parser</h2>
+<p>The difference between safe and unsafe insertion comes down to the
+rendering pipeline:</p>
+<ol type="1">
+<li><strong><code>innerHTML</code> Pipeline:</strong> String assignment
+<span class="math inline">\(\rightarrow\)</span> HTML Tokenizer <span
+class="math inline">\(\rightarrow\)</span> HTML Parser <span
+class="math inline">\(\rightarrow\)</span> DOM Tree Construction <span
+class="math inline">\(\rightarrow\)</span> Script Execution / Style
+Calculation <span class="math inline">\(\rightarrow\)</span> Paint.</li>
+<li><strong><code>textContent</code> Pipeline:</strong> String
+assignment <span class="math inline">\(\rightarrow\)</span> Text Node
+Value Update <span class="math inline">\(\rightarrow\)</span> Layout
+<span class="math inline">\(\rightarrow\)</span> Paint.</li>
+</ol>
+<p>By skipping the tokenization and parsing stages entirely,
+<code>textContent</code> guarantees that no element creation or code
+execution can take place during the assignment.</p>
+<h2 id="performance-and-memory-advantages">Performance and Memory
+Advantages</h2>
+<p>Because <code>textContent</code> avoids the overhead of the HTML
+parser, it is significantly faster than <code>innerHTML</code> when
+manipulating plain text. The browser does not need to allocate memory
+for child element objects, parse attribute lists, or evaluate inline
+event listeners. It simply updates the string value of the internal
+<code>Text</code> node, making it both the safest and most efficient
+choice for text-only updates.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

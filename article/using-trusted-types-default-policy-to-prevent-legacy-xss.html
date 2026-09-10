@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using Trusted Types Default Policy to Prevent Legacy XSS - javascript</title>
+    <meta name="description" content="This article examines how implementing a default Trusted Types policy acts as a critical mitigation layer against DOM-based Cross-Site Scripting (DOM XSS) in legacy JavaScript applications. By intercepting raw string assignments to dangerous web APIs, a">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/using-trusted-types-default-policy-to-prevent-legacy-xss">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using Trusted Types Default Policy to Prevent Legacy XSS - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/using-trusted-types-default-policy-to-prevent-legacy-xss" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines how implementing a default Trusted Types policy acts as a critical mitigation layer against DOM-based Cross-Site Scripting (DOM XSS) in legacy JavaScript applications. By intercepting raw string assignments to dangerous web APIs, a" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="using-trusted-types-default-policy-to-prevent-legacy-xss">Using
+Trusted Types Default Policy to Prevent Legacy XSS</h1>
+<p>This article examines how implementing a default Trusted Types policy
+acts as a critical mitigation layer against DOM-based Cross-Site
+Scripting (DOM XSS) in legacy JavaScript applications. By intercepting
+raw string assignments to dangerous web APIs, a default policy
+centralizes input sanitization, prevents script execution from untrusted
+sources, and provides an immediate security baseline without requiring
+an exhaustive, line-by-line rewrite of an existing codebase.</p>
+<h3 id="the-challenge-of-dom-xss-in-legacy-codebases">The Challenge of
+DOM XSS in Legacy Codebases</h3>
+<p>Legacy JavaScript applications frequently interact with dangerous DOM
+sinks—such as <code>Element.innerHTML</code>,
+<code>Location.href</code>, and <code>eval()</code>. These sinks execute
+or render unvalidated strings directly in the browser context.
+Remediating these vulnerabilities across large, established applications
+is notoriously difficult because manually auditing, refactoring, and
+sanitizing every direct DOM assignment requires significant development
+time and risks introducing regressions.</p>
+<p>When developers enforce Trusted Types via the Content Security Policy
+(CSP) directive <code>require-trusted-types-for 'script'</code>, the
+browser locks down these injection sinks. By default, assigning a
+standard string to a sink throws a runtime <code>TypeError</code>,
+effectively halting any script that has not been refactored to pass a
+typed object such as <code>TrustedHTML</code>,
+<code>TrustedScript</code>, or <code>TrustedScriptURL</code>.</p>
+<h3 id="how-the-default-policy-works">How the Default Policy Works</h3>
+<p>A default Trusted Types policy serves as an automated fallback
+mechanism for string-to-type conversions. When an application attempts
+to pass a raw string to a regulated DOM sink without an explicit policy
+applied, the browser automatically routes the string through the policy
+named <code>'default'</code>.</p>
+<p>To create this policy, developers define it once in the application’s
+initialization phase:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="bu">window</span><span class="op">.</span><span class="at">trustedTypes</span> <span class="op">&amp;&amp;</span> trustedTypes<span class="op">.</span><span class="at">createPolicy</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  trustedTypes<span class="op">.</span><span class="fu">createPolicy</span>(<span class="st">&#39;default&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">createHTML</span><span class="op">:</span> (string) <span class="kw">=&gt;</span> DOMPurify<span class="op">.</span><span class="fu">sanitize</span>(string<span class="op">,</span> { <span class="dt">RETURN_TRUSTED_TYPE</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">createScriptURL</span><span class="op">:</span> (string) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Validate string against an allowlist of trusted script domains</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (string<span class="op">.</span><span class="fu">startsWith</span>(<span class="st">&#39;https://trusted-cdn.example.com/&#39;</span>)) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> string<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`Untrusted script URL: </span><span class="sc">${</span>string<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">createScript</span><span class="op">:</span> (string) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Disallow or strictly filter arbitrary inline script execution</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&#39;Inline script execution is prohibited.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When this policy is defined, any legacy code that performs an
+assignment like <code>element.innerHTML = untrustedInput</code> triggers
+<code>createHTML</code> under the hood. The browser assigns the
+sanitized result as a <code>TrustedHTML</code> object, neutralizing
+executable payloads before they can compromise the session.</p>
+<h3 id="safeguards-provided-by-the-default-policy">Safeguards Provided
+by the Default Policy</h3>
+<ol type="1">
+<li><p><strong>Centralized Sanitization</strong>: Instead of relying on
+individual developers to remember to sanitize data at the point of
+injection, all string transformations are forced through a single,
+audited implementation.</p></li>
+<li><p><strong>Zero Breaking Changes for Legacy Syntax</strong>:
+Developers do not need to immediately modify legacy components or
+third-party dependencies to use explicit Trusted Types objects. The
+application continues running standard string operations, while the
+browser silently enforces security at the boundary.</p></li>
+<li><p><strong>Protection from Third-Party Scripts</strong>: Legacy
+applications often depend on outdated third-party libraries that still
+assign raw strings to DOM sinks. A default policy catches and processes
+these external assignments, securing dependencies that internal
+development teams cannot easily rewrite.</p></li>
+<li><p><strong>Telemetry and Controlled Migration</strong>: A default
+policy can be used to log and report legacy sink usage. Teams can
+integrate logging into the policy methods to monitor which parts of the
+legacy code still invoke dangerous sinks, creating an actionable roadmap
+for eventual refactoring.</p></li>
+</ol>
+<h3 id="strategic-implementation">Strategic Implementation</h3>
+<p>While named policies represent the gold standard for Trusted Types by
+guaranteeing explicit data handling at every sink, adopting them across
+an enterprise-scale legacy codebase is a multi-phase endeavor.
+Implementing a default policy with an established sanitization library
+provides immediate, system-wide protection against DOM XSS, neutralizing
+attack vectors at the browser level while preserving functionality.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detached DOM Nodes and JavaScript Memory Leaks - javascript</title>
+    <meta name="description" content="This article explains how memory leaks occur in client-side JavaScript applications, focusing specifically on detached Document Object Model (DOM) nodes. You will learn the mechanics of browser garbage collection, how detached DOM trees remain retained i">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/detached-dom-nodes-and-javascript-memory-leaks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Detached DOM Nodes and JavaScript Memory Leaks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/detached-dom-nodes-and-javascript-memory-leaks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how memory leaks occur in client-side JavaScript applications, focusing specifically on detached Document Object Model (DOM) nodes. You will learn the mechanics of browser garbage collection, how detached DOM trees remain retained i" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="detached-dom-nodes-and-javascript-memory-leaks">Detached DOM
+Nodes and JavaScript Memory Leaks</h1>
+<p>This article explains how memory leaks occur in client-side
+JavaScript applications, focusing specifically on detached Document
+Object Model (DOM) nodes. You will learn the mechanics of browser
+garbage collection, how detached DOM trees remain retained in memory,
+common coding patterns that cause these issues, and practical methods to
+detect and prevent them.</p>
+<h2 id="understanding-memory-leaks-in-javascript">Understanding Memory
+Leaks in JavaScript</h2>
+<p>JavaScript manages memory automatically through a process called
+garbage collection (GC). The browser's garbage collector typically uses
+a "mark-and-sweep" algorithm to identify unreachable objects. Starting
+from root objects (such as the global <code>window</code> object and
+current execution call stacks), the GC traverses all references. Any
+allocated memory that cannot be reached from these roots is considered
+unused and is cleared to free up system memory.</p>
+<p>A memory leak occurs when an application retains references to
+objects that are no longer needed for execution. Because a reference
+path still exists from a root, the garbage collector cannot release that
+memory, leading to continuously increasing memory consumption, degraded
+performance, UI stuttering, and eventual browser tab crashes.</p>
+<h2 id="what-are-detached-dom-nodes">What Are Detached DOM Nodes?</h2>
+<p>A detached DOM node is a DOM element that has been removed from the
+active document tree (via methods like <code>element.remove()</code>,
+<code>parentNode.removeChild()</code>, or <code>innerHTML = ''</code>),
+but is still referenced by JavaScript variables, closures, or data
+structures.</p>
+<p>Because the node is no longer part of the live document, it is not
+visible to the user and cannot be interacted with on the page. However,
+because it is still reachable via a JavaScript reference, the garbage
+collector cannot reclaim its memory.</p>
+<h2 id="how-detached-dom-nodes-cause-memory-leaks">How Detached DOM
+Nodes Cause Memory Leaks</h2>
+<p>When a DOM element is retained in JavaScript, the browser must keep
+not only the element itself but also its entire associated subtree. This
+includes child nodes, attributes, text nodes, and internal browser
+representations of those elements.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example of creating a detached DOM node leak</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> cachedButton <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;submit-btn&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">removeButton</span>() {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// The button is removed from the UI</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  cachedButton<span class="op">.</span><span class="at">parentNode</span><span class="op">.</span><span class="fu">removeChild</span>(cachedButton)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// LEAK: `cachedButton` still holds a reference to the node.</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// The element is detached from the DOM, but remains in memory.</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If a detached node represents a large component (such as a table with
+thousands of rows), holding a reference to a single cell or the table
+container will keep the entire structure in memory.</p>
+<h3 id="common-causes-of-detached-dom-leaks">Common Causes of Detached
+DOM Leaks</h3>
+<ol type="1">
+<li><strong>Global and Long-Lived References:</strong> Storing DOM nodes
+in global variables, caches, or state management stores without clearing
+them when the UI unmounts.</li>
+<li><strong>Event Listeners and Closures:</strong> Event listeners
+attached to DOM elements often capture outer scope variables. If an
+event handler holds a reference to a DOM node (or vice versa) and is not
+properly unregistered, the node cannot be garbage-collected.</li>
+<li><strong>Timer Callbacks:</strong> <code>setInterval</code> or
+<code>setTimeout</code> callbacks that reference DOM elements will keep
+those elements in memory until the timer is cleared via
+<code>clearInterval</code> or <code>clearTimeout</code>.</li>
+<li><strong>Third-Party Libraries:</strong> UI plugins or charting
+libraries that create internal DOM structures but are not explicitly
+destroyed when the corresponding view is removed.</li>
+</ol>
+<h2 id="how-to-prevent-detached-dom-node-leaks">How to Prevent Detached
+DOM Node Leaks</h2>
+<p>To prevent detached nodes from consuming memory:</p>
+<ul>
+<li><strong>Nullify References:</strong> Explicitly set references to
+<code>null</code> once a DOM element is removed from the document.
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>cachedButton<span class="op">.</span><span class="at">parentNode</span><span class="op">.</span><span class="fu">removeChild</span>(cachedButton)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>cachedButton <span class="op">=</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// Allows garbage collection</span></span></code></pre></div></li>
+<li><strong>Use Weak References:</strong> Use <code>WeakMap</code> or
+<code>WeakSet</code> when you need to associate data with DOM nodes.
+Entries in a <code>WeakMap</code> do not prevent their keys (the DOM
+nodes) from being garbage-collected once they are removed from the DOM
+and have no other strong references.</li>
+<li><strong>Clean Up Event Handlers and Timers:</strong> Remove event
+listeners and cancel active timers when tearing down components or
+views.</li>
+<li><strong>Leverage Component Lifecycle Hooks:</strong> In modern
+frameworks (like React, Vue, or Angular), ensure that external
+subscriptions, manual DOM references (refs), and third-party instances
+are cleaned up inside unmount lifecycle methods.</li>
+</ul>
+<h2 id="detecting-detached-dom-nodes">Detecting Detached DOM Nodes</h2>
+<p>Browser developer tools provide built-in utilities to diagnose
+detached DOM nodes:</p>
+<ol type="1">
+<li>Open <strong>Chrome DevTools</strong> and navigate to the
+<strong>Memory</strong> tab.</li>
+<li>Select <strong>Heap snapshot</strong> and click <strong>Take
+snapshot</strong>.</li>
+<li>In the class filter box, search for <code>Detached</code>.</li>
+<li>Inspect the results (e.g., <code>Detached HTMLDivElement</code>).
+Expanding these entries reveals the "Retaining tree," which highlights
+the exact JavaScript variable or closure preventing the garbage
+collector from freeing the element.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

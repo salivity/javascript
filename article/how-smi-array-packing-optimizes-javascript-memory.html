@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How SMI Array Packing Optimizes JavaScript Memory - javascript</title>
+    <meta name="description" content="Modern JavaScript engines utilize Small Integer (SMI) packing to store whole numbers directly in memory without heap allocation overhead. In engines like Google's V8, numbers are treated dynamically, but keeping arrays populated strictly with small integ">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-smi-array-packing-optimizes-javascript-memory">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How SMI Array Packing Optimizes JavaScript Memory - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-smi-array-packing-optimizes-javascript-memory" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern JavaScript engines utilize Small Integer (SMI) packing to store whole numbers directly in memory without heap allocation overhead. In engines like Google's V8, numbers are treated dynamically, but keeping arrays populated strictly with small integ" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-smi-array-packing-optimizes-javascript-memory">How SMI Array
+Packing Optimizes JavaScript Memory</h1>
+<p>Modern JavaScript engines utilize Small Integer (SMI) packing to
+store whole numbers directly in memory without heap allocation overhead.
+In engines like Google's V8, numbers are treated dynamically, but
+keeping arrays populated strictly with small integers allows the runtime
+to switch to optimized, unboxed storage representations. This article
+explains how the SMI representation works, how JavaScript engines
+organize packed arrays, and why this design significantly reduces memory
+consumption and improves CPU cache efficiency.</p>
+<h2 id="the-concept-of-small-integers-smis">The Concept of Small
+Integers (SMIs)</h2>
+<p>In standard JavaScript, the language specification treats all numbers
+as double-precision 64-bit binary floating-point values (IEEE 754).
+Allocating 64 bits on the heap for every single number would lead to
+severe memory bloat and garbage collection pressure.</p>
+<p>To prevent this, engines use a technique called <strong>pointer
+tagging</strong>. In 64-bit architectures, memory addresses are
+typically aligned to word boundaries, leaving the least significant bits
+unused. The engine uses the lowest bit as a tag:</p>
+<ul>
+<li><strong>Pointers to heap objects</strong> have their lowest bit set
+to <code>1</code>.</li>
+<li><strong>SMIs (Small Integers)</strong> have their lowest bit set to
+<code>0</code>.</li>
+</ul>
+<p>Because of this tag, an integer (typically signed 31-bit or 32-bit
+depending on the architecture) is stored directly inside the pointer
+field itself. It requires no heap allocation, no object header, and zero
+garbage collection overhead.</p>
+<h2 id="array-element-kinds-packed_smi_elements">Array Element Kinds:
+PACKED_SMI_ELEMENTS</h2>
+<p>Engines track the contents of arrays through dynamic categories known
+as <strong>Elements Kinds</strong>. When an array is initialized and
+populated solely with small integers, the engine tags it internally as
+<code>PACKED_SMI_ELEMENTS</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> numbers <span class="op">=</span> [<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span>]<span class="op">;</span> <span class="co">// PACKED_SMI_ELEMENTS</span></span></code></pre></div>
+<p>In this state:</p>
+<ol type="1">
+<li><strong>Contiguous Storage:</strong> The engine allocates a
+contiguous buffer in memory containing raw SMIs.</li>
+<li><strong>No Object Wrappers:</strong> Unlike generic arrays that hold
+references pointing to distinct <code>HeapNumber</code> objects on the
+heap, the SMI array stores the values inline.</li>
+<li><strong>No Sentinel Values:</strong> Because the array is "packed"
+(dense), every index from <code>0</code> to <code>length - 1</code>
+contains a valid value, avoiding overhead associated with missing keys
+or holes.</li>
+</ol>
+<h2 id="how-packed-smis-save-memory">How Packed SMIs Save Memory</h2>
+<h3 id="1-elimination-of-heap-allocations">1. Elimination of Heap
+Allocations</h3>
+<p>If an array stored standard floating-point numbers outside the SMI
+range or arbitrary objects, each unique number could require a
+<code>HeapNumber</code> allocation. A <code>HeapNumber</code> includes a
+map pointer, object flags, and the 64-bit float itself (consuming
+roughly 16 to 24 bytes per number). Storing integers as SMIs eliminates
+this heap wrapper entirely, reducing the footprint to just the size of
+the pointer slot (4 to 8 bytes).</p>
+<h3 id="2-elimination-of-indirection">2. Elimination of Indirection</h3>
+<p>In a generic array (<code>PACKED_ELEMENTS</code>), the array buffer
+contains pointers, each directing the runtime to a different location in
+heap memory. With <code>PACKED_SMI_ELEMENTS</code>, the indirection
+layer is gone. The value retrieved from the array slot <em>is</em> the
+number, cutting the total memory footprint in half or better.</p>
+<h3 id="3-high-cpu-cache-locality">3. High CPU Cache Locality</h3>
+<p>Because SMIs are stored in a contiguous, flat block of memory,
+reading elements sequentially allows the CPU to fetch multiple values
+inside a single L1/L2 cache line. This reduces cache misses, which
+indirectly minimizes the memory bandwidth required during data
+processing loops.</p>
+<h2 id="the-cost-of-element-transitions">The Cost of Element
+Transitions</h2>
+<p>Array optimizations are one-directional. If an array tagged as
+<code>PACKED_SMI_ELEMENTS</code> receives a non-SMI value, the engine
+must convert the underlying memory structure to a more generic
+format:</p>
+<ul>
+<li>Adding a floating-point number (e.g., <code>4.5</code>) transitions
+the array to <code>PACKED_DOUBLE_ELEMENTS</code>.</li>
+<li>Adding an object or string transitions the array to
+<code>PACKED_ELEMENTS</code>.</li>
+<li>Creating a gap (e.g., <code>numbers[100] = 10</code>) transitions
+the array to a <code>HOLEY</code> variation.</li>
+</ul>
+<p>Once an array transitions to a more generic type, it cannot
+transition back to <code>PACKED_SMI_ELEMENTS</code>, permanently
+increasing the memory allocation and GC overhead for that array
+instance.</p>
+<h2 id="best-practices-for-memory-efficient-arrays">Best Practices for
+Memory-Efficient Arrays</h2>
+<ul>
+<li><strong>Initialize with fixed sizes or contiguous pushes:</strong>
+Avoid creating sparse arrays (holes) by initializing elements
+sequentially.</li>
+<li><strong>Keep types homogeneous:</strong> Do not mix integers with
+floats, strings, or <code>null</code>/<code>undefined</code> in
+performance-critical datasets.</li>
+<li><strong>Use TypedArrays for large datasets:</strong> If data exceeds
+standard 31-bit/32-bit integer ranges or contains only floating-point
+values, using explicit typed buffers like <code>Int32Array</code> or
+<code>Float64Array</code> guarantees flat, unboxed memory allocation
+without engine speculation.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

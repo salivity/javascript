@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Native Architecture: Bridge vs JSI Explained - javascript</title>
+    <meta name="description" content="This article explores how React Native enables cross-platform mobile development by connecting JavaScript with native platform APIs. It covers the core concept of React Native and compares the internal communication mechanisms: the traditional, serializa">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/react-native-architecture-bridge-vs-jsi-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="React Native Architecture: Bridge vs JSI Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/react-native-architecture-bridge-vs-jsi-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how React Native enables cross-platform mobile development by connecting JavaScript with native platform APIs. It covers the core concept of React Native and compares the internal communication mechanisms: the traditional, serializa" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="react-native-architecture-bridge-vs-jsi-explained">React Native
+Architecture: Bridge vs JSI Explained</h1>
+<p>This article explores how React Native enables cross-platform mobile
+development by connecting JavaScript with native platform APIs. It
+covers the core concept of React Native and compares the internal
+communication mechanisms: the traditional, serialization-heavy Bridge
+architecture and the modern, direct execution model provided by the
+JavaScript Interface (JSI).</p>
+<h2 id="what-is-react-native">What Is React Native?</h2>
+<p>React Native is an open-source framework created by Meta that allows
+developers to build mobile applications for iOS and Android using
+JavaScript and React. Unlike hybrid frameworks that render user
+interfaces inside a web view, React Native invokes native platform
+components. This means buttons, text inputs, and animations are real
+native UI elements, providing the performance and look-and-feel of
+applications built with Swift, Objective-C, Kotlin, or Java.</p>
+<p>To achieve this, React Native operates on a multi-threaded model,
+primarily consisting of:</p>
+<ul>
+<li><strong>The JavaScript Thread:</strong> Executes the application
+logic, state management, and React rendering calculations.</li>
+<li><strong>The Native/UI Thread:</strong> Handles user interface
+rendering, gesture recognition, and native device interactions.</li>
+</ul>
+<p>Because these threads run in distinct environments, they require a
+communication layer to pass commands and data back and forth.</p>
+<h2 id="the-legacy-communication-model-the-bridge">The Legacy
+Communication Model: The Bridge</h2>
+<p>Historically, React Native relied on a dedicated messaging pipeline
+known as "The Bridge." The Bridge acts as a translator between the
+JavaScript runtime (often JavaScriptCore) and the native platform
+runtime.</p>
+<h3 id="how-the-bridge-works">How the Bridge Works</h3>
+<ol type="1">
+<li><strong>Serialization:</strong> When JavaScript triggers a native
+action—such as an API call or a UI update—the JavaScript thread packages
+the function name, arguments, and module ID into an array and serializes
+it into a JSON string.</li>
+<li><strong>Transfer via Queue:</strong> This JSON payload is sent
+across the Bridge asynchronously via a message queue.</li>
+<li><strong>Deserialization and Execution:</strong> The native thread
+receives the JSON payload, deserializes it back into memory, identifies
+the requested native module, and executes the code.</li>
+<li><strong>Return Path:</strong> Any return values or callbacks undergo
+the exact same serialization and deserialization process to travel back
+from Native to JavaScript.</li>
+</ol>
+<h3 id="limitations-of-the-bridge">Limitations of the Bridge</h3>
+<p>While functional, the Bridge introduced performance bottlenecks:</p>
+<ul>
+<li><strong>Serialization Overhead:</strong> Converting complex data
+structures into JSON strings and parsing them consumes memory and CPU
+cycles.</li>
+<li><strong>Strictly Asynchronous:</strong> The Bridge is strictly
+asynchronous. This prevents JavaScript from reading native values
+synchronously, leading to visual glitches in performance-sensitive
+scenarios like rapid list scrolling or complex gestures.</li>
+<li><strong>Queue Congestion:</strong> High-frequency data transfers,
+such as continuous touch events or layout recalculations, can clog the
+Bridge queue and cause frame drops.</li>
+</ul>
+<h2 id="the-modern-solution-javascript-interface-jsi">The Modern
+Solution: JavaScript Interface (JSI)</h2>
+<p>To eliminate the Bridge’s bottlenecks, Meta introduced the JavaScript
+Interface (JSI) as part of React Native's New Architecture. JSI is a
+lightweight, general-purpose C++ layer that allows the JavaScript
+runtime to directly interact with native code without serialization.</p>
+<h3 id="how-jsi-works">How JSI Works</h3>
+<p>JSI decouples React Native from any specific JavaScript engine
+(enabling the use of engines like Hermes, V8, or JSC) and introduces
+direct memory references through <strong>Host Objects</strong>.</p>
+<ol type="1">
+<li><strong>Direct Invocations via C++:</strong> Instead of sending
+serialized messages through an asynchronous queue, native methods are
+exposed to JavaScript as native C++ objects that implement the JSI
+interface.</li>
+<li><strong>Host Objects:</strong> Native modules (TurboModules) and UI
+components (Fabric) are represented directly in the JavaScript
+environment as "Host Objects." To the JavaScript engine, these objects
+appear as standard JavaScript objects, but their methods are bound
+directly to native C++ implementations.</li>
+<li><strong>Shared Memory:</strong> JavaScript can hold a direct
+reference to a native C++ object and invoke its methods directly on the
+native thread. No JSON conversion is required.</li>
+</ol>
+<h3 id="key-advantages-of-jsi">Key Advantages of JSI</h3>
+<ul>
+<li><strong>Zero-Serialization Overhead:</strong> Data passes between
+runtimes without stringification or parsing, drastically reducing memory
+usage and execution latency.</li>
+<li><strong>Synchronous Execution:</strong> JavaScript can synchronously
+invoke native methods and immediately receive return values, resolving
+synchronization issues with gestures, animations, and measurements.</li>
+<li><strong>Type Safety and Performance:</strong> JSI facilitates
+compile-time type safety via tools like Codegen and allows for lazy
+loading of native modules (TurboModules), reducing app startup
+time.</li>
+</ul>
+<p>By shifting from the message-queue model of the Bridge to the
+direct-call architecture of JSI, React Native transforms
+native-to-JavaScript communication into direct, synchronous function
+execution, bringing performance parity much closer to fully native
+applications.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

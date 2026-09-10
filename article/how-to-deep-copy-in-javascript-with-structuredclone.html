@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Deep Copy in JavaScript with structuredClone - javascript</title>
+    <meta name="description" content="The structuredClone() method is a native JavaScript utility designed to create deep copies of complex values, eliminating the need for third-party libraries like Lodash or problematic hacks like JSON.parse(JSON.stringify()). This article explains how str">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-to-deep-copy-in-javascript-with-structuredclone">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Deep Copy in JavaScript with structuredClone - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-to-deep-copy-in-javascript-with-structuredclone" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The structuredClone() method is a native JavaScript utility designed to create deep copies of complex values, eliminating the need for third-party libraries like Lodash or problematic hacks like JSON.parse(JSON.stringify()). This article explains how str" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-to-deep-copy-in-javascript-with-structuredclone">How to Deep
+Copy in JavaScript with structuredClone</h1>
+<p>The <code>structuredClone()</code> method is a native JavaScript
+utility designed to create deep copies of complex values, eliminating
+the need for third-party libraries like Lodash or problematic hacks like
+<code>JSON.parse(JSON.stringify())</code>. This article explains how
+<code>structuredClone()</code> operates under the hood using the
+structured clone algorithm, details the data types it supports,
+demonstrates how it handles circular references and transferable
+objects, and outlines its key limitations.</p>
+<h2 id="what-is-structuredclone">What is structuredClone?</h2>
+<p><code>structuredClone()</code> is a globally available function in
+modern web browsers, Node.js (v17+), and Deno. It accepts a target value
+and returns a complete, independent duplicate where nested objects,
+arrays, and other data structures are duplicated in memory rather than
+copied by reference.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> original <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span><span class="op">,</span> <span class="dt">details</span><span class="op">:</span> { <span class="dt">age</span><span class="op">:</span> <span class="dv">30</span> } }<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> copy <span class="op">=</span> <span class="fu">structuredClone</span>(original)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>copy<span class="op">.</span><span class="at">details</span><span class="op">.</span><span class="at">age</span> <span class="op">=</span> <span class="dv">31</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(original<span class="op">.</span><span class="at">details</span><span class="op">.</span><span class="at">age</span>)<span class="op">;</span> <span class="co">// 30 (unaffected)</span></span></code></pre></div>
+<h2 id="how-the-algorithm-works">How the Algorithm Works</h2>
+<p>Under the hood, <code>structuredClone()</code> uses the
+<strong>Structured Clone Algorithm</strong>, an internal HTML standard
+mechanism originally built for messaging across Web Workers,
+<code>postMessage()</code>, and IndexedDB.</p>
+<ol type="1">
+<li><strong>Recursive Graph Traversal:</strong> The algorithm traverses
+the entire input structure recursively, inspecting every property and
+value.</li>
+<li><strong>Memory Allocation:</strong> Instead of copying pointer
+references, it allocates new memory locations for every encountered
+composite structure (such as Objects, Arrays, Maps, and Sets).</li>
+<li><strong>Graph Mapping for Circular References:</strong> The
+algorithm keeps an internal reference map of previously traversed
+objects. If it encounters an object it has already cloned in the current
+traversal path, it points to the newly created clone rather than
+recursively expanding forever. This natively prevents infinite recursion
+errors on circular references.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> circularObj <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Loop&quot;</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>circularObj<span class="op">.</span><span class="at">self</span> <span class="op">=</span> circularObj<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> clonedCircular <span class="op">=</span> <span class="fu">structuredClone</span>(circularObj)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(clonedCircular<span class="op">.</span><span class="at">self</span> <span class="op">===</span> clonedCircular)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(clonedCircular<span class="op">.</span><span class="at">self</span> <span class="op">===</span> circularObj)<span class="op">;</span> <span class="co">// false</span></span></code></pre></div>
+<h2 id="supported-data-types">Supported Data Types</h2>
+<p>Unlike JSON serialization, <code>structuredClone()</code> preserves
+many built-in JavaScript types:</p>
+<ul>
+<li><strong>Primitives:</strong> String, Number, BigInt, Boolean,
+<code>null</code>, <code>undefined</code>.</li>
+<li><strong>Collections:</strong> <code>Map</code>, <code>Set</code>,
+and regular <code>Array</code> instances.</li>
+<li><strong>Objects:</strong> Standard Object literals,
+<code>Date</code>, and <code>RegExp</code> objects (retaining their
+behavior and properties).</li>
+<li><strong>Binary Data:</strong> <code>ArrayBuffer</code>,
+<code>TypedArray</code> views (<code>Uint8Array</code>,
+<code>Float64Array</code>, etc.), and <code>DataView</code>.</li>
+<li><strong>Web APIs:</strong> <code>Blob</code>, <code>File</code>,
+<code>FileList</code>, and <code>ImageData</code>.</li>
+</ul>
+<h2 id="transferable-objects">Transferable Objects</h2>
+<p><code>structuredClone()</code> accepts an optional second argument
+allowing you to transfer ownership of specific resources instead of
+copying their bytes.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> uInt8Array <span class="op">=</span> <span class="kw">new</span> <span class="bu">Uint8Array</span>(<span class="dv">1024</span> <span class="op">*</span> <span class="dv">1024</span>)<span class="op">;</span> <span class="co">// 1MB buffer</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> clone <span class="op">=</span> <span class="fu">structuredClone</span>(uInt8Array<span class="op">,</span> { <span class="dt">transfer</span><span class="op">:</span> [uInt8Array<span class="op">.</span><span class="at">buffer</span>] })<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(uInt8Array<span class="op">.</span><span class="at">byteLength</span>)<span class="op">;</span> <span class="co">// 0 (detached/neutered)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(clone<span class="op">.</span><span class="at">byteLength</span>)<span class="op">;</span> <span class="co">// 1048576 (transferred to clone)</span></span></code></pre></div>
+<p>Transferring is memory-efficient for large binary payloads because it
+moves the underlying buffer reference instantly without duplicating
+memory allocation.</p>
+<h2 id="limitations-and-unsupported-types">Limitations and Unsupported
+Types</h2>
+<p>While powerful, <code>structuredClone()</code> has explicit
+limitations:</p>
+<ul>
+<li><strong>Functions:</strong> Attempting to clone a function or method
+throws a <code>DataCloneError</code> DOMException.</li>
+<li><strong>DOM Nodes:</strong> HTML elements and document nodes cannot
+be cloned.</li>
+<li><strong>Prototypes:</strong> Prototype chains are discarded. Cloned
+instances of custom classes become plain JavaScript objects.</li>
+<li><strong>Property Descriptors:</strong> Getters, setters, and
+read-only flags (<code>Object.defineProperty</code>) are flattened; only
+the resulting values are copied.</li>
+<li><strong>Symbols:</strong> Symbol-keyed properties and primitive
+Symbol values cannot be cloned.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

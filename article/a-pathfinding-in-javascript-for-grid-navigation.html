@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A* Pathfinding in JavaScript for Grid Navigation - javascript</title>
+    <meta name="description" content="The A (A-Star) search algorithm is one of the most effective solutions for finding the shortest path between two points on a grid. This guide breaks down the core mechanics of A, explains the scoring formula behind its heuristic search, and provides a pr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/a-pathfinding-in-javascript-for-grid-navigation">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="A* Pathfinding in JavaScript for Grid Navigation - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/a-pathfinding-in-javascript-for-grid-navigation" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The A (A-Star) search algorithm is one of the most effective solutions for finding the shortest path between two points on a grid. This guide breaks down the core mechanics of A, explains the scoring formula behind its heuristic search, and provides a pr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="a-pathfinding-in-javascript-for-grid-navigation">A* Pathfinding
+in JavaScript for Grid Navigation</h1>
+<p>The A* (A-Star) search algorithm is one of the most effective
+solutions for finding the shortest path between two points on a grid.
+This guide breaks down the core mechanics of A*, explains the scoring
+formula behind its heuristic search, and provides a practical,
+step-by-step implementation in pure JavaScript designed for 2D
+grid-based movement.</p>
+<h3 id="core-mechanics-of-a">Core Mechanics of A*</h3>
+<p>A* evaluates potential paths by balancing the actual distance
+traveled with an educated guess of the remaining distance. It assigns an
+<span class="math inline">\(F\)</span> score to every visited cell using
+the formula:</p>
+<p><span class="math display">\[F = G + H\]</span></p>
+<ul>
+<li><strong><span class="math inline">\(G\)</span> Cost:</strong> The
+exact cost to move from the starting point to the current cell.</li>
+<li><strong><span class="math inline">\(H\)</span> Cost
+(Heuristic):</strong> The estimated cost from the current cell to the
+destination. For four-directional grid navigation, the <strong>Manhattan
+distance</strong> (<span class="math inline">\(|x_1 - x_2| + |y_1 -
+y_2|\)</span>) is the standard metric.</li>
+<li><strong><span class="math inline">\(F\)</span> Cost:</strong> The
+sum of <span class="math inline">\(G\)</span> and <span
+class="math inline">\(H\)</span>. The algorithm always evaluates the
+open node with the lowest <span class="math inline">\(F\)</span> cost
+first.</li>
+</ul>
+<p>To manage discovery, the algorithm tracks two collections:</p>
+<ol type="1">
+<li><strong>Open Set:</strong> Nodes identified but not yet fully
+evaluated.</li>
+<li><strong>Closed Set:</strong> Nodes that have already been
+evaluated.</li>
+</ol>
+<hr />
+<h3 id="step-by-step-javascript-implementation">Step-by-Step JavaScript
+Implementation</h3>
+<h4 id="1-defining-the-node-and-grid">1. Defining the Node and Grid</h4>
+<p>Each cell on the grid requires tracking its coordinates, traversal
+costs, walkability status, and a reference to its parent node to
+reconstruct the final path.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="bu">Node</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(x<span class="op">,</span> y<span class="op">,</span> walkable <span class="op">=</span> <span class="kw">true</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">walkable</span> <span class="op">=</span> walkable<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">g</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">h</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">f</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">parent</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="2-the-heuristic-function">2. The Heuristic Function</h4>
+<p>The Manhattan distance calculates the absolute grid steps required
+between two coordinates, ignoring diagonal movement.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getManhattanDistance</span>(nodeA<span class="op">,</span> nodeB) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(nodeA<span class="op">.</span><span class="at">x</span> <span class="op">-</span> nodeB<span class="op">.</span><span class="at">x</span>) <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(nodeA<span class="op">.</span><span class="at">y</span> <span class="op">-</span> nodeB<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="3-retrieving-neighbors">3. Retrieving Neighbors</h4>
+<p>This helper identifies valid orthogonal adjacent cells (up, down,
+left, right) within grid boundaries.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getNeighbors</span>(grid<span class="op">,</span> node) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> neighbors <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> directions <span class="op">=</span> [</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }<span class="op">,</span> <span class="co">// Up</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">1</span> }<span class="op">,</span>  <span class="co">// Down</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span> <span class="co">// Left</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }   <span class="co">// Right</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> dir <span class="kw">of</span> directions) {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> checkX <span class="op">=</span> node<span class="op">.</span><span class="at">x</span> <span class="op">+</span> dir<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> checkY <span class="op">=</span> node<span class="op">.</span><span class="at">y</span> <span class="op">+</span> dir<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      checkX <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>      checkX <span class="op">&lt;</span> grid<span class="op">.</span><span class="at">length</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>      checkY <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>      checkY <span class="op">&lt;</span> grid[<span class="dv">0</span>]<span class="op">.</span><span class="at">length</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    ) {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>      neighbors<span class="op">.</span><span class="fu">push</span>(grid[checkX][checkY])<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> neighbors<span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="4-the-pathfinding-function">4. The Pathfinding Function</h4>
+<p>The core loop iterates through the open set, finds the node with the
+lowest <span class="math inline">\(F\)</span> cost, inspects its
+neighbors, and traces back the parent references once the target is
+reached.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">findPath</span>(grid<span class="op">,</span> startNode<span class="op">,</span> endNode) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> openSet <span class="op">=</span> [startNode]<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> closedSet <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (openSet<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Find the node with the lowest f cost</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> currentIndex <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;</span> openSet<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        openSet[i]<span class="op">.</span><span class="at">f</span> <span class="op">&lt;</span> openSet[currentIndex]<span class="op">.</span><span class="at">f</span> <span class="op">||</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        (openSet[i]<span class="op">.</span><span class="at">f</span> <span class="op">===</span> openSet[currentIndex]<span class="op">.</span><span class="at">f</span> <span class="op">&amp;&amp;</span> openSet[i]<span class="op">.</span><span class="at">h</span> <span class="op">&lt;</span> openSet[currentIndex]<span class="op">.</span><span class="at">h</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      ) {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        currentIndex <span class="op">=</span> i<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> current <span class="op">=</span> openSet<span class="op">.</span><span class="fu">splice</span>(currentIndex<span class="op">,</span> <span class="dv">1</span>)[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    closedSet<span class="op">.</span><span class="fu">add</span>(current)<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Target reached: reconstruct path</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (current <span class="op">===</span> endNode) {</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> path <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> temp <span class="op">=</span> current<span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>      <span class="cf">while</span> (temp) {</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        path<span class="op">.</span><span class="fu">push</span>({ <span class="dt">x</span><span class="op">:</span> temp<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> temp<span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        temp <span class="op">=</span> temp<span class="op">.</span><span class="at">parent</span><span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> path<span class="op">.</span><span class="fu">reverse</span>()<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Process adjacent nodes</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> neighbors <span class="op">=</span> <span class="fu">getNeighbors</span>(grid<span class="op">,</span> current)<span class="op">;</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> neighbor <span class="kw">of</span> neighbors) {</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>neighbor<span class="op">.</span><span class="at">walkable</span> <span class="op">||</span> closedSet<span class="op">.</span><span class="fu">has</span>(neighbor)) {</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> newMovementCost <span class="op">=</span> current<span class="op">.</span><span class="at">g</span> <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (newMovementCost <span class="op">&lt;</span> neighbor<span class="op">.</span><span class="at">g</span> <span class="op">||</span> <span class="op">!</span>openSet<span class="op">.</span><span class="fu">includes</span>(neighbor)) {</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        neighbor<span class="op">.</span><span class="at">g</span> <span class="op">=</span> newMovementCost<span class="op">;</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>        neighbor<span class="op">.</span><span class="at">h</span> <span class="op">=</span> <span class="fu">getManhattanDistance</span>(neighbor<span class="op">,</span> endNode)<span class="op">;</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>        neighbor<span class="op">.</span><span class="at">f</span> <span class="op">=</span> neighbor<span class="op">.</span><span class="at">g</span> <span class="op">+</span> neighbor<span class="op">.</span><span class="at">h</span><span class="op">;</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>        neighbor<span class="op">.</span><span class="at">parent</span> <span class="op">=</span> current<span class="op">;</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>openSet<span class="op">.</span><span class="fu">includes</span>(neighbor)) {</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>          openSet<span class="op">.</span><span class="fu">push</span>(neighbor)<span class="op">;</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Return empty array if no path exists</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> []<span class="op">;</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="usage-example">Usage Example</h3>
+<p>To run the implementation, initialize a 2D array of nodes, define
+unwalkable barriers, and pass the start and end nodes into
+<code>findPath</code>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Initialize a 5x5 grid</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rows <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cols <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> grid <span class="op">=</span> <span class="bu">Array</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">length</span><span class="op">:</span> rows }<span class="op">,</span> (_<span class="op">,</span> x) <span class="kw">=&gt;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">Array</span><span class="op">.</span><span class="fu">from</span>({ <span class="dt">length</span><span class="op">:</span> cols }<span class="op">,</span> (_<span class="op">,</span> y) <span class="kw">=&gt;</span> <span class="kw">new</span> <span class="bu">Node</span>(x<span class="op">,</span> y))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Add an obstacle</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>grid[<span class="dv">1</span>][<span class="dv">1</span>]<span class="op">.</span><span class="at">walkable</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>grid[<span class="dv">2</span>][<span class="dv">1</span>]<span class="op">.</span><span class="at">walkable</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>grid[<span class="dv">3</span>][<span class="dv">1</span>]<span class="op">.</span><span class="at">walkable</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> start <span class="op">=</span> grid[<span class="dv">0</span>][<span class="dv">1</span>]<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> target <span class="op">=</span> grid[<span class="dv">4</span>][<span class="dv">1</span>]<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> path <span class="op">=</span> <span class="fu">findPath</span>(grid<span class="op">,</span> start<span class="op">,</span> target)<span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(path)<span class="op">;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Returns the array of coordinates routing around the obstacle to the target</span></span></code></pre></div>
+<h3 id="performance-optimization-notes">Performance Optimization
+Notes</h3>
+<ul>
+<li><strong>Priority Queues:</strong> The code uses
+<code>Array.splice</code> to find the lowest <span
+class="math inline">\(F\)</span> cost, which operates in <span
+class="math inline">\(O(N)\)</span> time. For larger maps, replace the
+array with a Min-Heap or Binary Heap to reduce extraction time to <span
+class="math inline">\(O(\log N)\)</span>.</li>
+<li><strong>Diagonal Movement:</strong> If eight-directional navigation
+is required, include diagonal offsets in the neighbor checks and switch
+the heuristic function from Manhattan distance to Chebyshev or Octile
+distance.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

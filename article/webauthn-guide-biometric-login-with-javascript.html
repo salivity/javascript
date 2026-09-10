@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAuthn Guide: Biometric Login with JavaScript - javascript</title>
+    <meta name="description" content="Web Authentication (WebAuthn) is a modern web standard that enables secure, passwordless authentication by allowing web applications to interact directly with built-in device biometrics (such as Apple Touch ID, Face ID, and Windows Hello) and external ha">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/webauthn-guide-biometric-login-with-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebAuthn Guide: Biometric Login with JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/webauthn-guide-biometric-login-with-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Web Authentication (WebAuthn) is a modern web standard that enables secure, passwordless authentication by allowing web applications to interact directly with built-in device biometrics (such as Apple Touch ID, Face ID, and Windows Hello) and external ha" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="webauthn-guide-biometric-login-with-javascript">WebAuthn Guide:
+Biometric Login with JavaScript</h1>
+<p>Web Authentication (WebAuthn) is a modern web standard that enables
+secure, passwordless authentication by allowing web applications to
+interact directly with built-in device biometrics (such as Apple Touch
+ID, Face ID, and Windows Hello) and external hardware security keys
+(such as YubiKeys). This article explains what WebAuthn is, how
+public-key cryptography powers its architecture, and how client-side
+JavaScript utilizes the Credential Management API to register
+credentials and authenticate users securely without transmitting
+sensitive passwords over the network.</p>
+<h2 id="what-is-webauthn">What is WebAuthn?</h2>
+<p>WebAuthn is a core component of the FIDO2 standard developed by the
+FIDO Alliance and the World Wide Web Consortium (W3C). It replaces
+traditional shared secrets (like passwords or SMS codes) with asymmetric
+public-key cryptography.</p>
+<p>When a user registers with a service using WebAuthn:</p>
+<ol type="1">
+<li>The user's device (the <strong>Authenticator</strong>) generates a
+unique cryptographic key pair: a private key stored securely in the
+hardware (e.g., Secure Enclave or TPM) and a public key sent to the
+website (the <strong>Relying Party</strong>).</li>
+<li>For subsequent logins, the server challenges the client to sign a
+cryptographic payload with the private key.</li>
+<li>The client unlocks the private key using local biometrics or a PIN
+to sign the challenge, proving their identity to the server without the
+private key ever leaving the device.</li>
+</ol>
+<h2 id="the-role-of-javascript-in-webauthn">The Role of JavaScript in
+WebAuthn</h2>
+<p>JavaScript bridges the browser and the underlying authentication
+hardware via the <code>navigator.credentials</code> interface, a
+component of the Credential Management API. JavaScript handles two
+primary workflows: <strong>Registration</strong> (credential creation)
+and <strong>Authentication</strong> (credential assertion).</p>
+<h3 id="1-registration-flow-navigatorcredentialscreate">1. Registration
+Flow (<code>navigator.credentials.create</code>)</h3>
+<p>During registration, the server issues a creation request containing
+user details and a random cryptographic challenge. JavaScript passes
+these options to the browser:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">registerUser</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Fetch challenge and options from the server</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/register-challenge&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> creationOptions <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">json</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Format binary fields (e.g., challenge, user ID) to ArrayBuffers</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  creationOptions<span class="op">.</span><span class="at">publicKey</span><span class="op">.</span><span class="at">challenge</span> <span class="op">=</span> <span class="bu">Uint8Array</span><span class="op">.</span><span class="fu">from</span>(</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">atob</span>(creationOptions<span class="op">.</span><span class="at">publicKey</span><span class="op">.</span><span class="at">challenge</span>)<span class="op">,</span> c <span class="kw">=&gt;</span> c<span class="op">.</span><span class="fu">charCodeAt</span>(<span class="dv">0</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  creationOptions<span class="op">.</span><span class="at">publicKey</span><span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span> <span class="op">=</span> <span class="bu">Uint8Array</span><span class="op">.</span><span class="fu">from</span>(</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">atob</span>(creationOptions<span class="op">.</span><span class="at">publicKey</span><span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span>)<span class="op">,</span> c <span class="kw">=&gt;</span> c<span class="op">.</span><span class="fu">charCodeAt</span>(<span class="dv">0</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 3. Prompt the device for biometric or hardware authentication</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> credential <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">credentials</span><span class="op">.</span><span class="fu">create</span>({</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">publicKey</span><span class="op">:</span> creationOptions<span class="op">.</span><span class="at">publicKey</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 4. Send the public key and attestation object back to the server</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/register-complete&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">method</span><span class="op">:</span> <span class="st">&#39;POST&#39;</span><span class="op">,</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">headers</span><span class="op">:</span> { <span class="st">&#39;Content-Type&#39;</span><span class="op">:</span> <span class="st">&#39;application/json&#39;</span> }<span class="op">,</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">body</span><span class="op">:</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(credential)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When <code>navigator.credentials.create()</code> is invoked, the
+browser prompts the user to scan a fingerprint, look into a camera, or
+tap a physical USB/NFC key. Once validated, the generated public key is
+sent back to the server for storage.</p>
+<h3 id="2-authentication-flow-navigatorcredentialsget">2. Authentication
+Flow (<code>navigator.credentials.get</code>)</h3>
+<p>During authentication, the server generates a new random challenge.
+JavaScript uses <code>navigator.credentials.get()</code> to request a
+signature from the authenticator:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">loginUser</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Fetch the authentication challenge from the server</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/login-challenge&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> requestOptions <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">json</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Convert the challenge to an ArrayBuffer</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  requestOptions<span class="op">.</span><span class="at">publicKey</span><span class="op">.</span><span class="at">challenge</span> <span class="op">=</span> <span class="bu">Uint8Array</span><span class="op">.</span><span class="fu">from</span>(</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">atob</span>(requestOptions<span class="op">.</span><span class="at">publicKey</span><span class="op">.</span><span class="at">challenge</span>)<span class="op">,</span> c <span class="kw">=&gt;</span> c<span class="op">.</span><span class="fu">charCodeAt</span>(<span class="dv">0</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 3. Prompt the user for biometric or security key verification</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> assertion <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">credentials</span><span class="op">.</span><span class="fu">get</span>({</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">publicKey</span><span class="op">:</span> requestOptions<span class="op">.</span><span class="at">publicKey</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 4. Send the signed assertion to the server for cryptographic validation</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/login-complete&#39;</span><span class="op">,</span> {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">method</span><span class="op">:</span> <span class="st">&#39;POST&#39;</span><span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">headers</span><span class="op">:</span> { <span class="st">&#39;Content-Type&#39;</span><span class="op">:</span> <span class="st">&#39;application/json&#39;</span> }<span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">body</span><span class="op">:</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(assertion)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The device signs the server challenge using the private key
+associated with the website's domain, and the server validates the
+signature against the previously stored public key.</p>
+<h2 id="key-security-advantages">Key Security Advantages</h2>
+<ul>
+<li><strong>Phishing Resistance:</strong> Authenticator signatures are
+bound directly to the website's domain (origin). If a user is tricked
+into visiting a malicious replica domain, the browser will refuse to
+supply the credential.</li>
+<li><strong>No Server-Side Shared Secrets:</strong> Because the server
+only stores public keys, database breaches do not expose credentials
+that attackers can reuse.</li>
+<li><strong>Privacy-Preserving Biometrics:</strong> Biometric data
+(fingerprint or facial scans) never leaves the local device; JavaScript
+only receives a signed cryptographic response indicating that
+verification succeeded.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

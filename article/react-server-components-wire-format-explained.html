@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Server Components Wire Format Explained - javascript</title>
+    <meta name="description" content="This article explores the React Server Components (RSC) wire format, detailing its structure as a streaming serialization protocol and demonstrating how client-side JavaScript parses and reconciles this data stream into a functional UI without destroying">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/react-server-components-wire-format-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="React Server Components Wire Format Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/react-server-components-wire-format-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the React Server Components (RSC) wire format, detailing its structure as a streaming serialization protocol and demonstrating how client-side JavaScript parses and reconciles this data stream into a functional UI without destroying" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="react-server-components-wire-format-explained">React Server
+Components Wire Format Explained</h1>
+<p>This article explores the React Server Components (RSC) wire format,
+detailing its structure as a streaming serialization protocol and
+demonstrating how client-side JavaScript parses and reconciles this data
+stream into a functional UI without destroying client-side state.</p>
+<h2 id="what-is-the-rsc-wire-format">What is the RSC Wire Format?</h2>
+<p>The RSC wire format (internally referred to as the Flight protocol)
+is not raw HTML, nor is it standard JSON. It is a compact,
+newline-delimited streaming data protocol designed to represent a
+rendered React component tree across the network.</p>
+<p>Because standard JSON cannot natively serialize promises, symbols, or
+circular references, and HTML strips away client-side React metadata,
+React uses this custom format. Each line in the response represents a
+discrete chunk of data prefixed by a line identifier, a tag, and a
+payload:</p>
+<ul>
+<li><strong><code>M</code> (Module):</strong> Defines a reference to a
+Client Component. It provides the bundle ID and export name so the
+client runtime knows which client-side JavaScript chunk to download and
+execute.</li>
+<li><strong><code>J</code> (JSON / Element Tree):</strong> Represents
+the rendered element tree. It serializes standard HTML elements, props,
+and references to Client Components via their module IDs.</li>
+<li><strong><code>S</code> (Suspense):</strong> Marks Suspense
+boundaries and lazy initialization markers.</li>
+<li><strong><code>E</code> (Error):</strong> Serializes errors thrown
+during server rendering.</li>
+<li><strong><code>T</code> (Text):</strong> Streams raw text chunks,
+often used for large text blocks.</li>
+</ul>
+<p>A simplified example of an RSC stream looks like this:</p>
+<pre class="text"><code>M1:{&quot;id&quot;:&quot;./src/Counter.client.js&quot;,&quot;name&quot;:&quot;default&quot;}
+J0:[&quot;$&quot;,&quot;div&quot;,null,{&quot;children&quot;:[[&quot;$&quot;,&quot;h1&quot;,null,{&quot;children&quot;:&quot;Hello World&quot;}],[&quot;$&quot;,&quot;$L1&quot;,null,{&quot;initialCount&quot;:0}]]}]</code></pre>
+<p>In this example, line <code>M1</code> declares a Client Component
+located at <code>./src/Counter.client.js</code>. Line <code>J0</code>
+describes a <code>div</code> element holding an <code>h1</code> and a
+reference (<code>$L1</code>) pointing to the Client Component defined in
+line 1, passing <code>{initialCount: 0}</code> as a prop.</p>
+<h2 id="how-client-javascript-consumes-the-wire-format">How Client
+JavaScript Consumes the Wire Format</h2>
+<p>The client-side consumption process is handled by a specialized
+package—such as <code>react-server-dom-webpack/client</code>—and
+proceeds through the following phases:</p>
+<h3 id="1-streaming-and-parsing">1. Streaming and Parsing</h3>
+<p>When the client requests an RSC update, it initiates a standard
+<code>fetch</code> request. Instead of waiting for the entire response
+to complete, the client immediately reads the response using the
+<code>ReadableStream</code> API. As chunks arrive, the client parser
+splits the incoming data by newline characters and matches the tag
+prefixes (<code>M</code>, <code>J</code>, etc.).</p>
+<h3 id="2-deserializing-nodes-and-loading-modules">2. Deserializing
+Nodes and Loading Modules</h3>
+<p>The parser deserializes the payload back into React elements:</p>
+<ul>
+<li>When the parser encounters standard DOM elements (like
+<code>div</code> or <code>span</code>), it converts them directly into
+standard React Virtual DOM objects
+(<code>$$typeof: Symbol(react.element)</code>).</li>
+<li>When it encounters a reference to a Client Component
+(<code>$L1</code>), it looks up the associated module reference declared
+by an <code>M</code> line. If the corresponding JavaScript chunk is not
+already loaded in the browser, the runtime uses the module bundler’s
+dynamic import API (e.g., <code>import()</code>) to fetch and execute
+the client code in parallel.</li>
+<li>If the server encountered unresolved promises wrapped in
+<code>&lt;Suspense&gt;</code>, the payload contains placeholders. As the
+server resolves these promises, it streams subsequent chunks that
+instruct the client to resolve the placeholders.</li>
+</ul>
+<h3 id="3-fiber-tree-reconciliation">3. Fiber Tree Reconciliation</h3>
+<p>Once the serialized nodes and referenced client code are resolved,
+the resulting React elements are passed to the client-side React
+reconciler.</p>
+<p>React applies its standard diffing algorithm against the current
+Fiber tree. Because the wire format preserves element identities and
+explicitly separates Server Components (pure data) from Client
+Components (interactive elements), React updates only the changed parts
+of the DOM. Unchanged Client Components maintain their local state, such
+as active input focus, scroll positions, and form values, avoiding the
+full-page reset associated with traditional server-rendered HTML.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Event Loop: Unhandled Promise Rejections - javascript</title>
+    <meta name="description" content="This article explains how the JavaScript runtime processes unhandled promise rejections within the event loop mechanism. It covers the role of the microtask queue during promise resolution, how the engine detects promises without error handlers, and the">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-event-loop-unhandled-promise-rejections">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Event Loop: Unhandled Promise Rejections - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-event-loop-unhandled-promise-rejections" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the JavaScript runtime processes unhandled promise rejections within the event loop mechanism. It covers the role of the microtask queue during promise resolution, how the engine detects promises without error handlers, and the" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-event-loop-unhandled-promise-rejections">JavaScript
+Event Loop: Unhandled Promise Rejections</h1>
+<p>This article explains how the JavaScript runtime processes unhandled
+promise rejections within the event loop mechanism. It covers the role
+of the microtask queue during promise resolution, how the engine detects
+promises without error handlers, and the subsequent actions taken by
+host environments like Node.js and web browsers when a rejected promise
+is left unhandled.</p>
+<h2 id="microtasks-and-promise-rejection">Microtasks and Promise
+Rejection</h2>
+<p>JavaScript handles asynchronous operations using the event loop,
+which prioritizes tasks using two primary queues: the macrotask queue
+(e.g., <code>setTimeout</code>, I/O events) and the microtask queue
+(e.g., <code>Promise</code> callbacks, <code>queueMicrotask</code>).</p>
+<p>When a promise is rejected via <code>Promise.reject()</code> or by
+throwing an error inside an asynchronous function, its rejection
+callback is scheduled as a microtask. The JavaScript engine executes the
+current synchronous code on the call stack to completion. Once the call
+stack is completely empty, the event loop immediately processes all
+tasks in the microtask queue before moving to the next macrotask or
+rendering phase.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Synchronous task</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Start&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Microtask scheduled</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">Promise</span><span class="op">.</span><span class="fu">reject</span>(<span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&quot;Failure without catch&quot;</span>))<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Synchronous task</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;End&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="the-microtask-checkpoint-and-detection">The Microtask Checkpoint
+and Detection</h2>
+<p>During the execution of the microtask queue—known as a microtask
+checkpoint—the engine tracks the state of every promise. When a promise
+transitions to the <code>rejected</code> state, the engine checks
+whether a rejection handler (such as a <code>.catch()</code> block or a
+rejection handler in <code>.then(onFulfilled, onRejected)</code>) has
+been attached.</p>
+<p>If an error occurs and no handler is found, the promise is flagged
+internally as an unhandled rejection. The engine does not immediately
+throw a global exception; instead, it waits until the end of the current
+microtask turn to allow any synchronous chaining of
+<code>.catch()</code> handlers to register.</p>
+<h2 id="host-environment-notification">Host Environment
+Notification</h2>
+<p>JavaScript itself (ECMAScript specification) defines promise states,
+but how unhandled rejections are reported is delegated to the host
+environment (browsers or Node.js).</p>
+<p>Once the microtask checkpoint finishes and a rejected promise remains
+without a handler:</p>
+<ol type="1">
+<li><p><strong>In Web Browsers:</strong> The browser emits a global
+<code>unhandledrejection</code> event on the <code>window</code> object.
+If this event is not intercepted and prevented via
+<code>event.preventDefault()</code>, the browser logs the error to the
+developer console.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&quot;unhandledrejection&quot;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&quot;Unhandled rejection detected:&quot;</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">reason</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">preventDefault</span>()<span class="op">;</span> <span class="co">// Prevents default console logging</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>In Node.js:</strong> Node.js emits an
+<code>unhandledRejection</code> event on the <code>process</code>
+object. In modern versions of Node.js (v15+), unhandled promise
+rejections terminate the process with a non-zero exit code by default,
+treating them similarly to uncaught exceptions.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">process</span><span class="op">.</span><span class="fu">on</span>(<span class="st">&quot;unhandledRejection&quot;</span><span class="op">,</span> (reason<span class="op">,</span> promise) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&quot;Unhandled Rejection at:&quot;</span><span class="op">,</span> promise<span class="op">,</span> <span class="st">&quot;reason:&quot;</span><span class="op">,</span> reason)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Application specific logging or cleanup</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></li>
+</ol>
+<h2 id="handling-late-rejections">Handling Late Rejections</h2>
+<p>If a rejection handler is attached asynchronously after the microtask
+checkpoint has already passed, the runtime triggers a secondary
+event:</p>
+<ul>
+<li><strong>Browsers:</strong> Emit the <code>rejectionhandled</code>
+event on the <code>window</code> object.</li>
+<li><strong>Node.js:</strong> Emits the <code>rejectionHandled</code>
+event on the <code>process</code> object.</li>
+</ul>
+<p>This secondary notification informs the environment that a previously
+unhandled rejection has finally been caught, allowing monitoring tools
+and runtimes to update their error tracking states accordingly.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

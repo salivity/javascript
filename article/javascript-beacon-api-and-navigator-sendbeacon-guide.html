@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Beacon API and navigator.sendBeacon Guide - javascript</title>
+    <meta name="description" content="This article provides an overview of the JavaScript Beacon API and explains how the navigator.sendBeacon() method reliably sends diagnostic and analytics data to a web server during page unload. You will learn about the limitations of traditional asynchr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-beacon-api-and-navigator-sendbeacon-guide">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Beacon API and navigator.sendBeacon Guide - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-beacon-api-and-navigator-sendbeacon-guide" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the JavaScript Beacon API and explains how the navigator.sendBeacon() method reliably sends diagnostic and analytics data to a web server during page unload. You will learn about the limitations of traditional asynchr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-beacon-api-and-navigatorsendbeacon-guide">JavaScript
+Beacon API and navigator.sendBeacon Guide</h1>
+<p>This article provides an overview of the JavaScript Beacon API and
+explains how the <code>navigator.sendBeacon()</code> method reliably
+sends diagnostic and analytics data to a web server during page unload.
+You will learn about the limitations of traditional asynchronous
+requests during document termination, how the Beacon API solves these
+problems by offloading network transmission to the browser background
+process, and the proper syntax and best practices for implementing it in
+your applications.</p>
+<h2 id="the-problem-with-traditional-requests-during-page-unload">The
+Problem with Traditional Requests During Page Unload</h2>
+<p>Historically, developers relied on standard
+<code>XMLHttpRequest</code> or the <code>fetch()</code> API inside
+<code>unload</code> or <code>beforeunload</code> event listeners to send
+analytics, metrics, or session data when a user navigated away from a
+webpage.</p>
+<p>This approach has major flaws:</p>
+<ul>
+<li><strong>Dropped Requests:</strong> Asynchronous <code>fetch</code>
+or <code>XMLHttpRequest</code> calls are often canceled immediately
+because the browser terminates the execution context when the document
+unloads.</li>
+<li><strong>Degraded Performance:</strong> To force data transmission,
+developers previously used synchronous <code>XMLHttpRequest</code>
+calls. This blocks the main thread, delays the loading of the next page,
+and creates a sluggish user experience. Consequently, modern browsers
+have deprecated synchronous requests during unload events.</li>
+</ul>
+<h2 id="what-is-the-beacon-api">What is the Beacon API?</h2>
+<p>The Beacon API was introduced by the W3C to solve the challenge of
+sending telemetry and state data at the end of a user session. It
+exposes a single method, <code>navigator.sendBeacon()</code>, which
+schedules an asynchronous, non-blocking HTTP POST request managed
+directly by the browser rather than the document's script execution
+environment.</p>
+<p>Because the browser's networking layer handles the request
+independently of the document's lifecycle, the data is guaranteed to be
+transmitted even after the page has completely closed, without delaying
+the user's navigation.</p>
+<h2 id="how-navigatorsendbeacon-works">How
+<code>navigator.sendBeacon()</code> Works</h2>
+<p>When <code>navigator.sendBeacon()</code> is invoked, the browser
+queues the request in an internal buffer. The method immediately returns
+a boolean value:</p>
+<ul>
+<li><code>true</code> if the browser successfully accepted and queued
+the request for delivery.</li>
+<li><code>false</code> if the request could not be queued (e.g., if the
+payload exceeds size limits).</li>
+</ul>
+<p>The browser then transmits the data over HTTP POST in the background
+when it is optimal to do so, requiring no callbacks or response
+handling.</p>
+<h3 id="syntax-and-parameters">Syntax and Parameters</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">navigator</span><span class="op">.</span><span class="fu">sendBeacon</span>(url<span class="op">,</span> data)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>url</code></strong>: The URL of the server endpoint
+receiving the POST request.</li>
+<li><strong><code>data</code></strong> <em>(optional)</em>: The payload
+to be sent. Supported data types include <code>ArrayBuffer</code>,
+<code>TypedArray</code>, <code>DataView</code>, <code>Blob</code>,
+<code>DOMString</code> (text), <code>FormData</code>, and
+<code>URLSearchParams</code>.</li>
+</ul>
+<h3 id="practical-code-example">Practical Code Example</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sendAnalyticsData</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> url <span class="op">=</span> <span class="st">&quot;/api/analytics&quot;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> payload <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>({</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">event</span><span class="op">:</span> <span class="st">&quot;session_end&quot;</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timestamp</span><span class="op">:</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timeSpentOnPage</span><span class="op">:</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> blob <span class="op">=</span> <span class="kw">new</span> <span class="bu">Blob</span>([payload]<span class="op">,</span> { <span class="dt">type</span><span class="op">:</span> <span class="st">&quot;application/json&quot;</span> })<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">navigator</span><span class="op">.</span><span class="at">sendBeacon</span>) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">navigator</span><span class="op">.</span><span class="fu">sendBeacon</span>(url<span class="op">,</span> blob)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fallback using fetch with keepalive</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">fetch</span>(url<span class="op">,</span> { <span class="dt">method</span><span class="op">:</span> <span class="st">&quot;POST&quot;</span><span class="op">,</span> <span class="dt">body</span><span class="op">:</span> payload<span class="op">,</span> <span class="dt">keepalive</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">// Recommended lifecycle event for modern browsers</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&quot;visibilitychange&quot;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">document</span><span class="op">.</span><span class="at">visibilityState</span> <span class="op">===</span> <span class="st">&quot;hidden&quot;</span>) {</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sendAnalyticsData</span>()<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="best-practices-and-limitations">Best Practices and
+Limitations</h2>
+<ul>
+<li><strong>Use <code>visibilitychange</code> Instead of
+<code>unload</code>:</strong> The <code>unload</code> and
+<code>beforeunload</code> events are unreliable, especially on mobile
+browsers where tabs are frequently discarded or suspended. The
+<code>visibilitychange</code> event (checking for
+<code>document.visibilityState === 'hidden'</code>) is the most reliable
+event for capturing the end of a session.</li>
+<li><strong>Keep Payloads Small:</strong> Browsers typically impose a
+total quota on queued beacon data (often 64 KB across all active
+beacons) to prevent excessive memory usage.</li>
+<li><strong>Fire-and-Forget Nature:</strong> The Beacon API does not
+provide a mechanism to handle server responses. It is intended strictly
+for one-way logging, telemetry, and analytics.</li>
+<li><strong>Alternative:</strong> Modern <code>fetch()</code> supports
+the <code>{ keepalive: true }</code> option, which offers similar
+background persistence capabilities while allowing custom headers and
+other standard Fetch API configurations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

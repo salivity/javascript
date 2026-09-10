@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chai Expect vs Should vs Assert Architecture - javascript</title>
+    <meta name="description" content="The Chai assertion library for JavaScript provides three distinct interfaces—assert, expect, and should—each built on different architectural patterns. While assert adheres to the traditional, functional Test-Driven Development (TDD) model, expect an">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/chai-expect-vs-should-vs-assert-architecture">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chai Expect vs Should vs Assert Architecture - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/chai-expect-vs-should-vs-assert-architecture" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Chai assertion library for JavaScript provides three distinct interfaces—assert, expect, and should—each built on different architectural patterns. While assert adheres to the traditional, functional Test-Driven Development (TDD) model, expect an" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="chai-expect-vs-should-vs-assert-architecture">Chai Expect vs
+Should vs Assert Architecture</h1>
+<p>The Chai assertion library for JavaScript provides three distinct
+interfaces—<code>assert</code>, <code>expect</code>, and
+<code>should</code>—each built on different architectural patterns.
+While <code>assert</code> adheres to the traditional, functional
+Test-Driven Development (TDD) model, <code>expect</code> and
+<code>should</code> implement Behavior-Driven Development (BDD)
+paradigms using chainable Domain-Specific Languages (DSLs). The core
+technical distinctions among them lie in how they interact with
+JavaScript's object model: <code>assert</code> relies on static
+functional calls, <code>expect</code> wraps values inside custom
+instances, and <code>should</code> mutates the global prototype
+chain.</p>
+<h2 id="the-core-engine-chais-assertion-prototype-and-flags">The Core
+Engine: Chai's <code>Assertion</code> Prototype and Flags</h2>
+<p>To understand the differences, it helps to understand how Chai works
+internally. Chai provides an underlying <code>Assertion</code>
+constructor that manages assertions.</p>
+<p>When BDD styles (<code>expect</code> and <code>should</code>) chain
+words together (such as <code>.to.be.a</code>), they use property
+getters registered on Chai's prototype via
+<code>Object.defineProperty</code>. Instead of executing immediate
+logic, intermediary words set internal key-value pairs called "flags" on
+the assertion instance (for example, setting the <code>negate</code>
+flag to <code>true</code> when encountering <code>.not</code>). When a
+terminating assertion method or property is invoked (like
+<code>.equal()</code>), the engine inspects these accumulated flags to
+evaluate the condition and generate appropriate error messages.</p>
+<h2 id="1-the-assert-style-classical-and-unobtrusive">1. The
+<code>assert</code> Style: Classical and Unobtrusive</h2>
+<p>The <code>assert</code> interface mirrors the standard Node.js
+<code>assert</code> module while offering an expanded set of comparison
+utilities.</p>
+<h3 id="architectural-characteristics">Architectural
+Characteristics:</h3>
+<ul>
+<li><strong>No Prototype Pollution:</strong> <code>assert</code> does
+not modify <code>Object.prototype</code> or wrap target values in
+intermediary objects.</li>
+<li><strong>Direct Function Invocation:</strong> Assertions are made
+through explicit method calls passing the target and expected values as
+arguments: <code>assert.equal(actual, expected)</code>.</li>
+<li><strong>Explicit Handling:</strong> Because it does not rely on
+calling properties on the target, evaluating <code>null</code>,
+<code>undefined</code>, or undeclared properties causes no immediate
+runtime syntax errors.</li>
+<li><strong>Separation of Concerns:</strong> The tested value remains
+completely decoupled from the assertion framework.</li>
+</ul>
+<h2 id="2-the-expect-style-instance-wrapping">2. The <code>expect</code>
+Style: Instance Wrapping</h2>
+<p>The <code>expect</code> interface is a BDD-style interface that
+provides natural language chaining without altering native JavaScript
+prototypes.</p>
+<h3 id="architectural-characteristics-1">Architectural
+Characteristics:</h3>
+<ul>
+<li><strong>Wrapper Factory:</strong> Invoking
+<code>expect(target)</code> acts as a constructor/factory call that
+instantiates a new Chai <code>Assertion</code> object. The
+<code>target</code> value is stored as an internal reference within that
+instance.</li>
+<li><strong>Safe Null/Undefined Testing:</strong> Because
+<code>expect</code> passes the subject as an argument rather than
+resolving a property on the subject, statements like
+<code>expect(null).to.be.null</code> or
+<code>expect(undefined).to.not.exist</code> execute safely.</li>
+<li><strong>Browser and Environment Isolation:</strong> It leaves native
+global prototypes untouched, making it ideal for environments where
+prototype modification is strictly prohibited or could conflict with
+third-party code.</li>
+<li><strong>Memory Footprint:</strong> Each call constructs a distinct
+<code>Assertion</code> instance, discarding it after execution.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// expect architecture: creates a wrapper around the value</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">expect</span>(foo)<span class="op">.</span><span class="at">to</span><span class="op">.</span><span class="at">be</span><span class="op">.</span><span class="fu">a</span>(<span class="st">&#39;string&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="3-the-should-style-prototype-extension">3. The
+<code>should</code> Style: Prototype Extension</h2>
+<p>The <code>should</code> interface provides a fluent BDD syntax that
+allows assertions to be read directly from the object being tested.</p>
+<h3 id="architectural-characteristics-2">Architectural
+Characteristics:</h3>
+<ul>
+<li><strong><code>Object.prototype</code> Mutation:</strong> Executing
+<code>chai.should()</code> extends <code>Object.prototype</code> by
+defining a dynamic getter named <code>should</code>.</li>
+<li><strong>Self-Referential Wrapping:</strong> When
+<code>.should</code> is accessed on an expression
+(<code>foo.should</code>), the getter retrieves <code>this</code> and
+automatically instantiates and returns a Chai <code>Assertion</code>
+instance wrapping <code>this</code>.</li>
+<li><strong>The Null/Undefined Limitation:</strong> Because
+<code>null</code> and <code>undefined</code> do not inherit from
+<code>Object.prototype</code>, attempting <code>null.should</code>
+results in a native JavaScript
+<code>TypeError: Cannot read properties of null (reading 'should')</code>.</li>
+<li><strong>Fallback Mechanisms:</strong> To compensate for this
+structural limitation, Chai exposes static helpers on the initialized
+function: <code>should.exist(val)</code>,
+<code>should.not.exist(val)</code>, or <code>should.Throw()</code>.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// should architecture: resolves .should through prototype inheritance</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>chai<span class="op">.</span><span class="fu">should</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>foo<span class="op">.</span><span class="at">should</span><span class="op">.</span><span class="at">be</span><span class="op">.</span><span class="fu">a</span>(<span class="st">&#39;string&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Required workaround for null values</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>should<span class="op">.</span><span class="at">not</span><span class="op">.</span><span class="fu">exist</span>(bar)<span class="op">;</span></span></code></pre></div>
+<h2 id="comparison-matrix">Comparison Matrix</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>assert</code></th>
+<th style="text-align: left;"><code>expect</code></th>
+<th style="text-align: left;"><code>should</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Paradigm</strong></td>
+<td style="text-align: left;">TDD</td>
+<td style="text-align: left;">BDD</td>
+<td style="text-align: left;">BDD</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Object Mutation</strong></td>
+<td style="text-align: left;">None</td>
+<td style="text-align: left;">None</td>
+<td style="text-align: left;">Modifies
+<code>Object.prototype</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Invocation Model</strong></td>
+<td style="text-align: left;">Function invocation
+(<code>assert.isOk(val)</code>)</td>
+<td style="text-align: left;">Function wrapper
+(<code>expect(val)...</code>)</td>
+<td style="text-align: left;">Prototype getter
+(<code>val.should...</code>)</td>
+</tr>
+<tr>
+<td
+style="text-align: left;"><strong><code>null</code>/<code>undefined</code>
+Handling</strong></td>
+<td style="text-align: left;">Native support</td>
+<td style="text-align: left;">Native support</td>
+<td style="text-align: left;">Requires utility wrappers
+(<code>should.exist</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Chaining DSL</strong></td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Yes (via getters)</td>
+<td style="text-align: left;">Yes (via getters)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="summary">Summary</h2>
+<p>Architecturally, <code>assert</code> is a pure utility library that
+operates on arguments without side effects. <code>expect</code> balances
+fluent BDD chaining with clean scope isolation by encapsulating target
+values within newly allocated assertion instances. <code>should</code>
+prioritizes fluent, readable syntax by extending JavaScript's root
+prototype, trading isolation and seamless <code>null</code> handling for
+continuous left-to-right readability.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

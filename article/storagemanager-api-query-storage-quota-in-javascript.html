@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StorageManager API: Query Storage Quota in JavaScript - javascript</title>
+    <meta name="description" content="The StorageManager API is a modern web platform feature that allows JavaScript applications to inspect available disk space, monitor current data consumption, and request persistent storage guarantees to prevent automatic browser data eviction. This arti">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/storagemanager-api-query-storage-quota-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="StorageManager API: Query Storage Quota in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/storagemanager-api-query-storage-quota-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The StorageManager API is a modern web platform feature that allows JavaScript applications to inspect available disk space, monitor current data consumption, and request persistent storage guarantees to prevent automatic browser data eviction. This arti" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="storagemanager-api-query-storage-quota-in-javascript">StorageManager
+API: Query Storage Quota in JavaScript</h1>
+<p>The StorageManager API is a modern web platform feature that allows
+JavaScript applications to inspect available disk space, monitor current
+data consumption, and request persistent storage guarantees to prevent
+automatic browser data eviction. This article breaks down what the
+StorageManager API is, how web browsers categorize storage, and how to
+use its core JavaScript methods to inspect usage metrics and request
+persistent storage for applications relying on IndexedDB, Cache Storage,
+and other client-side storage systems.</p>
+<hr />
+<h2 id="what-is-the-storagemanager-api">What is the StorageManager
+API?</h2>
+<p>Web applications frequently store data locally using technologies
+such as IndexedDB, the Cache API, Web Locks, and OPFS (Origin Private
+File System). Traditionally, browsers managed this data with opaque
+limits, giving developers no native way to determine how much storage
+remained or whether the browser might purge their data under disk
+pressure.</p>
+<p>The <code>StorageManager</code> API, accessible via
+<code>navigator.storage</code>, provides programmatic access to the
+browser's storage subsystem for a specific origin. It provides two main
+capabilities:</p>
+<ol type="1">
+<li><strong>Storage Estimation:</strong> Calculating total storage quota
+and current usage.</li>
+<li><strong>Persistence Management:</strong> Determining whether data is
+treated as temporary or persistent, and requesting persistent
+status.</li>
+</ol>
+<hr />
+<h2 id="storage-types-best-effort-vs-persistent">Storage Types:
+Best-Effort vs. Persistent</h2>
+<p>Browsers categorize origin data into two distinct storage modes:</p>
+<ul>
+<li><strong>Best-Effort (Temporary):</strong> The default mode. The
+browser grants storage without asking the user, but it may clear this
+data automatically if the host device runs low on disk space (using a
+Least-Recently-Used eviction policy).</li>
+<li><strong>Persistent:</strong> Data marked as persistent is exempt
+from automatic eviction. The browser will not delete it under low-disk
+conditions; it can only be removed if the user manually clears browsing
+data or uninstalls the application.</li>
+</ul>
+<hr />
+<h2 id="how-to-query-storage-quota-and-usage">How to Query Storage Quota
+and Usage</h2>
+<p>To inspect how much data your origin is using and how much space is
+available, use the <code>navigator.storage.estimate()</code> method.
+This method returns a Promise that resolves to an object containing two
+key properties:</p>
+<ul>
+<li><code>usage</code>: An estimate of the number of bytes currently
+used by the origin across all storage APIs.</li>
+<li><code>quota</code>: An estimate of the maximum number of bytes
+available to the origin.</li>
+</ul>
+<h3 id="example-estimating-storage">Example: Estimating Storage</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">checkStorageUsage</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="st">&#39;storage&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span> <span class="op">&amp;&amp;</span> <span class="st">&#39;estimate&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storage</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> { usage<span class="op">,</span> quota } <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storage</span><span class="op">.</span><span class="fu">estimate</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> usageInMB <span class="op">=</span> (usage <span class="op">/</span> (<span class="dv">1024</span> <span class="op">*</span> <span class="dv">1024</span>))<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> quotaInMB <span class="op">=</span> (quota <span class="op">/</span> (<span class="dv">1024</span> <span class="op">*</span> <span class="dv">1024</span>))<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> percentUsed <span class="op">=</span> ((usage <span class="op">/</span> quota) <span class="op">*</span> <span class="dv">100</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Used: </span><span class="sc">${</span>usageInMB<span class="sc">}</span><span class="vs"> MB of </span><span class="sc">${</span>quotaInMB<span class="sc">}</span><span class="vs"> MB (</span><span class="sc">${</span>percentUsed<span class="sc">}</span><span class="vs">%)`</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">catch</span> (error) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Error estimating storage:&#39;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&#39;StorageManager estimate API is not supported in this browser.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">checkStorageUsage</span>()<span class="op">;</span></span></code></pre></div>
+<p><em>Note: The returned numbers are estimates. Browsers intentionally
+add minor padding or approximations to prevent cross-site timing and
+fingerprinting attacks.</em></p>
+<hr />
+<h2 id="how-to-check-and-request-persistent-storage">How to Check and
+Request Persistent Storage</h2>
+<p>You can verify whether your origin has been granted persistent
+storage and request it if necessary using
+<code>navigator.storage.persisted()</code> and
+<code>navigator.storage.persist()</code>.</p>
+<h3 id="checking-persistence-status">Checking Persistence Status</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">isStoragePersisted</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="st">&#39;storage&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span> <span class="op">&amp;&amp;</span> <span class="st">&#39;persisted&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storage</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> isPersisted <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storage</span><span class="op">.</span><span class="fu">persisted</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Storage persistence status: </span><span class="sc">${</span>isPersisted <span class="op">?</span> <span class="st">&#39;Persistent&#39;</span> <span class="op">:</span> <span class="st">&#39;Best-effort&#39;</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> isPersisted<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="requesting-persistent-storage">Requesting Persistent
+Storage</h3>
+<p>Calling <code>persist()</code> prompts the browser to upgrade the
+origin's storage from "best-effort" to "persistent". Depending on the
+browser and its heuristics (such as whether the site is installed as a
+PWA, bookmarked, or frequently visited), this may automatically resolve
+to <code>true</code> or trigger a browser permission prompt.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">requestPersistence</span>() {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="st">&#39;storage&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span> <span class="op">&amp;&amp;</span> <span class="st">&#39;persist&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storage</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> alreadyPersisted <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storage</span><span class="op">.</span><span class="fu">persisted</span>()<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (alreadyPersisted) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Storage is already persistent.&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> granted <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">storage</span><span class="op">.</span><span class="fu">persist</span>()<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (granted) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Storage successfully set to persistent.&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Storage persistence request was denied.&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> granted<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h2 id="best-practices">Best Practices</h2>
+<ul>
+<li><strong>Always Check Feature Availability:</strong> Ensure
+<code>navigator.storage</code> and the required method exist before
+invoking them to avoid runtime errors on older or restricted
+environments.</li>
+<li><strong>Call <code>estimate()</code> Before Large Writes:</strong>
+Before downloading large files or caching offline assets, query
+<code>estimate()</code> to ensure sufficient quota is available.</li>
+<li><strong>Request Persistence Contextually:</strong> Call
+<code>persist()</code> during a meaningful user interaction (such as
+enabling an "Offline Mode" switch or installing the app) to increase the
+likelihood that the browser or user approves the persistence grant.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

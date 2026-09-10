@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Web Audio API AudioContext in JavaScript - javascript</title>
+    <meta name="description" content="The Web Audio API provides a powerful, versatile system for controlling audio on the web, centered entirely around the AudioContext interface. This article explains what the AudioContext is, how it serves as the foundation for digital signal processing i">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/understanding-web-audio-api-audiocontext-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Web Audio API AudioContext in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/understanding-web-audio-api-audiocontext-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Web Audio API provides a powerful, versatile system for controlling audio on the web, centered entirely around the AudioContext interface. This article explains what the AudioContext is, how it serves as the foundation for digital signal processing i" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="understanding-web-audio-api-audiocontext-in-javascript">Understanding
+Web Audio API AudioContext in JavaScript</h1>
+<p>The Web Audio API provides a powerful, versatile system for
+controlling audio on the web, centered entirely around the
+<code>AudioContext</code> interface. This article explains what the
+<code>AudioContext</code> is, how it serves as the foundation for
+digital signal processing in the browser, and how developers can build
+and connect audio processing nodes in JavaScript to manipulate and
+playback sound dynamically.</p>
+<h2 id="what-is-the-audiocontext">What is the AudioContext?</h2>
+<p>The <code>AudioContext</code> is the primary object representing an
+audio-processing graph built from audio modules linked together. It
+handles the creation of audio nodes, manages the decoding and rendering
+of audio streams, and interfaces directly with the device's audio
+hardware.</p>
+<p>An application must instantiate an <code>AudioContext</code> before
+performing any audio operations:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> audioCtx <span class="op">=</span> <span class="kw">new</span> (<span class="bu">window</span><span class="op">.</span><span class="at">AudioContext</span> <span class="op">||</span> <span class="bu">window</span><span class="op">.</span><span class="at">webkitAudioContext</span>)()<span class="op">;</span></span></code></pre></div>
+<p>The <code>AudioContext</code> controls the global sample rate, keeps
+track of precise audio timing via <code>audioCtx.currentTime</code>, and
+provides a final output target known as
+<code>audioCtx.destination</code>, which typically routes to the user's
+speakers or headphones.</p>
+<h2 id="the-audio-processing-graph">The Audio Processing Graph</h2>
+<p>Web Audio operations are structured as a directed graph of
+<code>AudioNode</code> objects. Sound travels linearly or modularly
+through this graph:</p>
+<ol type="1">
+<li><strong>Source Nodes:</strong> Generate or supply audio data (e.g.,
+<code>OscillatorNode</code>, <code>AudioBufferSourceNode</code>,
+<code>MediaElementAudioSourceNode</code>).</li>
+<li><strong>Processing/Effect Nodes:</strong> Modify, filter, or analyze
+the incoming audio signal (e.g., <code>GainNode</code>,
+<code>BiquadFilterNode</code>, <code>StereoPannerNode</code>,
+<code>AnalyserNode</code>).</li>
+<li><strong>Destination Node:</strong> The final output node
+(<code>audioCtx.destination</code>) that renders the audio to the
+hardware.</li>
+</ol>
+<h2 id="how-to-connect-audio-nodes-in-javascript">How to Connect Audio
+Nodes in JavaScript</h2>
+<p>Nodes are linked together using the <code>connect()</code> method
+available on any <code>AudioNode</code> instance. This method pipes the
+output of one node into the input of another.</p>
+<h3 id="step-by-step-implementation">Step-by-Step Implementation</h3>
+<ol type="1">
+<li><strong>Initialize the Context:</strong> Create the master
+<code>AudioContext</code>.</li>
+<li><strong>Create the Nodes:</strong> Instantiate an audio source and
+any desired effect nodes.</li>
+<li><strong>Chain the Nodes:</strong> Connect the source to the effects,
+and the final effect to <code>audioCtx.destination</code>.</li>
+<li><strong>Trigger Playback:</strong> Start the audio source.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Initialize context</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> audioCtx <span class="op">=</span> <span class="kw">new</span> <span class="bu">AudioContext</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Create nodes</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> oscillator <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createOscillator</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> gainNode <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createGain</span>()<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Configure node parameters</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>oscillator<span class="op">.</span><span class="at">type</span> <span class="op">=</span> <span class="st">&#39;sine&#39;</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>oscillator<span class="op">.</span><span class="at">frequency</span><span class="op">.</span><span class="fu">setValueAtTime</span>(<span class="dv">440</span><span class="op">,</span> audioCtx<span class="op">.</span><span class="at">currentTime</span>)<span class="op">;</span> <span class="co">// 440 Hz (A4)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>gainNode<span class="op">.</span><span class="at">gain</span><span class="op">.</span><span class="fu">setValueAtTime</span>(<span class="fl">0.5</span><span class="op">,</span> audioCtx<span class="op">.</span><span class="at">currentTime</span>)<span class="op">;</span> <span class="co">// 50% volume</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Connect nodes: Oscillator -&gt; Gain -&gt; Destination</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>oscillator<span class="op">.</span><span class="fu">connect</span>(gainNode)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>gainNode<span class="op">.</span><span class="fu">connect</span>(audioCtx<span class="op">.</span><span class="at">destination</span>)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">// 4. Start playback</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>oscillator<span class="op">.</span><span class="fu">start</span>()<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>oscillator<span class="op">.</span><span class="fu">stop</span>(audioCtx<span class="op">.</span><span class="at">currentTime</span> <span class="op">+</span> <span class="dv">2</span>)<span class="op">;</span> <span class="co">// Stop after 2 seconds</span></span></code></pre></div>
+<h2 id="node-disconnection-and-dynamic-routing">Node Disconnection and
+Dynamic Routing</h2>
+<p>Audio graphs are dynamic. You can break connections or reroute
+signals at runtime using the <code>disconnect()</code> method. Calling
+<code>node.disconnect()</code> without arguments removes all outgoing
+connections from that node, while passing a specific target node
+disconnects only that route. This capability allows for real-time
+toggling of effects, bypass switches, and dynamic audio routing in
+complex web applications.</p>
+<h2 id="handling-browser-autoplay-policies">Handling Browser Autoplay
+Policies</h2>
+<p>Modern web browsers require a user interaction (such as a click or
+keypress) before an <code>AudioContext</code> can output sound. If
+initialized before interaction, the context starts in a
+<code>suspended</code> state. You can resume it within an event listener
+using:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;click&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (audioCtx<span class="op">.</span><span class="at">state</span> <span class="op">===</span> <span class="st">&#39;suspended&#39;</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    audioCtx<span class="op">.</span><span class="fu">resume</span>()<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

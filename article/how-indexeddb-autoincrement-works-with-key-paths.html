@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How IndexedDB autoIncrement Works with Key Paths - javascript</title>
+    <meta name="description" content="In JavaScript IndexedDB, combining autoIncrement: true with a specified keyPath creates an in-line key generator that automatically assigns sequential numeric identifiers directly to stored objects. This mechanism ensures that records maintain a unique p">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-indexeddb-autoincrement-works-with-key-paths">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How IndexedDB autoIncrement Works with Key Paths - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-indexeddb-autoincrement-works-with-key-paths" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript IndexedDB, combining autoIncrement: true with a specified keyPath creates an in-line key generator that automatically assigns sequential numeric identifiers directly to stored objects. This mechanism ensures that records maintain a unique p" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-indexeddb-autoincrement-works-with-key-paths">How IndexedDB
+autoIncrement Works with Key Paths</h1>
+<p>In JavaScript IndexedDB, combining <code>autoIncrement: true</code>
+with a specified <code>keyPath</code> creates an in-line key generator
+that automatically assigns sequential numeric identifiers directly to
+stored objects. This mechanism ensures that records maintain a unique
+primary key within their own object structure without requiring manual
+ID generation. When an object lacks the designated key path property,
+the database generates a value and injects it into the object; when a
+key is manually provided, the system respects the manual key and adjusts
+its internal counter accordingly.</p>
+<h3 id="in-line-key-generation-and-property-injection">In-Line Key
+Generation and Property Injection</h3>
+<p>When an object store is initialized with both a <code>keyPath</code>
+(such as <code>'id'</code>) and <code>autoIncrement: true</code>, the
+primary key is stored "in-line." When you execute an <code>add()</code>
+or <code>put()</code> operation with an object that does not contain the
+specified key path property (or where the property is set to
+<code>undefined</code>), the IndexedDB engine evaluates the key
+generator sequence.</p>
+<p>The engine takes the next available integer from its internal
+counter, injects this value directly into the object under the specified
+property name, and persists the modified object into the store. As a
+result, the object retrieved in subsequent queries will contain the
+newly generated property and value.</p>
+<h3 id="handling-manually-supplied-keys">Handling Manually Supplied
+Keys</h3>
+<p>If an object explicitly contains a valid key at the
+<code>keyPath</code> location upon insertion, the auto-increment
+mechanism behaves differently:</p>
+<ol type="1">
+<li><strong>Key Retention:</strong> The engine accepts the user-defined
+key and inserts the record without generating a replacement.</li>
+<li><strong>Generator Adjustment:</strong> If the manually provided key
+is a number greater than the current value of the internal
+auto-increment counter, the generator updates its counter to match this
+higher value. The next auto-generated key will be
+<code>Math.floor(highestKey) + 1</code>.</li>
+<li><strong>Ignored Non-Numeric Values:</strong> If the manual key is a
+non-numeric valid key (such as a string or Date), the record is stored
+using that key, but the numeric auto-increment counter remains
+unchanged.</li>
+</ol>
+<h3 id="generator-state-and-lifecycle">Generator State and
+Lifecycle</h3>
+<p>Each object store maintains its own dedicated key generator counter
+that begins at <code>1</code>. The counter tracks the highest positive
+integer used as a key in that store. The sequence strictly produces
+positive integers and does not reuse numbers if a record is deleted.
+Furthermore, the counter persists across browser restarts and database
+connections.</p>
+<h3 id="constraints-and-edge-cases">Constraints and Edge Cases</h3>
+<ul>
+<li><strong>Compound Keys:</strong> IndexedDB does not allow
+<code>autoIncrement: true</code> to be paired with an array-based
+compound <code>keyPath</code> (such as
+<code>keyPath: ['userId', 'orderId']</code>). Attempting to create an
+object store with this configuration throws an
+<code>InvalidAccessError</code>.</li>
+<li><strong>Nested Key Paths:</strong> Dotted key paths (such as
+<code>keyPath: 'meta.id'</code>) are supported. If the parent object
+(<code>meta</code>) exists, IndexedDB injects the generated integer into
+<code>meta.id</code>. If the parent path does not exist, the engine
+creates the intermediate object structure to assign the generated
+key.</li>
+<li><strong>Frozen or Sealed Objects:</strong> If an object passed to
+<code>add()</code> is frozen via <code>Object.freeze()</code> and lacks
+the key path property, the engine will fail to inject the generated key,
+resulting in a transaction failure.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

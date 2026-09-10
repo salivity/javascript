@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Generator Functions Maintain State - javascript</title>
+    <meta name="description" content="JavaScript generator functions provide a unique execution model that allows a function to pause its execution and resume it later while preserving its internal state. Unlike standard functions, which execute run-to-completion and destroy their execution">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-generator-functions-maintain-state">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Generator Functions Maintain State - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-generator-functions-maintain-state" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript generator functions provide a unique execution model that allows a function to pause its execution and resume it later while preserving its internal state. Unlike standard functions, which execute run-to-completion and destroy their execution" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-generator-functions-maintain-state">How
+JavaScript Generator Functions Maintain State</h1>
+<p>JavaScript generator functions provide a unique execution model that
+allows a function to pause its execution and resume it later while
+preserving its internal state. Unlike standard functions, which execute
+run-to-completion and destroy their execution contexts upon returning,
+generators retain their local variables, lexical environment, and
+current point of execution across multiple <code>yield</code>
+expressions. This article breaks down the internal mechanics of the
+JavaScript engine that make this state preservation possible, focusing
+on generator objects, execution contexts, and heap allocation.</p>
+<h2 id="the-standard-function-vs-generator-function-lifecycle">The
+Standard Function vs. Generator Function Lifecycle</h2>
+<p>In standard JavaScript functions, calling a function creates an
+execution context that is pushed onto the call stack. This context holds
+local variables, arguments, and the instruction pointer. Once the
+function finishes running or encounters a <code>return</code> statement,
+its execution context is popped off the stack and marked for garbage
+collection, completely destroying its state.</p>
+<p>Generator functions (<code>function*</code>) deviate from this
+standard behavior. Calling a generator function does not execute its
+body immediately. Instead, it creates and returns a <strong>Generator
+Object</strong>, which conforms to both the iterable and iterator
+protocols. This object holds a direct reference to the generator’s
+execution context, preventing it from being discarded.</p>
+<h2 id="how-the-execution-context-is-preserved">How the Execution
+Context Is Preserved</h2>
+<p>The state preservation of a generator relies on three core
+mechanisms:</p>
+<h3 id="1-heap-allocation-of-execution-contexts">1. Heap Allocation of
+Execution Contexts</h3>
+<p>When a generator is instantiated, the JavaScript engine allocates its
+execution context on the memory heap rather than relying strictly on the
+temporary call stack. Because the returned Generator Object maintains an
+active reference to this context in the heap, the JavaScript garbage
+collector does not deallocate the function's internal state.</p>
+<h3 id="2-state-suspension-at-the-yield-keyword">2. State Suspension at
+the <code>yield</code> Keyword</h3>
+<p>When the generator’s <code>.next()</code> method is called:</p>
+<ol type="1">
+<li>The generator's execution context is pushed onto the call
+stack.</li>
+<li>Code executes normally until it encounters a <code>yield</code>
+keyword.</li>
+<li>The engine evaluates the yielded expression and wraps the result in
+an object <code>{ value: any, done: boolean }</code>.</li>
+<li>Instead of destroying the context, the engine saves the current
+program counter (the exact instruction location) and the current values
+of all local variables and bindings.</li>
+<li>The state of the generator changes from <code>running</code> to
+<code>suspendedYield</code>.</li>
+<li>The context is safely removed from the active call stack without
+losing its heap-stored data.</li>
+</ol>
+<h3 id="3-context-restoration-on-next">3. Context Restoration on
+<code>.next()</code></h3>
+<p>When <code>.next()</code> is invoked again:</p>
+<ol type="1">
+<li>The engine retrieves the suspended execution context from the
+heap.</li>
+<li>The context is restored to the call stack.</li>
+<li>The state transitions from <code>suspendedYield</code> to
+<code>running</code>.</li>
+<li>Execution resumes immediately after the last executed
+<code>yield</code> expression.</li>
+<li>If an argument was passed into <code>.next(value)</code>, the engine
+resolves the paused <code>yield</code> expression to that value,
+allowing bidirectional communication while maintaining continuous
+internal scope.</li>
+</ol>
+<h2 id="internal-state-machine">Internal State Machine</h2>
+<p>Under the hood, JavaScript engines implement generators as state
+machines. A generator typically transitions through four internal
+states:</p>
+<ul>
+<li><strong><code>suspendedStart</code></strong>: The generator has been
+created, but execution has not yet begun.</li>
+<li><strong><code>executing</code></strong>: The code inside the
+generator is actively running on the call stack.</li>
+<li><strong><code>suspendedYield</code></strong>: Execution paused at a
+<code>yield</code> statement; local bindings and the instruction pointer
+remain intact.</li>
+<li><strong><code>completed</code></strong>: Execution reached a
+<code>return</code> statement or the end of the function body. The
+context is no longer needed and can be garbage collected once all
+external references to the Generator Object are dropped.</li>
+</ul>
+<p>By decoupling the function's execution context from the immediate
+lifecycle of the call stack and anchoring it to the persistent Generator
+Object on the heap, JavaScript allows generator functions to maintain
+precise, uninterrupted state across any number of <code>yield</code>
+invocations.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

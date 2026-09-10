@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Deoptimization Bails Explained - javascript</title>
+    <meta name="description" content="Deoptimization bails—often referred to simply as "deopts"—occur when a JavaScript Just-In-Time (JIT) engine abandons optimized machine code and falls back to an interpreter or baseline tier because its speculative assumptions about the code were inva">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-deoptimization-bails-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Deoptimization Bails Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-deoptimization-bails-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Deoptimization bails—often referred to simply as "deopts"—occur when a JavaScript Just-In-Time (JIT) engine abandons optimized machine code and falls back to an interpreter or baseline tier because its speculative assumptions about the code were inva" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-deoptimization-bails-explained">JavaScript
+Deoptimization Bails Explained</h1>
+<p>Deoptimization bails—often referred to simply as "deopts"—occur when
+a JavaScript Just-In-Time (JIT) engine abandons optimized machine code
+and falls back to an interpreter or baseline tier because its
+speculative assumptions about the code were invalidated. This article
+explains the underlying mechanism of JIT deoptimization in modern
+engines like V8 and details the specific coding patterns—such as
+polymorphic functions, dynamic object mutations, and sparse array
+operations—that trigger these expensive performance penalties.</p>
+<h2 id="what-is-a-deoptimization-bail">What is a Deoptimization
+Bail?</h2>
+<p>Modern JavaScript engines (such as V8 in Chrome and Node.js,
+SpiderMonkey in Firefox, and JavaScriptCore in Safari) use multi-tiered
+compilation pipelines:</p>
+<ol type="1">
+<li><strong>Interpreter / Baseline Compiler:</strong> Quickly parses and
+executes JavaScript while collecting profiling data (type
+feedback).</li>
+<li><strong>Optimizing Compiler (e.g., V8's TurboFan):</strong> Compiles
+"hot" functions into highly efficient machine code by making optimistic
+assumptions based on the collected type profiles (e.g., assuming a
+parameter is always a 31-bit integer).</li>
+</ol>
+<p>A <strong>deoptimization bail</strong> occurs when an execution path
+encounters a value or operation that contradicts the optimizer's
+assumptions. The engine immediately aborts the optimized machine code,
+restores the execution state, and routes execution back down to the
+unoptimized interpreter tier (such as V8's Ignition). Frequent deopts
+cause CPU overhead and can lead the engine to mark a function as
+unoptimizable.</p>
+<hr />
+<h2 id="code-patterns-that-trigger-deoptimization">Code Patterns that
+Trigger Deoptimization</h2>
+<h3 id="1-dynamic-type-mutation-polymorphism-and-megamorphism">1.
+Dynamic Type Mutation (Polymorphism and Megamorphism)</h3>
+<p>JIT compilers produce the fastest code when operations are
+<strong>monomorphic</strong> (always receiving the same type). Passing
+different data types to an optimized function invalidates type
+feedback.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculateTax</span>(amount) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> amount <span class="op">*</span> <span class="fl">0.2</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Warm-up phase: Engine optimizes for numbers (Smi / HeapNumber)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">10000</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">calculateTax</span>(<span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Deoptimization trigger: Passing a string forces a bail</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">calculateTax</span>(<span class="st">&quot;100&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-altering-object-shapes-hidden-classes">2. Altering Object
+Shapes (Hidden Classes)</h3>
+<p>Engines track object structures using internal blueprints called
+<strong>Hidden Classes</strong> or <strong>Shapes</strong>. If you add
+properties in a different order, add properties after instantiation, or
+delete properties, the object transitions to a new shape and triggers
+deoptimization in functions optimized for the original shape.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Point</span>(x<span class="op">,</span> y) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> p1 <span class="op">=</span> <span class="kw">new</span> <span class="bu">Point</span>(<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> p2 <span class="op">=</span> <span class="kw">new</span> <span class="bu">Point</span>(<span class="dv">3</span><span class="op">,</span> <span class="dv">4</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Function optimized for Shape A { x, y }</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">printCoords</span>(point) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> point<span class="op">.</span><span class="at">x</span> <span class="op">+</span> point<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">10000</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">printCoords</span>(p1)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">// Deoptimization trigger: Modifying shape structure</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>p2<span class="op">.</span><span class="at">z</span> <span class="op">=</span> <span class="dv">5</span><span class="op">;</span> <span class="co">// Creates Shape B { x, y, z }</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="kw">delete</span> p1<span class="op">.</span><span class="at">x</span><span class="op">;</span> <span class="co">// Transitions to a dictionary mode</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="fu">printCoords</span>(p2)<span class="op">;</span> <span class="co">// Bails out due to shape mismatch</span></span></code></pre></div>
+<h3 id="3-out-of-bounds-array-access-and-sparse-arrays">3. Out-of-Bounds
+Array Access and Sparse Arrays</h3>
+<p>Optimizing compilers assume arrays are dense and indexed within known
+boundaries. Accessing non-existent indices requires the engine to
+traverse the prototype chain, breaking continuous memory assumptions and
+triggering a bail.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> items <span class="op">=</span> [<span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">50</span>]<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sumArray</span>(arr) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> total <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Bug: Accessing arr[arr.length] yields undefined</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;=</span> arr<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    total <span class="op">+=</span> arr[i]<span class="op">;</span> </span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> total<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Triggers deoptimization on the final iteration (undefined + number)</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="fu">sumArray</span>(items)<span class="op">;</span></span></code></pre></div>
+<p>Creating "holes" via <code>delete array[index]</code> or manually
+assigning elements far beyond the current length similarly switches the
+array to a dictionary-backed structure, forcing deoptimizations.</p>
+<h3 id="4-numeric-representation-overflows">4. Numeric Representation
+Overflows</h3>
+<p>Engines treat numbers differently depending on size. In V8:</p>
+<ul>
+<li><strong>Smi (Small Integers):</strong> 31-bit or 32-bit signed
+integers stored directly without memory allocation.</li>
+<li><strong>HeapNumber:</strong> Double-precision floating-point numbers
+stored on the heap.</li>
+</ul>
+<p>If a function optimized for Smi calculations exceeds the 31/32-bit
+integer limit, it bails out to accommodate floating-point
+operations.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">increment</span>(n) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> n <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Optimized for 32-bit signed integers</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">10000</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">increment</span>(<span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Deoptimization trigger: Smi overflow to double</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="fu">increment</span>(<span class="bn">0x7fffffff</span> <span class="op">+</span> <span class="dv">1</span>)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h2 id="best-practices-to-avoid-deoptimizations">Best Practices to Avoid
+Deoptimizations</h2>
+<ul>
+<li><strong>Initialize all fields in constructors:</strong> Always
+assign properties in the same order and avoid adding or deleting
+properties after object instantiation.</li>
+<li><strong>Maintain monomorphic call sites:</strong> Ensure functions
+consistently accept parameters of the same type and object shape.</li>
+<li><strong>Avoid sparse arrays:</strong> Use pre-allocated, contiguous
+arrays and prevent reading beyond array lengths.</li>
+<li><strong>Use TypeScript or Linters:</strong> Static type checking
+helps enforce type stability before code reaches the runtime
+compiler.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

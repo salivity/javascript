@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Safe Integer Boundaries Explained - javascript</title>
+    <meta name="description" content="This article explores how JavaScript defines its safe integer limits, specifically Number.MINSAFEINTEGER and Number.MAXSAFEINTEGER. It breaks down the underlying IEEE 754 double-precision floating-point specification, explains the mathematical calculatio">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-safe-integer-boundaries-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Safe Integer Boundaries Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-safe-integer-boundaries-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how JavaScript defines its safe integer limits, specifically Number.MINSAFEINTEGER and Number.MAXSAFEINTEGER. It breaks down the underlying IEEE 754 double-precision floating-point specification, explains the mathematical calculatio" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-safe-integer-boundaries-explained">JavaScript Safe
+Integer Boundaries Explained</h1>
+<p>This article explores how JavaScript defines its safe integer limits,
+specifically <code>Number.MIN_SAFE_INTEGER</code> and
+<code>Number.MAX_SAFE_INTEGER</code>. It breaks down the underlying IEEE
+754 double-precision floating-point specification, explains the
+mathematical calculation behind the 53-bit boundary, and details why
+values beyond these thresholds lose precision during arithmetic
+operations.</p>
+<h2 id="the-ieee-754-foundation">The IEEE 754 Foundation</h2>
+<p>JavaScript does not have separate data types for integers and
+floating-point values; it represents all standard numbers using 64-bit
+double-precision binary floating-point format as defined by the IEEE 754
+standard.</p>
+<p>A 64-bit float allocates its bits as follows:</p>
+<ul>
+<li><strong>1 bit</strong> for the sign (positive or negative)</li>
+<li><strong>11 bits</strong> for the exponent</li>
+<li><strong>52 bits</strong> for the significand (also known as the
+fraction or mantissa)</li>
+</ul>
+<p>Although the significand is physically allocated 52 bits, normalized
+binary floating-point numbers have an implicit leading 1 bit preceding
+the binary point. This gives the significand an effective precision of
+53 bits.</p>
+<h2 id="defining-numbermax_safe_integer">Defining
+Number.MAX_SAFE_INTEGER</h2>
+<p>Because the significand holds 53 bits of precision, JavaScript can
+uniquely represent every integer with absolute precision up to <span
+class="math inline">\(2^{53} - 1\)</span>.</p>
+<p>The value of <code>Number.MAX_SAFE_INTEGER</code> is defined as:</p>
+<p><span class="math display">\[2^{53} - 1 =
+9,007,199,254,740,991\]</span></p>
+<p>While <span class="math inline">\(2^{53}\)</span> (<span
+class="math inline">\(9,007,199,254,740,992\)</span>) can be represented
+directly in IEEE 754 format, the next integer, <span
+class="math inline">\(2^{53} + 1\)</span>, cannot be represented because
+the least significant bit represents 2 rather than 1 at that scale. As a
+result, <span class="math inline">\(2^{53} + 1\)</span> rounds down to
+<span class="math inline">\(2^{53}\)</span>.</p>
+<p>A "safe" integer is formally defined by ECMAScript as an integer that
+can be represented exactly and whose value cannot be the result of
+rounding another integer. Because <span class="math inline">\(2^{53} +
+1\)</span> collides with <span class="math inline">\(2^{53}\)</span>,
+the maximum safe value must stop at <span class="math inline">\(2^{53} -
+1\)</span>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Number</span><span class="op">.</span><span class="cn">MAX_SAFE_INTEGER</span>)<span class="op">;</span> <span class="co">// 9007199254740991</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Number</span><span class="op">.</span><span class="cn">MAX_SAFE_INTEGER</span> <span class="op">+</span> <span class="dv">1</span> <span class="op">===</span> <span class="bu">Number</span><span class="op">.</span><span class="cn">MAX_SAFE_INTEGER</span> <span class="op">+</span> <span class="dv">2</span>)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h2 id="defining-numbermin_safe_integer">Defining
+Number.MIN_SAFE_INTEGER</h2>
+<p>Because floating-point numbers store the sign in an independent
+single bit rather than using a two's complement system, the range of
+safe integers is symmetric around zero.</p>
+<p>The value of <code>Number.MIN_SAFE_INTEGER</code> is simply the
+negation of <code>Number.MAX_SAFE_INTEGER</code>:</p>
+<p><span class="math display">\[-(2^{53} - 1) =
+-9,007,199,254,740,991\]</span></p>
+<p>Every integer between <span
+class="math inline">\(-9,007,199,254,740,991\)</span> and <span
+class="math inline">\(9,007,199,254,740,991\)</span> inclusive has a
+unique, exact representation.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Number</span><span class="op">.</span><span class="cn">MIN_SAFE_INTEGER</span>)<span class="op">;</span> <span class="co">// -9007199254740991</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Number</span><span class="op">.</span><span class="cn">MIN_SAFE_INTEGER</span> <span class="op">-</span> <span class="dv">1</span> <span class="op">===</span> <span class="bu">Number</span><span class="op">.</span><span class="cn">MIN_SAFE_INTEGER</span> <span class="op">-</span> <span class="dv">2</span>)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h2 id="verifying-safe-integers">Verifying Safe Integers</h2>
+<p>JavaScript provides the built-in method
+<code>Number.isSafeInteger()</code> to verify whether an integer falls
+strictly within these boundaries:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">Number</span><span class="op">.</span><span class="fu">isSafeInteger</span>(<span class="dv">9007199254740991</span>)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">Number</span><span class="op">.</span><span class="fu">isSafeInteger</span>(<span class="dv">9007199254740992</span>)<span class="op">;</span> <span class="co">// false</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="bu">Number</span><span class="op">.</span><span class="fu">isSafeInteger</span>(<span class="op">-</span><span class="dv">9007199254740991</span>)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="bu">Number</span><span class="op">.</span><span class="fu">isSafeInteger</span>(<span class="op">-</span><span class="dv">9007199254740992</span>)<span class="op">;</span> <span class="co">// false</span></span></code></pre></div>
+<p>When applications require exact integer arithmetic beyond the
+<code>[Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]</code>
+range—such as 64-bit database identifiers or cryptographic
+calculations—JavaScript uses the primitive <code>BigInt</code> type,
+which supports arbitrary-precision integers without rounding limits.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

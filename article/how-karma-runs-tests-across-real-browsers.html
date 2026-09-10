@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Karma Runs Tests Across Real Browsers - javascript</title>
+    <meta name="description" content="Karma revolutionised front-end development by enabling automated JavaScript testing directly inside authentic browser runtimes rather than relying solely on simulated environments like PhantomJS or jsdom. At its core, Karma is not a test framework itself">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-karma-runs-tests-across-real-browsers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Karma Runs Tests Across Real Browsers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-karma-runs-tests-across-real-browsers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Karma revolutionised front-end development by enabling automated JavaScript testing directly inside authentic browser runtimes rather than relying solely on simulated environments like PhantomJS or jsdom. At its core, Karma is not a test framework itself" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-karma-runs-tests-across-real-browsers">How Karma Runs Tests
+Across Real Browsers</h1>
+<p>Karma revolutionised front-end development by enabling automated
+JavaScript testing directly inside authentic browser runtimes rather
+than relying solely on simulated environments like PhantomJS or jsdom.
+At its core, Karma is not a test framework itself, but a test runner
+that operates an internal web server, launches or connects to real
+browser instances, loads test suites into those browsers, and reports
+the results back to the developer's command-line interface in real time
+via WebSockets.</p>
+<h3 id="the-internal-web-server-architecture">The Internal Web Server
+Architecture</h3>
+<p>When Karma is initiated, it spins up a local Node.js HTTP server.
+This server serves a client-side environment that includes the Karma
+client code, the chosen testing framework (such as Jasmine, Mocha, or
+QUnit), test framework adapters, and the actual source and test files
+specified in the configuration.</p>
+<p>Rather than executing code inside the Node.js process, Karma uses
+this local server as a central hub to deliver the test suite as standard
+web assets to any browser capable of making an HTTP request.</p>
+<h3 id="browser-capture-and-launchers">Browser Capture and
+Launchers</h3>
+<p>Karma connects to browsers using two primary methods: automated
+launchers and manual capture.</p>
+<p>For local automation, Karma utilizes platform-specific launcher
+plugins (such as <code>karma-chrome-launcher</code> or
+<code>karma-firefox-launcher</code>). These plugins invoke the native
+browser binaries installed on the host machine using system-level
+process management, passing custom command-line flags to create isolated
+user profiles and prevent caching issues.</p>
+<p>For testing on physical mobile devices, virtual machines, or remote
+systems, Karma requires no binary launchers. Because Karma runs a
+standard HTTP server, any physical device on the same network (such as
+an iPhone running Safari or an Android tablet running Chrome) can be
+pointed to the Karma server's IP address and port (typically
+<code>http://&lt;ip-address&gt;:9876</code>). Once the page loads, the
+device is officially "captured."</p>
+<h3 id="the-websocket-communication-channel">The WebSocket Communication
+Channel</h3>
+<p>Once a browser opens the Karma URL, a persistent two-way
+communication channel is established using Socket.io. This WebSocket
+connection links the browser client directly back to the Karma Node.js
+server.</p>
+<p>The WebSocket channel handles orchestration tasks:</p>
+<ul>
+<li>It informs the Karma server that the browser is ready to receive
+instructions.</li>
+<li>It transmits execution triggers whenever source files change.</li>
+<li>It reports operational heartbeats to detect browser disconnections
+or crashes.</li>
+</ul>
+<h3 id="in-browser-execution-via-adapters">In-Browser Execution via
+Adapters</h3>
+<p>When an execution run is triggered, Karma loads an
+<code>iframe</code> or reloads the execution context within the captured
+browser. The test adapter hooks into the browser’s runtime environment
+and the active test framework.</p>
+<p>The adapter performs several key tasks:</p>
+<ol type="1">
+<li><strong>Console Interception:</strong> It overrides standard browser
+methods like <code>console.log</code>, <code>console.error</code>, and
+window-level error handlers (<code>window.onerror</code>) to capture
+unhandled runtime exceptions.</li>
+<li><strong>Framework Integration:</strong> It maps the lifecycle events
+of the underlying testing library (such as test start, test pass, test
+fail, and suite complete) to Karma-compatible events.</li>
+<li><strong>Native Execution:</strong> The JavaScript engine native to
+that specific browser (e.g., V8 in Chrome, SpiderMonkey in Firefox, or
+JavaScriptCore in Safari) executes the source code against the browser's
+real Document Object Model (DOM), layout engine, and CSS parsers.</li>
+</ol>
+<h3 id="result-aggregation-and-reporting">Result Aggregation and
+Reporting</h3>
+<p>As the native browser runs through the assertions, the adapter
+serializes the results of each test specification into JSON payloads.
+These payloads are streamed instantaneously across the WebSocket back to
+the Karma Node.js server.</p>
+<p>The server receives the data, formats the output according to the
+configured reporters (such as standard terminal output, JUnit XML, or
+coverage processors), and displays pass/fail states categorized by each
+captured browser. Once all connected browsers finish running the suite,
+Karma either remains listening for file modifications in watch mode or
+closes the browser processes and exits with an appropriate status code
+for continuous integration pipelines.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

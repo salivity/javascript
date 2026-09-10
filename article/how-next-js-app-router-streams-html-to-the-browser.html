@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Next.js App Router Streams HTML to the Browser - javascript</title>
+    <meta name="description" content="The Next.js App Router uses React Server Components and modern web streaming APIs to send progressively rendered HTML chunks to the client over a single, persistent HTTP response. This architecture allows the browser to display static UI elements and loa">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-next-js-app-router-streams-html-to-the-browser">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Next.js App Router Streams HTML to the Browser - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-next-js-app-router-streams-html-to-the-browser" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Next.js App Router uses React Server Components and modern web streaming APIs to send progressively rendered HTML chunks to the client over a single, persistent HTTP response. This architecture allows the browser to display static UI elements and loa" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-nextjs-app-router-streams-html-to-the-browser">How Next.js
+App Router Streams HTML to the Browser</h1>
+<p>The Next.js App Router uses React Server Components and modern web
+streaming APIs to send progressively rendered HTML chunks to the client
+over a single, persistent HTTP response. This architecture allows the
+browser to display static UI elements and loading skeletons immediately,
+without waiting for slow server-side data fetching to complete or
+client-side JavaScript bundles to download and execute.</p>
+<h3 id="the-foundation-http-streaming-and-readablestreams">The
+Foundation: HTTP Streaming and ReadableStreams</h3>
+<p>Traditional Server-Side Rendering (SSR) requires the server to render
+the entire page into a complete HTML string before sending anything to
+the client. If a single database query takes two seconds, the entire
+response is blocked, resulting in a high Time to First Byte (TTFB).</p>
+<p>The App Router resolves this by using Node.js and Web Streams
+(<code>ReadableStream</code>). Built on top of HTTP/1.1
+<code>Transfer-Encoding: chunked</code> or HTTP/2 multiplexing, the
+server keeps the HTTP connection open and emits distinct byte chunks as
+soon as specific subtrees of the component tree are ready.</p>
+<h3 id="react-suspense-boundaries">React Suspense Boundaries</h3>
+<p>Streaming in the App Router is driven by React Suspense. When you
+wrap an asynchronous Server Component in a
+<code>&lt;Suspense fallback={&lt;Skeleton /&gt;}&gt;</code> boundary,
+you instruct Next.js to decouple that component from the initial
+document payload:</p>
+<ol type="1">
+<li><strong>Initial Shell Delivery:</strong> The server renders all
+synchronous components and any Suspense fallbacks. It flushes this
+initial HTML shell to the browser immediately.</li>
+<li><strong>Immediate Paint:</strong> The browser receives this first
+chunk, parses the HTML, applies CSS, and paints the page structure
+alongside loading placeholders.</li>
+<li><strong>Background Data Resolution:</strong> Asynchronous
+operations—such as database queries or third-party API calls inside
+Server Components—continue executing concurrently on the server.</li>
+</ol>
+<h3
+id="out-of-order-streaming-and-inlined-replacement-scripts">Out-of-Order
+Streaming and Inlined Replacement Scripts</h3>
+<p>Because different Suspense boundaries complete at different times,
+Next.js streams content out-of-order. When an asynchronous component
+finishes executing:</p>
+<ol type="1">
+<li>The server renders the component into an HTML segment.</li>
+<li>The server appends this markup to the open HTTP stream inside a
+hidden <code>&lt;template&gt;</code> tag, accompanied by a unique
+identifier.</li>
+<li>Immediately following the template, the server injects a tiny,
+inline <code>&lt;script&gt;</code> tag.</li>
+</ol>
+<p>When the browser receives this chunk, it immediately executes the
+inline script. The script performs a native DOM operation: it extracts
+the rendered markup from the hidden template and swaps it into the DOM
+node occupied by the initial Suspense fallback placeholder.</p>
+<h3 id="dom-updates-prior-to-javascript-bundle-execution">DOM Updates
+Prior to JavaScript Bundle Execution</h3>
+<p>This replacement mechanism operates independently of the main React
+application bundle. Even if the network is constrained and large
+JavaScript bundles (such as <code>framework.js</code> or page-specific
+client chunks) are still downloading or parsing, the user sees real,
+interactive-looking HTML.</p>
+<p>Once the JavaScript bundles finish loading, React hydrates the DOM
+nodes, binds event handlers, and attaches client-side interactivity
+without re-rendering the already visible markup.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

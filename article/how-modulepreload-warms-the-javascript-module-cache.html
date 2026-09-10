@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Modulepreload Warms the JavaScript Module Cache - javascript</title>
+    <meta name="description" content="This article explores the mechanism and benefits of <link rel="modulepreload"> in modern web performance. You will learn how this declarative fetching mechanism enables browsers to download, parse, and compile JavaScript ES modules before they are execut">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-modulepreload-warms-the-javascript-module-cache">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Modulepreload Warms the JavaScript Module Cache - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-modulepreload-warms-the-javascript-module-cache" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the mechanism and benefits of <link rel="modulepreload"> in modern web performance. You will learn how this declarative fetching mechanism enables browsers to download, parse, and compile JavaScript ES modules before they are execut" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-modulepreload-warms-the-javascript-module-cache">How
+Modulepreload Warms the JavaScript Module Cache</h1>
+<p>This article explores the mechanism and benefits of
+<code>&lt;link rel="modulepreload"&gt;</code> in modern web performance.
+You will learn how this declarative fetching mechanism enables browsers
+to download, parse, and compile JavaScript ES modules before they are
+executed. By understanding how <code>modulepreload</code> interacts with
+the browser's module map, developers can eliminate network waterfalls,
+pre-compile code, and effectively warm the module cache for faster
+application startup times.</p>
+<h2 id="what-is-modulepreload">What is Modulepreload?</h2>
+<p>The <code>&lt;link rel="modulepreload"&gt;</code> element is a
+specialized resource hint designed specifically for JavaScript ES
+modules. While traditional <code>&lt;link rel="preload"&gt;</code>
+downloads resources as raw bytes and stores them in the HTTP cache,
+<code>modulepreload</code> goes a step further by integrating directly
+with the browser’s JavaScript engine.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">link</span><span class="ot"> rel</span><span class="op">=</span><span class="st">&quot;modulepreload&quot;</span><span class="ot"> href</span><span class="op">=</span><span class="st">&quot;/modules/app.js&quot;</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>When a browser encounters a <code>modulepreload</code> link, it
+initiates a high-priority network fetch for the target module file and
+immediately processes it into the internal module graph.</p>
+<h2 id="how-modulepreload-warms-the-cache">How Modulepreload Warms the
+Cache</h2>
+<p>To run a JavaScript module, the browser must complete several
+sequential phases:</p>
+<ol type="1">
+<li><strong>Fetching:</strong> Downloading the <code>.js</code> file
+from the network or disk cache.</li>
+<li><strong>Parsing:</strong> Reading the script to verify syntax and
+find dependencies (<code>import</code> statements).</li>
+<li><strong>Compiling:</strong> Converting the code into bytecode or
+machine code.</li>
+<li><strong>Instantiating:</strong> Allocating memory space for module
+variables and wiring dependencies together.</li>
+<li><strong>Evaluating:</strong> Executing the top-level code.</li>
+</ol>
+<p>Standard <code>preload</code> only handles step 1. In contrast,
+<code>modulepreload</code> performs steps 1 through 4 during idle time
+before the module is explicitly requested by the application.</p>
+<p>By parsing, compiling, and placing the resulting module record
+directly into the browser's <strong>module map</strong> (the in-memory
+cache for ES modules), the cache is fully "warmed." When your
+application eventually calls <code>import('./app.js')</code> or loads a
+<code>&lt;script type="module"&gt;</code>, the browser bypasses the
+fetch and compilation phases entirely and moves straight to
+evaluation.</p>
+<h2 id="solving-the-module-waterfall-problem">Solving the Module
+Waterfall Problem</h2>
+<p>Native ES modules rely on a declarative dependency tree. A root
+module might import a second module, which imports a third. In standard
+module loading, this creates a sequential network waterfall:</p>
+<ol type="1">
+<li>Fetch <code>main.js</code> -&gt; Parse <code>main.js</code>
+(discovers <code>utils.js</code>).</li>
+<li>Fetch <code>utils.js</code> -&gt; Parse <code>utils.js</code>
+(discovers <code>math.js</code>).</li>
+<li>Fetch <code>math.js</code> -&gt; Ready to execute.</li>
+</ol>
+<p>By declaring <code>modulepreload</code> links for deeply nested
+dependencies in the HTML <code>&lt;head&gt;</code>, the browser fetches
+and compiles all critical modules in parallel:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">link</span><span class="ot"> rel</span><span class="op">=</span><span class="st">&quot;modulepreload&quot;</span><span class="ot"> href</span><span class="op">=</span><span class="st">&quot;/scripts/main.js&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">link</span><span class="ot"> rel</span><span class="op">=</span><span class="st">&quot;modulepreload&quot;</span><span class="ot"> href</span><span class="op">=</span><span class="st">&quot;/scripts/utils.js&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">link</span><span class="ot"> rel</span><span class="op">=</span><span class="st">&quot;modulepreload&quot;</span><span class="ot"> href</span><span class="op">=</span><span class="st">&quot;/scripts/math.js&quot;</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>This flattens the dependency graph into a single round-trip,
+significantly reducing Time to Interactive (TTI) and First Input Delay
+(FID).</p>
+<h2 id="modulepreload-vs-standard-preload">Modulepreload vs. Standard
+Preload</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th
+style="text-align: left;"><code>&lt;link rel="preload"&gt;</code></th>
+<th
+style="text-align: left;"><code>&lt;link rel="modulepreload"&gt;</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Resource Type</strong></td>
+<td style="text-align: left;">Generic (CSS, Fonts, Images, Scripts)</td>
+<td style="text-align: left;">JavaScript ES Modules only</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Storage Location</strong></td>
+<td style="text-align: left;">HTTP / Disk Cache</td>
+<td style="text-align: left;">Module Map (In-Memory JS Engine
+Cache)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Processing</strong></td>
+<td style="text-align: left;">Raw bytes only</td>
+<td style="text-align: left;">Fetched, Parsed, Compiled, and
+Instantiated</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Dependency Discovery</strong></td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Can trigger recursive preloading
+(browser-dependent)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>CORS Handling</strong></td>
+<td style="text-align: left;">Depends on <code>as</code> attribute</td>
+<td style="text-align: left;">Always uses CORS credentials matching
+module scripts</td>
+</tr>
+</tbody>
+</table>
+<h2 id="implementation-best-practices">Implementation Best
+Practices</h2>
+<ul>
+<li><strong>Preload Critical Path Modules:</strong> Only warm the cache
+for modules required during initial load or high-probability user
+interactions (such as the primary route or core library chunks).</li>
+<li><strong>Automate via Bundlers:</strong> Modern build tools (such as
+Vite and Rollup) can automatically generate <code>modulepreload</code>
+tags in your production HTML based on dependency graph analysis.</li>
+<li><strong>Avoid Over-Preloading:</strong> Preloading too many modules
+consumes network bandwidth and CPU cycles for compilation, which can
+degrade initial page responsiveness.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

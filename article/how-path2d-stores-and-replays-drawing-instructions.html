@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Path2D Stores and Replays Drawing Instructions - javascript</title>
+    <meta name="description" content="The Path2D object in the HTML5 Canvas API provides a way to declare, store, and replay vector path operations independently of the rendering context. By decoupling geometry definitions from immediate-mode draw calls, Path2D allows developers to construct">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-path2d-stores-and-replays-drawing-instructions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Path2D Stores and Replays Drawing Instructions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-path2d-stores-and-replays-drawing-instructions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Path2D object in the HTML5 Canvas API provides a way to declare, store, and replay vector path operations independently of the rendering context. By decoupling geometry definitions from immediate-mode draw calls, Path2D allows developers to construct" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-path2d-stores-and-replays-drawing-instructions">How Path2D
+Stores and Replays Drawing Instructions</h1>
+<p>The <code>Path2D</code> object in the HTML5 Canvas API provides a way
+to declare, store, and replay vector path operations independently of
+the rendering context. By decoupling geometry definitions from
+immediate-mode draw calls, <code>Path2D</code> allows developers to
+construct complex vector shapes once and render them repeatedly across
+multiple frames without re-issuing sequential path commands. This
+article explores how <code>Path2D</code> records drawing commands,
+accepts SVG data, and executes stored instructions to optimize canvas
+performance.</p>
+<h3 id="decoupling-paths-from-the-canvas-context">Decoupling Paths from
+the Canvas Context</h3>
+<p>In standard Canvas 2D rendering, drawing commands operate directly on
+the global path accumulator of the <code>CanvasRenderingContext2D</code>
+instance. Every frame requires re-declaring methods like
+<code>ctx.beginPath()</code>, <code>ctx.moveTo()</code>, and
+<code>ctx.lineTo()</code>.</p>
+<p>The <code>Path2D</code> interface replaces this pattern by acting as
+a standalone container for path data. When you instantiate a
+<code>Path2D</code> object, it initializes an internal vector buffer
+that records path operations without applying them to the screen:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> path <span class="op">=</span> <span class="kw">new</span> <span class="bu">Path2D</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>path<span class="op">.</span><span class="fu">moveTo</span>(<span class="dv">50</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>path<span class="op">.</span><span class="fu">lineTo</span>(<span class="dv">150</span><span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>path<span class="op">.</span><span class="fu">lineTo</span>(<span class="dv">100</span><span class="op">,</span> <span class="dv">150</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>path<span class="op">.</span><span class="fu">closePath</span>()<span class="op">;</span></span></code></pre></div>
+<h3 id="storing-instructions-via-methods-and-svg-data">Storing
+Instructions via Methods and SVG Data</h3>
+<p><code>Path2D</code> stores drawing instructions using two primary
+approaches:</p>
+<ol type="1">
+<li><strong>Method Chaining and Recording:</strong> All standard
+sub-path manipulation methods available on
+<code>CanvasRenderingContext2D</code>—such as <code>rect()</code>,
+<code>arc()</code>, <code>ellipse()</code>,
+<code>bezierCurveTo()</code>, and <code>quadraticCurveTo()</code>—are
+implemented on the <code>Path2D</code> prototype. Invoking these methods
+appends corresponding coordinate matrices and curve instructions into
+the object’s internal path list.</li>
+<li><strong>SVG Path String Parsing:</strong> <code>Path2D</code> can
+parse standard SVG path data directly during instantiation. The
+constructor interprets SVG path syntax commands (such as <code>M</code>,
+<code>L</code>, <code>C</code>, <code>A</code>, and <code>Z</code>) and
+converts them into native canvas vector instructions:</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Store path instructions directly from an SVG path string</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> heartPath <span class="op">=</span> <span class="kw">new</span> <span class="bu">Path2D</span>(<span class="st">&quot;M10 30 A 20 20 0 0 1 50 30 A 20 20 0 0 1 90 30 Q 90 60 50 90 Q 10 60 10 30 z&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<ol start="3" type="1">
+<li><strong>Path Composition:</strong> You can combine multiple
+<code>Path2D</code> objects into a single path using the
+<code>addPath()</code> method, which optionally accepts an
+<code>SVGMatrix</code> or <code>DOMMatrix2DInit</code> object to apply
+geometric transformations during storage:</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> combinedPath <span class="op">=</span> <span class="kw">new</span> <span class="bu">Path2D</span>()<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>combinedPath<span class="op">.</span><span class="fu">addPath</span>(path)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>combinedPath<span class="op">.</span><span class="fu">addPath</span>(heartPath<span class="op">,</span> { <span class="dt">e</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">f</span><span class="op">:</span> <span class="dv">0</span> })<span class="op">;</span> <span class="co">// Offset horizontally by 100px</span></span></code></pre></div>
+<h3 id="replaying-stored-instructions">Replaying Stored
+Instructions</h3>
+<p>Once drawing instructions are stored in a <code>Path2D</code>
+instance, they are replayed by passing the object as the first argument
+to context rendering methods.</p>
+<ul>
+<li><strong>Rendering Shapes:</strong> Passing the path to
+<code>ctx.stroke(path)</code> or <code>ctx.fill(path)</code> executes
+the recorded geometry using the current stroke, fill, shadow, and global
+composite settings:</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&quot;royalblue&quot;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="fu">fill</span>(heartPath)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="at">strokeStyle</span> <span class="op">=</span> <span class="st">&quot;black&quot;</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="at">lineWidth</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="fu">stroke</span>(heartPath)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong>Clipping Regions:</strong> You can constrain future draw
+calls to the bounds of the stored path using
+<code>ctx.clip(path)</code>.</li>
+<li><strong>Hit Detection:</strong> <code>Path2D</code> objects can be
+evaluated against coordinates using
+<code>ctx.isPointInPath(path, x, y)</code> and
+<code>ctx.isPointInStroke(path, x, y)</code>. This enables precise
+hit-testing for interactive elements without mutating the current canvas
+drawing path.</li>
+</ul>
+<h3 id="performance-benefits">Performance Benefits</h3>
+<p><code>Path2D</code> optimizes rendering workflows in several
+ways:</p>
+<ul>
+<li><strong>Elimination of JS-to-C++ Overhead:</strong> In traditional
+canvas workflows, every path method call crosses the
+JavaScript-to-engine binding boundary. <code>Path2D</code> encapsulates
+these steps so that a single <code>stroke(path)</code> or
+<code>fill(path)</code> call triggers execution directly within the
+browser's native graphics engine.</li>
+<li><strong>Cached Geometry:</strong> Browsers can cache the parsed and
+tessellated geometry of a <code>Path2D</code> instance, allowing
+high-frequency render loops (such as requestAnimationFrame cycles) to
+avoid recalculating complex curves on every frame.</li>
+<li><strong>Memory Efficiency:</strong> Reusable path components need to
+be defined only once in memory, reducing runtime allocations and garbage
+collection pauses in complex animations and data visualizations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js child_process: fork vs spawn - javascript</title>
+    <meta name="description" content="Node.js provides the childprocess module to offload tasks, run system commands, and take advantage of multi-core systems. Two of the most commonly used methods within this module are spawn and fork. While both create new processes, spawn is a general-pur">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/node-js-child-process-fork-vs-spawn">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Node.js child_process: fork vs spawn - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/node-js-child-process-fork-vs-spawn" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Node.js provides the childprocess module to offload tasks, run system commands, and take advantage of multi-core systems. Two of the most commonly used methods within this module are spawn and fork. While both create new processes, spawn is a general-pur" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="nodejs-child_process-fork-vs-spawn">Node.js child_process: fork
+vs spawn</h1>
+<p>Node.js provides the <code>child_process</code> module to offload
+tasks, run system commands, and take advantage of multi-core systems.
+Two of the most commonly used methods within this module are
+<code>spawn</code> and <code>fork</code>. While both create new
+processes, <code>spawn</code> is a general-purpose function designed to
+execute arbitrary system commands, whereas <code>fork</code> is a
+specialized wrapper around <code>spawn</code> explicitly designed to
+launch new Node.js processes with built-in communication channels.
+Understanding their differences comes down to execution targets,
+communication mechanisms, and resource utilization.</p>
+<h3 id="target-execution-and-binary-type">Target Execution and Binary
+Type</h3>
+<ul>
+<li><strong><code>child_process.spawn()</code></strong>: This method
+launches a new process to execute any command or executable available in
+the operating system environment (such as <code>ls</code>,
+<code>cat</code>, Python scripts, or shell commands). It takes a system
+command as its first argument and an array of arguments as the
+second.</li>
+<li><strong><code>child_process.fork()</code></strong>: This method is
+tailored specifically for executing JavaScript files within a new
+Node.js instance. Its primary argument is a path to a Node.js module
+rather than a system binary. Under the hood, it invokes the current
+<code>node</code> executable with the specified file path.</li>
+</ul>
+<h3 id="communication-mechanisms-ipc">Communication Mechanisms
+(IPC)</h3>
+<ul>
+<li><strong>Streams in <code>spawn</code></strong>: By default,
+<code>spawn</code> communicates with the child process exclusively
+through standard input/output streams (<code>stdin</code>,
+<code>stdout</code>, and <code>stderr</code>). Data must be read as raw
+buffers or strings, and handling structured data requires manual
+serialization and parsing (e.g., JSON encoding).</li>
+<li><strong>IPC Channel in <code>fork</code></strong>: <code>fork</code>
+automatically establishes a dedicated Inter-Process Communication (IPC)
+channel between the parent and the child process. This enables direct
+message passing via <code>child.send()</code> in the parent and
+<code>process.on('message')</code> in the child, making it
+straightforward to pass complex JavaScript objects back and forth
+without configuring custom pipelines.</li>
+</ul>
+<h3 id="resource-overhead">Resource Overhead</h3>
+<ul>
+<li><strong><code>spawn</code> Overhead</strong>: Because
+<code>spawn</code> simply executes the given binary, its memory
+footprint depends entirely on the command being run. Spawning
+lightweight system utilities consumes minimal system resources.</li>
+<li><strong><code>fork</code> Overhead</strong>: Since <code>fork</code>
+initializes a brand new Node.js runtime, each forked process creates its
+own V8 instance, event loop, and memory allocation (typically 30MB or
+more per process). Spawning too many forked processes simultaneously can
+rapidly deplete server memory.</li>
+</ul>
+<h3 id="syntax-comparison">Syntax Comparison</h3>
+<p>Using <code>spawn</code> to run a system command:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { spawn } <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;child_process&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> child <span class="op">=</span> <span class="fu">spawn</span>(<span class="st">&#39;find&#39;</span><span class="op">,</span> [<span class="st">&#39;.&#39;</span><span class="op">,</span> <span class="st">&#39;-type&#39;</span><span class="op">,</span> <span class="st">&#39;f&#39;</span>])<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>child<span class="op">.</span><span class="at">stdout</span><span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;data&#39;</span><span class="op">,</span> (data) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Output: </span><span class="sc">${</span>data<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>fork</code> to run a Node.js script with IPC:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { fork } <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;child_process&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> child <span class="op">=</span> <span class="fu">fork</span>(<span class="st">&#39;./worker.js&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Send structured data directly</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>child<span class="op">.</span><span class="fu">send</span>({ <span class="dt">task</span><span class="op">:</span> <span class="st">&#39;computeHeavyTask&#39;</span><span class="op">,</span> <span class="dt">payload</span><span class="op">:</span> [<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span>] })<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Listen for response</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>child<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;message&#39;</span><span class="op">,</span> (result) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Result from worker:`</span><span class="op">,</span> result)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="when-to-use-each">When to Use Each</h3>
+<ul>
+<li><strong>Use <code>child_process.spawn</code></strong> when executing
+third-party software, running OS-level scripts (like shell scripts or
+command-line utilities), or streaming large amounts of raw binary and
+text data.</li>
+<li><strong>Use <code>child_process.fork</code></strong> when offloading
+CPU-intensive JavaScript operations to keep the main event loop
+unblocked, or when building a distributed Node.js application that
+requires structured two-way messaging between processes.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

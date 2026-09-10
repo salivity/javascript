@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preventing Race Conditions in JS Integration Tests - javascript</title>
+    <meta name="description" content="Asynchronous race conditions in JavaScript integration tests lead to flaky test suites, hard-to-reproduce bugs, and untrustworthy continuous integration pipelines. These issues typically arise when test execution outpaces state updates, database transact">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/preventing-race-conditions-in-js-integration-tests">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Preventing Race Conditions in JS Integration Tests - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/preventing-race-conditions-in-js-integration-tests" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Asynchronous race conditions in JavaScript integration tests lead to flaky test suites, hard-to-reproduce bugs, and untrustworthy continuous integration pipelines. These issues typically arise when test execution outpaces state updates, database transact" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="preventing-race-conditions-in-js-integration-tests">Preventing
+Race Conditions in JS Integration Tests</h1>
+<p>Asynchronous race conditions in JavaScript integration tests lead to
+flaky test suites, hard-to-reproduce bugs, and untrustworthy continuous
+integration pipelines. These issues typically arise when test execution
+outpaces state updates, database transactions, or background microtasks.
+Systematically preventing race conditions requires moving away from
+non-deterministic behaviors, such as arbitrary timeouts, and adopting
+structural patterns like polling-based assertions, rigorous test
+isolation, and explicit lifecycle hooks.</p>
+<h3 id="eliminate-arbitrary-delays">Eliminate Arbitrary Delays</h3>
+<p>Using arbitrary delays like <code>setTimeout</code> or
+<code>sleep(1000)</code> is the primary cause of integration test
+flakiness. Under heavy CI load, fixed delays are often too short; under
+local execution, they unnecessarily slow down the suite.</p>
+<p>Replace fixed sleep timers with condition-based polling. Libraries
+like Testing Library (<code>waitFor</code>) or custom pollers
+continually check for a specific DOM change, database row, or network
+response until a condition is satisfied or an explicit timeout is
+reached:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Anti-pattern</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="fu">triggerAsyncProcess</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="fu">sleep</span>(<span class="dv">1500</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">expect</span>(<span class="cf">await</span> <span class="fu">checkDatabase</span>())<span class="op">.</span><span class="fu">toBe</span>(<span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Systematic approach</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="fu">triggerAsyncProcess</span>()<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="fu">waitFor</span>(<span class="kw">async</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> result <span class="op">=</span> <span class="cf">await</span> <span class="fu">checkDatabase</span>()<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">expect</span>(result)<span class="op">.</span><span class="fu">toBe</span>(<span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="isolate-state-per-test">Isolate State Per Test</h3>
+<p>Race conditions frequently occur when concurrent tests share a single
+global state, such as an in-memory datastore, mock server, or shared
+database schema.</p>
+<ol type="1">
+<li><strong>Unique Identifiers:</strong> Generate unique tenant, user,
+or entity IDs (such as UUIDs) for every test run to ensure simultaneous
+writes do not collide.</li>
+<li><strong>Transaction Rollbacks:</strong> Wrap each integration test
+in an isolated database transaction that rolls back automatically during
+the <code>afterEach</code> lifecycle.</li>
+<li><strong>Dedicated Schemas or Workers:</strong> In parallel test
+runners like Vitest or Jest, assign each test worker a distinct database
+schema or containerized instance.</li>
+</ol>
+<h3 id="synchronize-asynchronous-pipelines">Synchronize Asynchronous
+Pipelines</h3>
+<p>When code triggers background tasks (fire-and-forget promises, event
+emitters, or queue jobs), tests often complete before the underlying
+processing finishes.</p>
+<ul>
+<li><strong>Await Background Work:</strong> Modify internal APIs to
+allow awaiting execution pipelines during testing. Expose hooks, batch
+flush mechanisms, or returned promises that tests can explicitly
+await.</li>
+<li><strong>Drain Message Queues:</strong> If integration tests publish
+messages to a broker (such as RabbitMQ or Redis), wait for the consumer
+to acknowledge the message rather than assuming instantaneous
+delivery.</li>
+<li><strong>Flush the Event Loop:</strong> If operations rely on
+multiple nested microtasks, explicitly drain the microtask queue before
+asserting:</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> flushMicrotasks <span class="op">=</span> () <span class="kw">=&gt;</span> <span class="kw">new</span> <span class="bu">Promise</span>(resolve <span class="kw">=&gt;</span> <span class="fu">setImmediate</span>(resolve))<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="fu">performAction</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="fu">flushMicrotasks</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">expect</span>(listener)<span class="op">.</span><span class="fu">toHaveBeenCalled</span>()<span class="op">;</span></span></code></pre></div>
+<h3 id="deterministic-network-handling">Deterministic Network
+Handling</h3>
+<p>If tests interact with external HTTP services, real network latency
+introduces non-deterministic timing into assertions.</p>
+<ul>
+<li>Use network-level interceptors like Mock Service Worker (MSW) or
+Nock to simulate real network responses deterministically without
+relying on real endpoints.</li>
+<li>Ensure all intercepted calls are explicitly awaited and unregistered
+in cleanup hooks (<code>afterEach</code>) to prevent delayed responses
+from bleeding into subsequent tests.</li>
+</ul>
+<h3 id="enforce-strict-linting-and-promise-handling">Enforce Strict
+Linting and Promise Handling</h3>
+<p>Uncaught or unhandled promises often resolve out of band, triggering
+race conditions in unrelated subsequent tests.</p>
+<ul>
+<li>Enable the <code>@typescript-eslint/no-floating-promises</code> lint
+rule to mandate that every asynchronous call is explicitly awaited,
+returned, or caught.</li>
+<li>Configure the test runner to fail tests immediately on unhandled
+rejections using flags such as Node.js's
+<code>--unhandled-rejections=strict</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

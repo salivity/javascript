@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How WeakSet Tracks Object References in JavaScript - javascript</title>
+    <meta name="description" content="JavaScript's WeakSet is a specialized collection that holds unique objects without preventing the JavaScript engine from reclaiming their memory. This article explains how WeakSet leverages weak references, how the garbage collector determines object rea">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-weakset-tracks-object-references-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How WeakSet Tracks Object References in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-weakset-tracks-object-references-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript's WeakSet is a specialized collection that holds unique objects without preventing the JavaScript engine from reclaiming their memory. This article explains how WeakSet leverages weak references, how the garbage collector determines object rea" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-weakset-tracks-object-references-in-javascript">How WeakSet
+Tracks Object References in JavaScript</h1>
+<p>JavaScript's <code>WeakSet</code> is a specialized collection that
+holds unique objects without preventing the JavaScript engine from
+reclaiming their memory. This article explains how <code>WeakSet</code>
+leverages weak references, how the garbage collector determines object
+reachability, why <code>WeakSet</code> is not iterable, and how it
+safely tracks objects without creating memory leaks.</p>
+<h2 id="strong-references-vs-weak-references">Strong References vs. Weak
+References</h2>
+<p>In standard JavaScript collections like <code>Array</code> or
+<code>Set</code>, adding an object creates a <strong>strong
+reference</strong>. As long as the collection exists in memory, the
+objects inside it cannot be garbage collected, even if all other
+variables pointing to them are set to <code>null</code> or go out of
+scope.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> user <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span> }<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> strongSet <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>strongSet<span class="op">.</span><span class="fu">add</span>(user)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>user <span class="op">=</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// The object { name: &quot;Alice&quot; } remains in memory because strongSet holds a strong reference.</span></span></code></pre></div>
+<p>A <code>WeakSet</code>, by contrast, holds only <strong>weak
+references</strong> to objects. A weak reference does not prevent the
+garbage collector from disposing of the referenced object if no other
+strong references to it exist.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> user <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> weakSet <span class="op">=</span> <span class="kw">new</span> <span class="bu">WeakSet</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>weakSet<span class="op">.</span><span class="fu">add</span>(user)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>user <span class="op">=</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// The object { name: &quot;Alice&quot; } is now eligible for garbage collection.</span></span></code></pre></div>
+<h2 id="how-the-garbage-collector-treats-weakset">How the Garbage
+Collector Treats WeakSet</h2>
+<p>Modern JavaScript engines (like V8 in Chrome and Node.js,
+SpiderMonkey in Firefox, and JavaScriptCore in Safari) use a
+<strong>Mark-and-Sweep</strong> garbage collection algorithm to manage
+memory.</p>
+<ol type="1">
+<li><strong>Roots Definition:</strong> The engine identifies "root"
+objects that are always reachable (global variables, currently executing
+functions, call stacks).</li>
+<li><strong>Traversing References:</strong> The collector traverses the
+graph of references originating from the roots, marking every reachable
+object as alive.</li>
+<li><strong>Weak Reference Exclusion:</strong> When the collector
+inspects a <code>WeakSet</code>, it does not count the links from the
+<code>WeakSet</code> to its elements as valid paths for
+reachability.</li>
+<li><strong>Sweeping:</strong> If an object stored in a
+<code>WeakSet</code> has no incoming strong references originating from
+any root, the garbage collector treats it as dead and reclaims its
+memory. The corresponding entry inside the <code>WeakSet</code> is
+automatically invalidated.</li>
+</ol>
+<h2 id="engine-level-implementation-ephemerons">Engine-Level
+Implementation: Ephemerons</h2>
+<p>Under the hood, JavaScript engines implement weak collections using
+structures similar to <strong>ephemerons</strong> or hidden internal
+properties.</p>
+<p>Instead of maintaining an independent, persistent list of pointers
+that force objects to stay alive, the <code>WeakSet</code> is
+conceptually attached to the lifecycle of the objects it stores:</p>
+<ul>
+<li>When you check <code>weakSet.has(obj)</code>, the engine queries
+whether the association exists for that specific living object
+reference.</li>
+<li>Once the object is destroyed by the garbage collector, the
+association disappears without needing a manual cleanup step from the
+developer.</li>
+</ul>
+<h2 id="the-cost-of-non-determinism-why-weakset-has-no-iteration">The
+Cost of Non-Determinism: Why WeakSet Has No Iteration</h2>
+<p>Because garbage collection is non-deterministic—meaning it runs at
+unpredictable intervals determined by memory pressure and CPU idle
+time—the exact moment an object is removed from memory cannot be
+predicted by code.</p>
+<p>To prevent non-deterministic program behavior:</p>
+<ul>
+<li><code>WeakSet</code> does not have a <code>.size</code>
+property.</li>
+<li><code>WeakSet</code> does not implement <code>keys()</code>,
+<code>values()</code>, <code>entries()</code>, or the
+<code>Symbol.iterator</code> method.</li>
+<li><code>WeakSet</code> cannot be looped over using
+<code>for...of</code> or <code>.forEach()</code>.</li>
+</ul>
+<p>If iteration were allowed, the number and identity of elements in the
+set would change randomly depending on whether the garbage collector had
+executed, leading to inconsistent application state.</p>
+<h2 id="only-objects-allowed">Only Objects Allowed</h2>
+<p>A <code>WeakSet</code> can only contain objects (and non-registered
+symbols in newer ECMAScript specifications). Primitive types such as
+numbers, strings, or booleans cannot be stored because primitives are
+immutable values passed by value, not tracked references managed by the
+garbage collector.</p>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<p><code>WeakSet</code> is primarily used to tag or classify objects
+without modifying them or leaking memory:</p>
+<ul>
+<li><strong>Tracking Object State:</strong> Marking objects as
+"processed" or "validated" across an application lifecycle without
+modifying the original object structure.</li>
+<li><strong>Access Control:</strong> Maintaining lists of authorized DOM
+elements, instances, or event handlers that should automatically cease
+to be tracked once removed from the DOM or application scope.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

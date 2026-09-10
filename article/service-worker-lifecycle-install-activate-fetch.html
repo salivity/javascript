@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker Lifecycle: Install, Activate, Fetch - javascript</title>
+    <meta name="description" content="A Service Worker is a specialized JavaScript asset that runs in the background, acting as a programmable proxy between a web application, the browser, and the network. Understanding its lifecycle is essential for building resilient Progressive Web Apps (">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/service-worker-lifecycle-install-activate-fetch">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Service Worker Lifecycle: Install, Activate, Fetch - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/service-worker-lifecycle-install-activate-fetch" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A Service Worker is a specialized JavaScript asset that runs in the background, acting as a programmable proxy between a web application, the browser, and the network. Understanding its lifecycle is essential for building resilient Progressive Web Apps (" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="service-worker-lifecycle-install-activate-fetch">Service Worker
+Lifecycle: Install, Activate, Fetch</h1>
+<p>A Service Worker is a specialized JavaScript asset that runs in the
+background, acting as a programmable proxy between a web application,
+the browser, and the network. Understanding its lifecycle is essential
+for building resilient Progressive Web Apps (PWAs) with offline support
+and advanced caching strategies. This article breaks down how the
+Service Worker lifecycle operates and explores the core functional
+events: <code>install</code>, <code>activate</code>, and
+<code>fetch</code>.</p>
+<h2 id="the-service-worker-lifecycle-overview">The Service Worker
+Lifecycle Overview</h2>
+<p>Unlike standard JavaScript running in the main browser thread, a
+Service Worker operates independently of the web page lifecycle. It does
+not access the DOM directly and terminates when not in use.</p>
+<p>The lifecycle follows a strict sequence:</p>
+<ol type="1">
+<li><strong>Registration:</strong> The browser downloads and parses the
+Service Worker file.</li>
+<li><strong>Installation (<code>install</code>):</strong> The worker
+initializes and pre-caches critical application assets.</li>
+<li><strong>Activation (<code>activate</code>):</strong> The worker
+takes control and cleans up outdated caches from previous versions.</li>
+<li><strong>Operation / Idle (<code>fetch</code>, etc.):</strong> The
+worker listens for functional events like network requests or push
+notifications.</li>
+<li><strong>Redundant:</strong> The worker is replaced by a newer
+version or failed during installation.</li>
+</ol>
+<h3 id="step-1-registering-the-service-worker">Step 1: Registering the
+Service Worker</h3>
+<p>Before lifecycle events fire, the Service Worker must be registered
+from the main application script:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&#39;serviceWorker&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;load&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">navigator</span><span class="op">.</span><span class="at">serviceWorker</span><span class="op">.</span><span class="fu">register</span>(<span class="st">&#39;/sw.js&#39;</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">then</span>(registration <span class="kw">=&gt;</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Service Worker registered with scope:&#39;</span><span class="op">,</span> registration<span class="op">.</span><span class="at">scope</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      })</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">catch</span>(error <span class="kw">=&gt;</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Service Worker registration failed:&#39;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h2 id="the-install-event">The <code>install</code> Event</h2>
+<p>The <code>install</code> event is the first event a Service Worker
+receives. It triggers once when the worker is first registered or when a
+byte-difference is detected in the Service Worker file compared to the
+currently active one.</p>
+<h3 id="purpose">Purpose</h3>
+<p>The primary role of the <code>install</code> event is to prepare the
+worker for use, typically by pre-caching static assets (HTML, CSS,
+JavaScript, icons) required to run the application offline.</p>
+<h3 id="implementation">Implementation</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CACHE_NAME <span class="op">=</span> <span class="st">&#39;app-cache-v1&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> PRECACHE_ASSETS <span class="op">=</span> [</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;/&#39;</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;/index.html&#39;</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;/styles.css&#39;</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;/app.js&#39;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;install&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">waitUntil</span>(</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    caches<span class="op">.</span><span class="fu">open</span>(CACHE_NAME)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">then</span>((cache) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> cache<span class="op">.</span><span class="fu">addAll</span>(PRECACHE_ASSETS)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      })</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">then</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Forces the waiting service worker to become the active service worker</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> self<span class="op">.</span><span class="fu">skipWaiting</span>()<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>      })</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>event.waitUntil()</code></strong>: Extends the
+lifetime of the install phase until the passed Promise resolves. If the
+Promise rejects, installation fails, and the worker is discarded.</li>
+<li><strong><code>self.skipWaiting()</code></strong>: Skips the
+"waiting" state, allowing a newly installed Service Worker to activate
+immediately rather than waiting for all open tabs using the old worker
+to close.</li>
+</ul>
+<hr />
+<h2 id="the-activate-event">The <code>activate</code> Event</h2>
+<p>Once installation completes successfully and no prior Service Worker
+is actively controlling open pages, the <code>activate</code> event
+fires.</p>
+<h3 id="purpose-1">Purpose</h3>
+<p>The <code>activate</code> event is primarily used for housekeeping
+tasks that cannot occur while the previous Service Worker version is
+still running, such as deleting obsolete caches and migrating indexedDB
+schemas.</p>
+<h3 id="implementation-1">Implementation</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;activate&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> cacheWhitelist <span class="op">=</span> [CACHE_NAME]<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">waitUntil</span>(</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    caches<span class="op">.</span><span class="fu">keys</span>()</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">then</span>((cacheNames) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">Promise</span><span class="op">.</span><span class="fu">all</span>(</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>          cacheNames<span class="op">.</span><span class="fu">map</span>((cacheName) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (<span class="op">!</span>cacheWhitelist<span class="op">.</span><span class="fu">includes</span>(cacheName)) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>              <span class="cf">return</span> caches<span class="op">.</span><span class="fu">delete</span>(cacheName)<span class="op">;</span> <span class="co">// Delete old caches</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>          })</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>      })</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">then</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Take immediate control of all open clients within scope</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> self<span class="op">.</span><span class="at">clients</span><span class="op">.</span><span class="fu">claim</span>()<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>      })</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>self.clients.claim()</code></strong>: Allows the
+activated Service Worker to take immediate control of all uncontrolled
+open pages within its scope without requiring a page reload.</li>
+</ul>
+<hr />
+<h2 id="the-fetch-event">The <code>fetch</code> Event</h2>
+<p>Once activated, the Service Worker enters the operational state and
+begins intercepting network requests via the <code>fetch</code>
+event.</p>
+<h3 id="purpose-2">Purpose</h3>
+<p>The <code>fetch</code> event intercepts every HTTP request made by
+pages within the Service Worker's scope. Developers can inspect requests
+and decide whether to serve responses from the local cache, make a
+network request, or synthesize custom responses.</p>
+<h3 id="implementation-cache-first-strategy">Implementation: Cache-First
+Strategy</h3>
+<p>In a "Cache-First" (or "Cache Falling Back to Network") pattern, the
+worker checks the local cache first before attempting a network
+request:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;fetch&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">respondWith</span>(</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    caches<span class="op">.</span><span class="fu">match</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">then</span>((cachedResponse) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Return cached resource if found</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (cachedResponse) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> cachedResponse<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Otherwise, fetch from the network</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="fu">fetch</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span>)<span class="op">.</span><span class="fu">then</span>((networkResponse) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>          <span class="co">// Check if we received a valid response</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> (<span class="op">!</span>networkResponse <span class="op">||</span> networkResponse<span class="op">.</span><span class="at">status</span> <span class="op">!==</span> <span class="dv">200</span> <span class="op">||</span> networkResponse<span class="op">.</span><span class="at">type</span> <span class="op">!==</span> <span class="st">&#39;basic&#39;</span>) {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> networkResponse<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>          }</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>          <span class="co">// Clone the response because it is a single-use stream</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>          <span class="kw">const</span> responseToCache <span class="op">=</span> networkResponse<span class="op">.</span><span class="fu">clone</span>()<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>          caches<span class="op">.</span><span class="fu">open</span>(CACHE_NAME)<span class="op">.</span><span class="fu">then</span>((cache) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>            cache<span class="op">.</span><span class="fu">put</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span><span class="op">,</span> responseToCache)<span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>          })<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> networkResponse<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>      })</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">catch</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Optional: Provide a fallback offline page for HTML requests</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">request</span><span class="op">.</span><span class="at">headers</span><span class="op">.</span><span class="fu">get</span>(<span class="st">&#39;accept&#39;</span>)<span class="op">.</span><span class="fu">includes</span>(<span class="st">&#39;text/html&#39;</span>)) {</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> caches<span class="op">.</span><span class="fu">match</span>(<span class="st">&#39;/offline.html&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>      })</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>event.respondWith()</code></strong>: Hijacks the
+browser's default networking behavior and provides a custom
+<code>Promise</code> resolving to a <code>Response</code> object.</li>
+<li><strong><code>response.clone()</code></strong>: Duplicates the
+network response stream so one copy can be returned to the browser while
+the other is saved into the Cache Storage API.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

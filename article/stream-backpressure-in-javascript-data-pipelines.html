@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Backpressure in JavaScript Data Pipelines - javascript</title>
+    <meta name="description" content="In high-throughput JavaScript applications, an upstream data producer can easily read or generate data faster than a downstream consumer can process or write it. Without intervention, this mismatch forces the runtime to store unhandled data in an interna">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/stream-backpressure-in-javascript-data-pipelines">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stream Backpressure in JavaScript Data Pipelines - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/stream-backpressure-in-javascript-data-pipelines" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In high-throughput JavaScript applications, an upstream data producer can easily read or generate data faster than a downstream consumer can process or write it. Without intervention, this mismatch forces the runtime to store unhandled data in an interna" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="stream-backpressure-in-javascript-data-pipelines">Stream
+Backpressure in JavaScript Data Pipelines</h1>
+<p>In high-throughput JavaScript applications, an upstream data producer
+can easily read or generate data faster than a downstream consumer can
+process or write it. Without intervention, this mismatch forces the
+runtime to store unhandled data in an internal memory queue, inevitably
+causing an Out of Memory (OOM) crash. Stream backpressure is a
+flow-control mechanism that detects when downstream buffers are full and
+signals the producer to pause until the consumer is ready for more data.
+This article explains the mechanics of backpressure in JavaScript, how
+it prevents memory exhaustion, and how to implement it correctly using
+both Node.js and Web Streams.</p>
+<h2 id="the-producer-consumer-imbalance">The Producer-Consumer
+Imbalance</h2>
+<p>Data pipelines consist of two primary actors: readable streams
+(producers) and writable streams (consumers). For example, a pipeline
+might read a multi-gigabyte file from a local disk and upload it over a
+constrained network connection.</p>
+<p>Reading from disk is significantly faster than transmitting over a
+network. Without backpressure, the readable stream continuously pushes
+chunks into the writable stream's incoming queue. As the consumer falls
+behind, that queue grows indefinitely in the V8 heap. Once the heap
+limit is breached, the JavaScript process terminates.</p>
+<h2 id="how-backpressure-works">How Backpressure Works</h2>
+<p>Backpressure introduces a feedback loop between the consumer and the
+producer to maintain a predictable, bounded memory footprint.</p>
+<p>Every stream defines an internal buffer threshold known as the
+<code>highWaterMark</code>. This value dictates the maximum number of
+bytes (or objects, in object mode) that the stream's buffer should hold
+before signaling congestion.</p>
+<ol type="1">
+<li><strong>Threshold Exceeded:</strong> When the producer writes a
+chunk that causes the consumer's internal buffer to reach or exceed the
+<code>highWaterMark</code>, the consumer signals that it cannot accept
+more data immediately.</li>
+<li><strong>Producer Pauses:</strong> Upon receiving this signal, the
+producer stops reading or generating new chunks.</li>
+<li><strong>Buffer Drains:</strong> The consumer continues to process
+the data already present in its buffer.</li>
+<li><strong>Resumption Signal:</strong> Once the buffer falls back below
+the threshold, the consumer signals to the producer that it can resume
+sending data.</li>
+</ol>
+<p>By continuously oscillating between reading and pausing, the pipeline
+keeps memory usage flat, regardless of whether the incoming dataset is a
+few megabytes or hundreds of gigabytes.</p>
+<h2 id="implementing-backpressure-in-nodejs-streams">Implementing
+Backpressure in Node.js Streams</h2>
+<p>In Node.js, backpressure can be managed manually or
+automatically.</p>
+<h3 id="manual-backpressure-with-events">Manual Backpressure with
+Events</h3>
+<p>The manual approach relies on the return value of
+<code>writable.write()</code> and the <code>'drain'</code> event:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">writeData</span>(reader<span class="op">,</span> writer) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  reader<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;data&#39;</span><span class="op">,</span> (chunk) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// write() returns false when buffer exceeds highWaterMark</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> canAcceptMore <span class="op">=</span> writer<span class="op">.</span><span class="fu">write</span>(chunk)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>canAcceptMore) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Pause incoming data from the producer</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      reader<span class="op">.</span><span class="fu">pause</span>()<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Emitted when the writable stream&#39;s internal buffer clears</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  writer<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;drain&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Resume the producer</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    reader<span class="op">.</span><span class="fu">resume</span>()<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If <code>writer.write(chunk)</code> returns <code>false</code>, the
+writer's buffer is saturated. Pausing the reader stops
+<code>'data'</code> events. Once the consumer finishes handling the
+backlogged bytes, it emits <code>'drain'</code>, signaling the reader to
+resume.</p>
+<h3 id="automated-backpressure-with-pipeline">Automated Backpressure
+with <code>pipeline</code></h3>
+<p>Manual backpressure management is error-prone because it requires
+handling edge cases, stream destruction, and errors. The built-in
+<code>stream.pipeline</code> function automates backpressure and proper
+resource cleanup:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { pipeline } <span class="im">from</span> <span class="st">&#39;node:stream/promises&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { createReadStream<span class="op">,</span> createWriteStream } <span class="im">from</span> <span class="st">&#39;node:fs&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">runPipeline</span>() {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> <span class="fu">pipeline</span>(</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">createReadStream</span>(<span class="st">&#39;large-source.log&#39;</span>)<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">createWriteStream</span>(<span class="st">&#39;destination.log&#39;</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Pipeline finished successfully.&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (err) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Pipeline failed:&#39;</span><span class="op">,</span> err)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Under the hood, <code>pipeline</code> connects the producer's read
+loop to the consumer's write availability, pausing and resuming data
+flow without exposing the application to heap spikes.</p>
+<h2 id="backpressure-in-whatwg-web-streams">Backpressure in WHATWG Web
+Streams</h2>
+<p>Modern browsers and Node.js also support the standard Web Streams API
+(<code>ReadableStream</code> and <code>WritableStream</code>).</p>
+<p>Web Streams manage backpressure using the <code>desiredSize</code>
+property on controllers and promises within stream sinks:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> writable <span class="op">=</span> <span class="kw">new</span> <span class="fu">WritableStream</span>({</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">write</span>(chunk) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Returning a Promise delays the next write until resolution</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">processChunkAsync</span>(chunk)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> <span class="kw">new</span> <span class="fu">ByteLengthQueuingStrategy</span>({ <span class="dt">highWaterMark</span><span class="op">:</span> <span class="dv">1024</span> <span class="op">*</span> <span class="dv">64</span> }))<span class="op">;</span></span></code></pre></div>
+<p>When piping via standard Web Streams:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> readable<span class="op">.</span><span class="fu">pipeTo</span>(writable)<span class="op">;</span></span></code></pre></div>
+<p>The <code>pipeTo</code> method automatically inspects the downstream
+<code>desiredSize</code>. If the consumer's <code>write</code> method
+returns an unresolved promise or if the queue is saturated,
+<code>pipeTo</code> pauses the underlying readable source until capacity
+frees up.</p>
+<h2 id="memory-predictability">Memory Predictability</h2>
+<p>Without backpressure, a pipeline's memory consumption is proportional
+to the total size of the input data. With backpressure active, memory
+consumption is decoupled from input size and is instead bound strictly
+to the configured <code>highWaterMark</code> values of the active
+streams. This guarantees stable, deterministic memory usage regardless
+of load or input volume.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

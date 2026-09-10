@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buffer.allocUnsafe Security Risks in Node.js - javascript</title>
+    <meta name="description" content="Using Buffer.allocUnsafe instead of Buffer.alloc in Node.js applications exposes backends to severe memory leak and information disclosure vulnerabilities. While Buffer.allocUnsafe provides a minor performance gain by skipping the memory initialization s">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/buffer-allocunsafe-security-risks-in-node-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Buffer.allocUnsafe Security Risks in Node.js - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/buffer-allocunsafe-security-risks-in-node-js" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Using Buffer.allocUnsafe instead of Buffer.alloc in Node.js applications exposes backends to severe memory leak and information disclosure vulnerabilities. While Buffer.allocUnsafe provides a minor performance gain by skipping the memory initialization s" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="bufferallocunsafe-security-risks-in-nodejs">Buffer.allocUnsafe
+Security Risks in Node.js</h1>
+<p>Using <code>Buffer.allocUnsafe</code> instead of
+<code>Buffer.alloc</code> in Node.js applications exposes backends to
+severe memory leak and information disclosure vulnerabilities. While
+<code>Buffer.allocUnsafe</code> provides a minor performance gain by
+skipping the memory initialization step, it leaves the allocated memory
+populated with raw, preexisting data from the system's memory pool. If
+this buffer is partially filled and transmitted over the network or
+stored, attackers can inspect the residual data to extract sensitive
+information such as API keys, authentication tokens, passwords, or
+personal user records.</p>
+<h3 id="how-buffer-allocation-differs">How Buffer Allocation
+Differs</h3>
+<p>When managing binary data in Node.js, developers primarily choose
+between two methods to allocate memory:</p>
+<ul>
+<li><strong><code>Buffer.alloc(size)</code></strong>: Allocates a
+designated amount of memory and immediately zeroes it out. The memory
+segment is completely cleared, ensuring no old data remains before your
+application interacts with it.</li>
+<li><strong><code>Buffer.allocUnsafe(size)</code></strong>: Requests a
+segment of memory directly from the operating system or V8 heap and
+returns it immediately without zeroing it out. It is labeled "unsafe"
+precisely because the contents of the buffer are not cleared.</li>
+</ul>
+<h3 id="the-security-hazard-uninitialized-memory-exposure">The Security
+Hazard: Uninitialized Memory Exposure</h3>
+<p>The primary hazard of <code>Buffer.allocUnsafe</code> is
+uninitialized memory disclosure, historically classified under CWE-457
+(Use of Uninitialized Variable) and CWE-200 (Exposure of Sensitive
+Information).</p>
+<p>Because modern operating systems and runtime environments constantly
+recycle RAM, free memory chunks often contain remnants of previously
+processed data. When <code>Buffer.allocUnsafe</code> is invoked, the
+allocated chunk points directly to these recycled memory addresses. The
+raw buffer may contain:</p>
+<ul>
+<li>Database queries and query results.</li>
+<li>Environment variables, private encryption keys, and TLS session
+secrets.</li>
+<li>Passwords, JWTs, and session cookies from concurrent or previous
+HTTP requests.</li>
+<li>Internal memory pointers that could facilitate remote code execution
+(RCE) or ASLR bypass attacks.</li>
+</ul>
+<h3 id="real-world-exposure-scenario">Real-World Exposure Scenario</h3>
+<p>The vulnerability manifests when an application allocates a buffer
+using <code>Buffer.allocUnsafe</code> and fails to completely overwrite
+every byte before exposing the buffer externally.</p>
+<p>Consider an endpoint that accepts incoming data, writes it to a newly
+allocated buffer, and returns the buffer:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable implementation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> buffer <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">allocUnsafe</span>(<span class="dv">1024</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bytesWritten <span class="op">=</span> buffer<span class="op">.</span><span class="fu">write</span>(userInput)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// If userInput only occupies 100 bytes, 924 bytes of raw memory leak</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>response<span class="op">.</span><span class="fu">send</span>(buffer<span class="op">.</span><span class="fu">slice</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">1024</span>))<span class="op">;</span> </span></code></pre></div>
+<p>If the attacker provides fewer bytes than the total buffer capacity
+and the application returns the entire allocated space, the response
+includes the unwritten bytes. An attacker can repeatedly send undersized
+payloads to harvest internal memory fragments, eventually reconstructing
+critical secrets.</p>
+<h3 id="when-to-use-each-method">When to Use Each Method</h3>
+<p><code>Buffer.allocUnsafe</code> should only be considered in
+performance-critical pathways where profiling has demonstrated that
+buffer zeroing causes a measurable bottleneck. Even in those rare cases,
+it must only be used if the buffer is guaranteed to be completely
+overwritten immediately after allocation, prior to any read operation or
+network transmission.</p>
+<p>For the vast majority of backend use cases, the performance overhead
+of zero-filling memory is negligible. Developers should default to
+<code>Buffer.alloc()</code> to ensure deterministic memory states and
+prevent sensitive internal data from leaking outside the application
+boundary.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

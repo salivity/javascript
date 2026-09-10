@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Prototype Setters in Property Assignment - javascript</title>
+    <meta name="description" content="When assigning a value to an object property in JavaScript, the engine does not immediately create an "own" property if that property is absent from the instance. Instead, it inspects the prototype chain; if it discovers a setter defined on a prototype,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-prototype-setters-in-property-assignment">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Prototype Setters in Property Assignment - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-prototype-setters-in-property-assignment" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When assigning a value to an object property in JavaScript, the engine does not immediately create an "own" property if that property is absent from the instance. Instead, it inspects the prototype chain; if it discovers a setter defined on a prototype," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-prototype-setters-in-property-assignment">JavaScript
+Prototype Setters in Property Assignment</h1>
+<p>When assigning a value to an object property in JavaScript, the
+engine does not immediately create an "own" property if that property is
+absent from the instance. Instead, it inspects the prototype chain; if
+it discovers a setter defined on a prototype, it executes that setter
+function rather than creating an own property on the calling instance.
+This article explains how this mechanism works, how the execution
+context is bound, and how you can override this behavior using explicit
+property definitions.</p>
+<h2 id="the-mechanism-behind-assignment">The Mechanism Behind
+Assignment</h2>
+<p>In JavaScript, assigning a value using standard dot or bracket
+notation (<code>obj.prop = value</code>) triggers the internal
+<code>[[Set]]</code> method. Unlike
+<code>Object.defineProperty()</code>, which focuses strictly on creating
+or reconfiguring properties directly on the target object,
+<code>[[Set]]</code> walks up the prototype chain if the property does
+not exist directly on the instance.</p>
+<p>When the engine finds an accessor property with a defined setter on
+the prototype:</p>
+<ol type="1">
+<li><strong>The setter is invoked:</strong> JavaScript calls the
+prototype's setter function.</li>
+<li><strong><code>this</code> context is bound to the instance:</strong>
+Inside the setter, the <code>this</code> keyword points to the object on
+which the property assignment was made (<code>obj</code>), not the
+prototype where the setter lives.</li>
+<li><strong>No own property is created:</strong> The assignment does not
+automatically create a property on the instance.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> proto <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">set</span> <span class="fu">count</span>(value) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Setter called with: </span><span class="sc">${</span>value<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">_count</span> <span class="op">=</span> value<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> instance <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">create</span>(proto)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Assignment triggers the prototype&#39;s setter</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>instance<span class="op">.</span><span class="at">count</span> <span class="op">=</span> <span class="dv">42</span><span class="op">;</span> <span class="co">// Logs: &quot;Setter called with: 42&quot;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Verification</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(instance<span class="op">.</span><span class="fu">hasOwnProperty</span>(<span class="st">&#39;count&#39;</span>))<span class="op">;</span>  <span class="co">// false</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(instance<span class="op">.</span><span class="fu">hasOwnProperty</span>(<span class="st">&#39;_count&#39;</span>))<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(instance<span class="op">.</span><span class="at">count</span>)<span class="op">;</span>                  <span class="co">// undefined (unless a getter is defined)</span></span></code></pre></div>
+<p>In this example, assigning <code>instance.count = 42</code> delegates
+to <code>proto</code>'s setter. If the setter assigns to
+<code>this._count</code>, <code>_count</code> becomes an own property of
+<code>instance</code>, but <code>count</code> itself remains purely on
+the prototype.</p>
+<h2 id="contrast-with-data-properties-shadowing">Contrast with Data
+Properties (Shadowing)</h2>
+<p>This behavior is a common source of confusion because it differs
+fundamentally from prototype data properties:</p>
+<ul>
+<li><strong>Writable Data Property on Prototype:</strong> Assigning
+<code>obj.prop = value</code> creates an own property on
+<code>obj</code>, effectively "shadowing" the prototype's property
+without altering the prototype.</li>
+<li><strong>Accessor Property with Setter on Prototype:</strong>
+Assigning <code>obj.prop = value</code> intercepts the assignment and
+routes it through the prototype's setter. Shadowing does not occur
+automatically.</li>
+<li><strong>Accessor Property Without a Setter (Getter-only):</strong>
+In strict mode (<code>"use strict"</code>), assigning to the property
+throws a <code>TypeError</code>. In non-strict mode, the assignment
+fails silently.</li>
+</ul>
+<h2 id="how-to-bypass-prototype-setters">How to Bypass Prototype
+Setters</h2>
+<p>If the goal is to shadow a prototype setter by creating an own
+property directly on the child object, standard assignment cannot be
+used. You must use <code>Object.defineProperty()</code> or
+<code>Object.defineProperties()</code>, which bypass prototype lookup
+entirely:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> proto <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">set</span> <span class="fu">value</span>(val) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Prototype setter executed&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> child <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">create</span>(proto)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Bypass the setter and force an own property</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">Object</span><span class="op">.</span><span class="fu">defineProperty</span>(child<span class="op">,</span> <span class="st">&#39;value&#39;</span><span class="op">,</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">value</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">writable</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enumerable</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">configurable</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(child<span class="op">.</span><span class="fu">hasOwnProperty</span>(<span class="st">&#39;value&#39;</span>))<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>child<span class="op">.</span><span class="at">value</span> <span class="op">=</span> <span class="dv">200</span><span class="op">;</span> <span class="co">// Does not trigger proto&#39;s setter; updates own property</span></span></code></pre></div>
+<p>By understanding that property assignment (<code>=</code>) respects
+accessors found anywhere up the prototype chain, you can avoid
+unintended side effects when working with inheritance hierarchies in
+JavaScript.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

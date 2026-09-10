@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thread-Local Storage in Node.js Using AsyncLocalStorage - javascript</title>
+    <meta name="description" content="This article explores how Node.js achieves thread-local storage capabilities in an asynchronous, single-threaded runtime using the built-in AsyncLocalStorage API. You will learn the mechanics behind Continuation-Local Storage (CLS), how Node.js tracks co">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/thread-local-storage-in-node-js-using-asynclocalstorage">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Thread-Local Storage in Node.js Using AsyncLocalStorage - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/thread-local-storage-in-node-js-using-asynclocalstorage" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Node.js achieves thread-local storage capabilities in an asynchronous, single-threaded runtime using the built-in AsyncLocalStorage API. You will learn the mechanics behind Continuation-Local Storage (CLS), how Node.js tracks co" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="thread-local-storage-in-nodejs-using-asynclocalstorage">Thread-Local
+Storage in Node.js Using AsyncLocalStorage</h1>
+<p>This article explores how Node.js achieves thread-local storage
+capabilities in an asynchronous, single-threaded runtime using the
+built-in <code>AsyncLocalStorage</code> API. You will learn the
+mechanics behind Continuation-Local Storage (CLS), how Node.js tracks
+context across asynchronous boundaries, how to implement
+<code>AsyncLocalStorage</code> in your code, and the performance
+considerations to keep in mind.</p>
+<p>In traditional multi-threaded runtimes like Java or C++, Thread-Local
+Storage (TLS) allows developers to attach state directly to a specific
+operating system thread. Any code executing on that thread can
+implicitly access that state without explicit parameter passing.
+Node.js, however, relies on a single-threaded event loop to handle
+concurrent operations. Because asynchronous tasks (such as database
+queries, file system I/O, and HTTP requests) interleave their execution
+on the same thread, standard thread-bound variables bleed across
+concurrent operations, rendering traditional TLS unusable.</p>
+<p>To solve this, Node.js provides Continuation-Local Storage through
+the <code>AsyncLocalStorage</code> class, found within the
+<code>node:async_hooks</code> module. Rather than binding data to a
+physical thread, <code>AsyncLocalStorage</code> binds data to the
+execution context of an asynchronous control flow.</p>
+<h3 id="how-asynclocalstorage-works-internally">How AsyncLocalStorage
+Works Internally</h3>
+<p>Under the hood, <code>AsyncLocalStorage</code> is powered by the
+Node.js <code>async_hooks</code> engine. The runtime assigns an
+asynchronous ID (<code>asyncId</code>) to every asynchronous
+resource—such as Promises, timers, TCP connections, and file handles.
+When an asynchronous resource is initialized, the runtime captures the
+identifier of the execution context that created it (the
+<code>triggerAsyncId</code>).</p>
+<p>Node.js maintains a graph of these parent-child relationships. When
+an execution context transitions through a callback,
+<code>AsyncLocalStorage</code> looks up the storage reference associated
+with the current context chain, allowing data to follow the logical path
+of execution rather than the physical thread.</p>
+<h3 id="implementation-and-core-api">Implementation and Core API</h3>
+<p>Using <code>AsyncLocalStorage</code> involves creating an instance,
+wrapping an execution flow with <code>.run()</code>, and querying the
+state anywhere down the call stack using <code>.getStore()</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { AsyncLocalStorage } <span class="im">from</span> <span class="st">&#39;node:async_hooks&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> asyncLocalStorage <span class="op">=</span> <span class="kw">new</span> <span class="fu">AsyncLocalStorage</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">logWithTraceId</span>(message) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> store <span class="op">=</span> asyncLocalStorage<span class="op">.</span><span class="fu">getStore</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> traceId <span class="op">=</span> store <span class="op">?</span> store<span class="op">.</span><span class="fu">get</span>(<span class="st">&#39;traceId&#39;</span>) <span class="op">:</span> <span class="st">&#39;no-trace&#39;</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`[Trace: </span><span class="sc">${</span>traceId<span class="sc">}</span><span class="vs">] </span><span class="sc">${</span>message<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">processRequest</span>(reqId) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> context <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  context<span class="op">.</span><span class="fu">set</span>(<span class="st">&#39;traceId&#39;</span><span class="op">,</span> reqId)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Run the callback inside a tracked asynchronous context</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  asyncLocalStorage<span class="op">.</span><span class="fu">run</span>(context<span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">logWithTraceId</span>(<span class="st">&#39;Operation started&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>      <span class="co">// The context persists across async boundaries</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>      <span class="fu">logWithTraceId</span>(<span class="st">&#39;Async database operation complete&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="fu">processRequest</span>(<span class="st">&#39;req-101&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="fu">processRequest</span>(<span class="st">&#39;req-102&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<p>The core primitives are:</p>
+<ol type="1">
+<li><strong><code>run(store, callback, ...args)</code></strong>: Sets
+the active store for the duration of the callback. Any code called
+synchronously or asynchronously inside this callback inherits access to
+<code>store</code>.</li>
+<li><strong><code>getStore()</code></strong>: Returns the store
+associated with the current asynchronous execution context. If called
+outside of a <code>.run()</code> boundary, it returns
+<code>undefined</code>.</li>
+<li><strong><code>enterWith(store)</code></strong>: Transitions the
+current execution context to a new store for the remainder of the
+synchronous turn. While simpler, it is prone to memory leaks and
+unexpected context propagation, making <code>.run()</code> the preferred
+pattern.</li>
+</ol>
+<h3 id="common-use-cases">Common Use Cases</h3>
+<ul>
+<li><strong>Distributed Tracing</strong>: Automatically propagating
+correlation IDs, trace IDs, and request metadata through logging systems
+without manual function argument plumbing.</li>
+<li><strong>Authentication Context</strong>: Making the authenticated
+user's session available to deeply nested business logic, data access
+layers, or audit loggers.</li>
+<li><strong>Multi-tenancy</strong>: Keeping tenant identifiers attached
+to ongoing database transactions to prevent accidental cross-tenant data
+access.</li>
+</ul>
+<h3 id="performance-and-best-practices">Performance and Best
+Practices</h3>
+<p>While <code>AsyncLocalStorage</code> is heavily optimized in modern
+Node.js versions (v16+), it introduces a baseline overhead because the
+runtime must allocate and maintain asynchronous context tracking. To
+maximize efficiency:</p>
+<ul>
+<li>Store a plain object or <code>Map</code> rather than instantiating
+complex class instances inside each context.</li>
+<li>Avoid using <code>enterWith()</code>, as it modifies the context
+transition state globally for the current asynchronous turn and can
+prevent proper garbage collection.</li>
+<li>Use <code>AsyncLocalStorage</code> primarily for cross-cutting
+concerns like tracing and logging, rather than relying on it for general
+application control flow.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

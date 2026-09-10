@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Closures in Loops: Var vs Let Explained - javascript</title>
+    <meta name="description" content="When creating closures inside asynchronous loops, JavaScript's variable declaration keywords fundamentally alter how state is captured. Using var creates a single function-scoped variable that is shared across all iterations, often resulting in every clo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-closures-in-loops-var-vs-let-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Closures in Loops: Var vs Let Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-closures-in-loops-var-vs-let-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When creating closures inside asynchronous loops, JavaScript's variable declaration keywords fundamentally alter how state is captured. Using var creates a single function-scoped variable that is shared across all iterations, often resulting in every clo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-closures-in-loops-var-vs-let-explained">JavaScript
+Closures in Loops: Var vs Let Explained</h1>
+<p>When creating closures inside asynchronous loops, JavaScript's
+variable declaration keywords fundamentally alter how state is captured.
+Using <code>var</code> creates a single function-scoped variable that is
+shared across all iterations, often resulting in every closure capturing
+only the final, mutated value. In contrast, declaring loop variables
+with <code>let</code> establishes block-scoping with a distinct binding
+for each iteration, allowing each closure to independently retain the
+specific value from its corresponding execution cycle.</p>
+<h2 id="the-problem-with-var">The Problem with <code>var</code></h2>
+<p>Variables declared with <code>var</code> are function-scoped or
+globally scoped, not block-scoped. When used in the header of a
+<code>for</code> loop, only a single variable instance is allocated in
+memory and updated with each step:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">var</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">3</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(i)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: 3, 3, 3</span></span></code></pre></div>
+<p>In this scenario, the <code>setTimeout</code> callback creates a
+closure over the reference to <code>i</code>. Because the timers resolve
+after the loop finishes running, each callback looks up <code>i</code>
+at invocation time. By then, the shared variable has already been
+incremented to <code>3</code>.</p>
+<p>Historically, developers resolved this before ES6 by wrapping the
+callback in an Immediately Invoked Function Expression (IIFE) to force
+the creation of a new scope:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">var</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">3</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  (<span class="kw">function</span>(lockedIndex) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(lockedIndex)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  })(i)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: 0, 1, 2</span></span></code></pre></div>
+<h2 id="how-let-fixes-the-issue">How <code>let</code> Fixes the
+Issue</h2>
+<p>ES6 introduced <code>let</code>, which is block-scoped. The
+ECMAScript specification explicitly defines special handling for
+<code>for (let ...)</code> loops: a new lexical environment and variable
+binding are created for every single iteration.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">3</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(i)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: 0, 1, 2</span></span></code></pre></div>
+<p>In this version, the engine initializes a fresh <code>i</code> for
+each turn of the loop, copying the value from the previous iteration
+before applying the update expression. The closure generated by the
+arrow function closes over the specific block-scoped <code>i</code>
+associated with that iteration rather than a shared variable.</p>
+<h2 id="key-differences">Key Differences</h2>
+<ul>
+<li><strong>Scope:</strong> <code>var</code> binds to the nearest
+enclosing function or global scope; <code>let</code> binds to the block
+created by the loop body.</li>
+<li><strong>Binding Lifecycle:</strong> <code>var</code> maintains a
+single, mutable binding throughout the entire loop. <code>let</code>
+instantiates a new, independent binding per iteration.</li>
+<li><strong>Memory Reference:</strong> Closures over <code>var</code>
+refer to the same mutable memory slot. Closures over <code>let</code>
+refer to separate, per-iteration memory allocations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

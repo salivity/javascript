@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MessagePort Structured Cloning in Node.js - javascript</title>
+    <meta name="description" content="This article provides an overview of how the Node.js workerthreads module leverages the structured clone algorithm through MessagePort to pass data across execution contexts. You will learn the mechanics behind the serialization and deserialization proce">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/messageport-structured-cloning-in-node-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="MessagePort Structured Cloning in Node.js - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/messageport-structured-cloning-in-node-js" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the Node.js workerthreads module leverages the structured clone algorithm through MessagePort to pass data across execution contexts. You will learn the mechanics behind the serialization and deserialization proce" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="messageport-structured-cloning-in-nodejs">MessagePort Structured
+Cloning in Node.js</h1>
+<p>This article provides an overview of how the Node.js
+<code>worker_threads</code> module leverages the structured clone
+algorithm through <code>MessagePort</code> to pass data across execution
+contexts. You will learn the mechanics behind the serialization and
+deserialization process, which JavaScript data types are supported, how
+circular references are preserved, and how transferring memory differs
+from standard deep copying.</p>
+<h2 id="the-structured-clone-mechanism">The Structured Clone
+Mechanism</h2>
+<p>When communication occurs between threads in Node.js using
+<code>MessagePort.prototype.postMessage()</code>, the runtime does not
+share references to standard JavaScript objects. Instead, it relies on
+an implementation of the HTML structured clone algorithm, implemented
+internally through the V8 serialization API (<code>v8.serialize</code>
+and <code>v8.deserialize</code>).</p>
+<p>When an object is passed to <code>postMessage()</code>, V8 traverses
+the object graph and serializes it into an internal binary format. This
+binary payload is then safely moved across thread boundaries and
+deserialized inside the receiving thread's heap, constructing entirely
+new object instances with identical state.</p>
+<h2 id="supported-and-unsupported-types">Supported and Unsupported
+Types</h2>
+<p>The structured clone algorithm supports a broader set of data types
+than JSON serialization:</p>
+<ul>
+<li><strong>Primitives:</strong> Strings, numbers, booleans,
+<code>null</code>, <code>undefined</code>, and <code>BigInt</code>.</li>
+<li><strong>Built-in Objects:</strong> Plain objects, arrays,
+<code>Map</code>, <code>Set</code>, <code>Date</code>, and
+<code>RegExp</code>.</li>
+<li><strong>Binary Data:</strong> <code>ArrayBuffer</code>,
+<code>SharedArrayBuffer</code>, and TypedArray views (such as
+<code>Uint8Array</code>).</li>
+<li><strong>Error Objects:</strong> Most native <code>Error</code> types
+retain their name, message, and stack trace.</li>
+</ul>
+<p>However, certain entities cannot be cloned:</p>
+<ul>
+<li><strong>Functions and Closures:</strong> Attempting to pass a
+function throws a <code>DataCloneError</code>.</li>
+<li><strong>Prototypes:</strong> Prototype chains are not preserved. An
+instance of a custom class will deserialize as a plain
+<code>Object</code> containing the cloned instance properties.</li>
+<li><strong>Symbols and Native Handles:</strong> Most
+<code>Symbol</code> keys and system-level resources (such as active TCP
+sockets or database connections) cannot be cloned.</li>
+</ul>
+<h2 id="preserving-object-graphs-and-circular-references">Preserving
+Object Graphs and Circular References</h2>
+<p>Unlike naive cloning mechanisms, the structured clone algorithm
+tracks references encountered during traversal. If an object references
+itself or if multiple properties point to the same object instance, that
+relationship is maintained:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span> }<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>user<span class="op">.</span><span class="at">self</span> <span class="op">=</span> user<span class="op">;</span> <span class="co">// Circular reference</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> payload <span class="op">=</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">first</span><span class="op">:</span> user<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">second</span><span class="op">:</span> user</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>port<span class="op">.</span><span class="fu">postMessage</span>(payload)<span class="op">;</span></span></code></pre></div>
+<p>On the receiving end, <code>received.first</code> and
+<code>received.second</code> will point to the same object reference,
+and <code>received.first.self</code> will reference
+<code>received.first</code>, avoiding infinite recursion and preserving
+identity integrity.</p>
+<h2 id="cloning-vs-transferring">Cloning vs. Transferring</h2>
+<p>By default, structured cloning performs a deep copy of the data. For
+large datasets, such as multi-megabyte <code>ArrayBuffer</code>
+instances, this copy step introduces CPU overhead and increases memory
+consumption.</p>
+<p>To avoid copying,
+<code>MessagePort.prototype.postMessage(value, [transferList])</code>
+accepts a transfer list. Transferable objects include
+<code>ArrayBuffer</code> and <code>MessagePort</code> instances:</p>
+<ul>
+<li><strong>Cloning (Copy):</strong> The underlying memory is
+duplicated. Both sender and receiver maintain separate access to their
+own copies.</li>
+<li><strong>Transferring (Move):</strong> The memory backing the
+<code>ArrayBuffer</code> is detached from the sending thread and moved
+directly to the receiving thread with zero-copy overhead. After
+transfer, the buffer on the sending side has a <code>byteLength</code>
+of zero and becomes unusable.</li>
+</ul>
+<h2 id="shared-memory-alternatives">Shared Memory Alternatives</h2>
+<p>For scenarios requiring concurrent reads and writes without cloning
+or transfer overhead, <code>SharedArrayBuffer</code> can be sent over a
+<code>MessagePort</code>. In this case, the structured clone algorithm
+does not copy the underlying memory; it clones only the wrapper
+reference. Both threads then access the exact same region of memory
+simultaneously, requiring synchronization primitives like
+<code>Atomics</code> to prevent race conditions.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

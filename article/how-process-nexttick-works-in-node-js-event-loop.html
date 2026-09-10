@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How process.nextTick Works in Node.js Event Loop - javascript</title>
+    <meta name="description" content="This article provides an in-depth look at how process.nextTick() operates within Node.js, detailing how it manages asynchronous execution and schedules callbacks before the event loop advances to its next phase or iteration. You will learn the underlying">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-process-nexttick-works-in-node-js-event-loop">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How process.nextTick Works in Node.js Event Loop - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-process-nexttick-works-in-node-js-event-loop" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an in-depth look at how process.nextTick() operates within Node.js, detailing how it manages asynchronous execution and schedules callbacks before the event loop advances to its next phase or iteration. You will learn the underlying" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-processnexttick-works-in-nodejs-event-loop">How
+process.nextTick Works in Node.js Event Loop</h1>
+<p>This article provides an in-depth look at how
+<code>process.nextTick()</code> operates within Node.js, detailing how
+it manages asynchronous execution and schedules callbacks before the
+event loop advances to its next phase or iteration. You will learn the
+underlying architecture of the <code>nextTickQueue</code>, how it
+differs from libuv event loop phases, its precedence over standard
+Promise microtasks, and the implications of using it in asynchronous
+JavaScript code.</p>
+<h2 id="the-architecture-of-processnexttick">The Architecture of
+<code>process.nextTick</code></h2>
+<p>In Node.js, the event loop is managed by the C library
+<code>libuv</code>, which coordinates asynchronous operations across
+distinct phases: timers, pending callbacks, idle/prepare, poll, check,
+and close callbacks. However, <code>process.nextTick()</code> is not
+technically part of the <code>libuv</code> event loop. Instead, it is
+managed directly by Node.js in the JavaScript/V8 layer through an
+internal data structure known as the <code>nextTickQueue</code>.</p>
+<p>When you pass a callback to <code>process.nextTick()</code>, Node.js
+appends that function to the <code>nextTickQueue</code>. This queue acts
+as an immediate processing buffer that sits between the current
+execution context and the event loop phases.</p>
+<h2 id="execution-timing-and-the-tick-boundary">Execution Timing and the
+Tick Boundary</h2>
+<p>Whenever a synchronous block of JavaScript finishes executing,
+Node.js reaches a "tick boundary"—the moment before control is passed
+back to <code>libuv</code> to advance the event loop. At this exact
+boundary, the runtime immediately inspects the
+<code>nextTickQueue</code>.</p>
+<p>The execution flow works as follows:</p>
+<ol type="1">
+<li><strong>Synchronous Execution:</strong> The V8 engine executes the
+current call stack until it is entirely empty.</li>
+<li><strong>Draining the <code>nextTickQueue</code>:</strong> Before
+moving to any other task or event loop phase, Node.js invokes all
+callbacks currently stored in the <code>nextTickQueue</code> in the
+order they were added (FIFO).</li>
+<li><strong>Microtask Queue:</strong> Once the
+<code>nextTickQueue</code> is completely resolved, Node.js processes the
+standard microtask queue (such as resolved <code>Promise</code>
+callbacks).</li>
+<li><strong>Advancing the Event Loop:</strong> Only after both the
+<code>nextTickQueue</code> and the Promise microtask queue are
+completely empty does the event loop proceed to its next scheduled phase
+(e.g., executing <code>setTimeout</code>, handling incoming I/O, or
+running <code>setImmediate</code>).</li>
+</ol>
+<h2 id="priority-over-promise-microtasks">Priority Over Promise
+Microtasks</h2>
+<p>While both <code>process.nextTick()</code> and
+<code>Promise.then()</code> callbacks are considered microtasks in the
+broader JavaScript ecosystem, Node.js prioritizes
+<code>process.nextTick()</code> above all others. If a tick boundary
+contains both a pending <code>nextTick</code> callback and a resolved
+Promise callback, the <code>nextTick</code> callback is guaranteed to
+execute first.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">Promise</span><span class="op">.</span><span class="fu">resolve</span>()<span class="op">.</span><span class="fu">then</span>(() <span class="kw">=&gt;</span> <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Promise microtask&#39;</span>))<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">process</span><span class="op">.</span><span class="fu">nextTick</span>(() <span class="kw">=&gt;</span> <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;nextTick callback&#39;</span>))<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Synchronous log&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Output:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Synchronous log</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// nextTick callback</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Promise microtask</span></span></code></pre></div>
+<h2 id="starvation-and-recursive-scheduling">Starvation and Recursive
+Scheduling</h2>
+<p>Because Node.js completely empties the <code>nextTickQueue</code>
+before allowing the event loop to move forward, recursively scheduling
+callbacks with <code>process.nextTick()</code> will starve the event
+loop. If a <code>nextTick</code> callback schedules another
+<code>nextTick</code> callback, the runtime will remain trapped in the
+microtask phase, preventing <code>libuv</code> from processing I/O
+events, network requests, or timers.</p>
+<h2 id="primary-use-cases">Primary Use Cases</h2>
+<p><code>process.nextTick()</code> is designed for scenarios where an
+operation must run asynchronously, but still needs to execute before any
+I/O or timer events are allowed to process. Common use cases
+include:</p>
+<ul>
+<li><strong>Error Handling:</strong> Allowing users to attach event
+handlers after an object is constructed but before emitting an error
+event synchronously.</li>
+<li><strong>Consistency:</strong> Ensuring a callback runs
+asynchronously even if the underlying resource is already available or
+cached, maintaining predictable execution order without waiting for the
+full event loop cycle.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

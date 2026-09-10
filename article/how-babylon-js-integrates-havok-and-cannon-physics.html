@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Babylon.js Integrates Havok and Cannon Physics - javascript</title>
+    <meta name="description" content="Babylon.js enables real-world simulation in web applications through a decoupled physics architecture that abstracts complex mathematical engines into unified, developer-friendly APIs. By utilizing a plugin-based system, the framework allows developers t">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-babylon-js-integrates-havok-and-cannon-physics">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Babylon.js Integrates Havok and Cannon Physics - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-babylon-js-integrates-havok-and-cannon-physics" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Babylon.js enables real-world simulation in web applications through a decoupled physics architecture that abstracts complex mathematical engines into unified, developer-friendly APIs. By utilizing a plugin-based system, the framework allows developers t" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-babylonjs-integrates-havok-and-cannon-physics">How
+Babylon.js Integrates Havok and Cannon Physics</h1>
+<p>Babylon.js enables real-world simulation in web applications through
+a decoupled physics architecture that abstracts complex mathematical
+engines into unified, developer-friendly APIs. By utilizing a
+plugin-based system, the framework allows developers to seamlessly
+switch between different physics backends—such as the high-performance,
+WebAssembly-powered Havok engine or the pure-JavaScript
+Cannon.js—without needing to rewrite mesh interactions, event listeners,
+or rendering logic. This article explains how Babylon.js abstracts
+physics engines, manages communication between JavaScript and native
+code, and synchronizes physical simulations with the visual render
+loop.</p>
+<h3 id="the-plugin-abstraction-layer">The Plugin Abstraction Layer</h3>
+<p>At the core of Babylon.js's physics integration is an abstraction
+layer represented by the <code>IPhysicsEnginePlugin</code> interface.
+Instead of coupling its rendering pipeline directly to a specific
+physics library's data structures, Babylon.js delegates simulation
+responsibilities to a dedicated plugin class.</p>
+<p>The framework currently supports two main architectural
+paradigms:</p>
+<ul>
+<li><strong>Physics V1 (<code>PhysicsImpostor</code>):</strong> Used
+primarily by legacy engines like Cannon.js and Oimo.js. It pairs a
+Babylon mesh directly to a single impostor object that wraps mass,
+friction, and restitution.</li>
+<li><strong>Physics V2 (<code>PhysicsBody</code> and
+<code>PhysicsShape</code>):</strong> Introduced in Babylon.js 6.0 and
+tailored for modern engines like Havok. It separates the physical
+representation into dynamic bodies, collision shapes, and material
+properties, allowing for compound bodies and shared geometry
+instances.</li>
+</ul>
+<h3 id="integrating-havok-via-webassembly">Integrating Havok via
+WebAssembly</h3>
+<p>Havok integration represents the modern standard for Babylon.js
+physics. Because the core Havok engine is written in C++, it is compiled
+into WebAssembly (WASM) along with a lightweight JavaScript wrapper
+package (<code>@babylonjs/havok</code>).</p>
+<ol type="1">
+<li><strong>Initialization:</strong> The browser loads the Havok WASM
+binary asynchronously. Once instantiated, the engine exposes a low-level
+C++ memory interface to JavaScript.</li>
+<li><strong>The Havok Plugin:</strong> Babylon.js initializes the
+<code>HavokPlugin</code>, passing the WASM instance to it. The plugin
+translates Babylon.js scene commands into calls that write directly to
+the WASM heap.</li>
+<li><strong>Execution:</strong> Havok handles rigid body dynamics,
+continuous collision detection (CCD), constraints, and raycasting
+entirely within compiled WebAssembly. This delivers near-native
+performance while minimizing JavaScript garbage collection
+overhead.</li>
+</ol>
+<h3 id="integrating-cannonjs-via-pure-javascript">Integrating Cannon.js
+via Pure JavaScript</h3>
+<p>Cannon.js operates entirely within the JavaScript runtime without
+WASM binaries. It integrates into Babylon.js via the
+<code>CannonJSPlugin</code> using the Physics V1 architecture.</p>
+<ol type="1">
+<li><strong>Direct Object Mapping:</strong> When a developer assigns a
+<code>PhysicsImpostor</code> to a mesh, the <code>CannonJSPlugin</code>
+creates corresponding native Cannon.js constructs, such as
+<code>CANNON.Body</code> and <code>CANNON.Shape</code> (e.g., spheres,
+boxes, or convex polyhedrons).</li>
+<li><strong>Data Translation:</strong> Vector and quaternion mathematics
+are translated between Babylon.js types (<code>BABYLON.Vector3</code>,
+<code>BABYLON.Quaternion</code>) and Cannon types
+(<code>CANNON.Vec3</code>, <code>CANNON.Quaternion</code>) on every
+simulation frame.</li>
+<li><strong>Execution:</strong> Because Cannon.js runs on the main
+JavaScript thread, it is straightforward to debug and bundle, though it
+is computationally heavier for scenes with complex geometry or hundreds
+of simultaneous collisions.</li>
+</ol>
+<h3 id="the-simulation-and-synchronization-loop">The Simulation and
+Synchronization Loop</h3>
+<p>Regardless of whether Havok or Cannon is loaded, Babylon.js
+synchronizes the physical simulation with the rendering loop through a
+standardized execution flow:</p>
+<ol type="1">
+<li><strong>Pre-Physics Step:</strong> Babylon.js collects external
+inputs, user forces, velocities, or kinematic transform updates applied
+during the frame and forwards them to the active physics plugin.</li>
+<li><strong>World Step:</strong> The scene calls
+<code>plugin.executeStep(deltaTime)</code>. Havok steps forward inside
+WASM; Cannon steps forward in JavaScript. During this step, the physics
+solver handles contact points, resolves collisions, and updates internal
+linear and angular momentum.</li>
+<li><strong>Transform Synchronization:</strong> After the simulation
+step finishes, the plugin reads the updated positions and rotations from
+the physics bodies and applies them back to the Babylon.js
+<code>TransformNode</code> or <code>Mesh</code> objects.</li>
+<li><strong>Render:</strong> The scene renders the updated mesh
+transforms to the WebGL or WebGPU canvas.</li>
+</ol>
+<p>By separating the visual graph from the underlying simulation and
+bridging them through versioned plugin interfaces, Babylon.js provides a
+unified JavaScript workflow capable of driving both lightweight,
+accessible physics and high-end, native-grade WebAssembly
+simulations.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Corepack Manages Package Manager Versions - javascript</title>
+    <meta name="description" content="Corepack is an official Node.js tool designed to standardize package manager versions across development environments. By acting as a transparent proxy for tools like Yarn and pnpm, Corepack inspects a project’s configuration to download, cache, and ex">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-corepack-manages-package-manager-versions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Corepack Manages Package Manager Versions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-corepack-manages-package-manager-versions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Corepack is an official Node.js tool designed to standardize package manager versions across development environments. By acting as a transparent proxy for tools like Yarn and pnpm, Corepack inspects a project’s configuration to download, cache, and ex" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-corepack-manages-package-manager-versions">How Corepack
+Manages Package Manager Versions</h1>
+<p>Corepack is an official Node.js tool designed to standardize package
+manager versions across development environments. By acting as a
+transparent proxy for tools like Yarn and pnpm, Corepack inspects a
+project’s configuration to download, cache, and execute the exact
+version specified by the team. This eliminates the "works on my machine"
+problem, avoids lockfile corruption caused by mismatched versions, and
+ensures strict parity between local setups and CI/CD pipelines.</p>
+<h3 id="the-problem-corepack-solves">The Problem Corepack Solves</h3>
+<p>JavaScript teams frequently face issues where different team members
+or automated build agents run varying versions of Yarn or pnpm. These
+version discrepancies can alter <code>yarn.lock</code> or
+<code>pnpm-lock.yaml</code> files, introduce unexpected dependency
+resolution behaviors, or trigger breaking bugs. Traditionally, teams
+relied on documentation, pre-install scripts, or complex wrapper
+utilities to enforce parity. Corepack shifts this responsibility to the
+Node.js runtime itself.</p>
+<h3 id="how-corepack-operates">How Corepack Operates</h3>
+<p>Included with Node.js starting from version 16.9.0, Corepack replaces
+global installations of package managers with lightweight shim binaries.
+Its enforcement workflow relies on three main mechanics:</p>
+<ol type="1">
+<li><p><strong>The <code>packageManager</code> Field in
+<code>package.json</code></strong><br />
+Corepack uses a standard <code>packageManager</code> property defined in
+your root <code>package.json</code> file. This entry defines both the
+package manager and its exact version:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;my-project&quot;</span><span class="fu">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;version&quot;</span><span class="fu">:</span> <span class="st">&quot;1.0.0&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;packageManager&quot;</span><span class="fu">:</span> <span class="st">&quot;pnpm@8.15.0&quot;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div></li>
+<li><p><strong>Binary Shims and Interception</strong><br />
+When Corepack is activated, it installs shims for binaries such as
+<code>yarn</code>, <code>yarnpkg</code>, <code>pnpm</code>, and
+<code>pnpx</code> into the system PATH. When a developer types
+<code>pnpm install</code>, they are not executing a globally installed
+pnpm instance; they are invoking Corepack's shim.</p></li>
+<li><p><strong>On-Demand Resolution and Caching</strong><br />
+Upon invocation, the shim reads the current directory’s
+<code>package.json</code> to find the <code>packageManager</code>
+field.</p>
+<ul>
+<li>If the specified version is already cached locally, Corepack
+executes it immediately.</li>
+<li>If the specified version is not present, Corepack downloads the
+official release directly from the registry, caches it, and runs the
+command.</li>
+<li>If the command is invoked with a different tool (for example,
+running <code>yarn</code> in a project configured for
+<code>pnpm</code>), Corepack halts execution with an error, preventing
+accidental cross-tool usage.</li>
+</ul></li>
+</ol>
+<h3 id="how-to-use-corepack">How to Use Corepack</h3>
+<p>To enable Corepack and enforce consistent package manager versions,
+run the following command once per machine or container:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">corepack</span> enable</span></code></pre></div>
+<p>To configure a project to use a specific package manager and version,
+run the <code>corepack use</code> command inside the project
+directory:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">corepack</span> use yarn@4.1.0</span></code></pre></div>
+<p>This command automatically downloads the binary, runs it, and adds or
+updates the <code>"packageManager": "yarn@4.1.0"</code> field in
+<code>package.json</code>. Once this change is committed to the code
+repository, any developer with Corepack enabled will automatically use
+Yarn 4.1.0 when working on the project without manual installation
+steps.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tail Call Optimization in JavaScript Explained - javascript</title>
+    <meta name="description" content="Tail Call Optimization (TCO) is a compiler feature standardized in ECMAScript 2015 (ES6) that optimizes memory usage in recursive functions to prevent stack overflow errors. This article explains what tail calls are, how optimization works under the hood">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/tail-call-optimization-in-javascript-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tail Call Optimization in JavaScript Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/tail-call-optimization-in-javascript-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tail Call Optimization (TCO) is a compiler feature standardized in ECMAScript 2015 (ES6) that optimizes memory usage in recursive functions to prevent stack overflow errors. This article explains what tail calls are, how optimization works under the hood" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="tail-call-optimization-in-javascript-explained">Tail Call
+Optimization in JavaScript Explained</h1>
+<p>Tail Call Optimization (TCO) is a compiler feature standardized in
+ECMAScript 2015 (ES6) that optimizes memory usage in recursive functions
+to prevent stack overflow errors. This article explains what tail calls
+are, how optimization works under the hood, the syntactic requirements
+needed to trigger it in JavaScript, and the current state of support
+across modern browsers and JavaScript runtimes.</p>
+<hr />
+<h3 id="what-is-a-tail-call">What is a Tail Call?</h3>
+<p>A tail call occurs when a function executes another function call as
+its very last action before returning. When a function calls itself in
+this position, it is known as tail recursion.</p>
+<h4 id="non-tail-call-example">Non-Tail Call Example</h4>
+<p>In this example, the addition operation <code>n + ...</code> must
+happen after <code>factorial(n - 1)</code> completes, meaning the
+current stack frame must remain in memory:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">factorial</span>(n) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&lt;=</span> <span class="dv">1</span>) <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> n <span class="op">*</span> <span class="fu">factorial</span>(n <span class="op">-</span> <span class="dv">1</span>)<span class="op">;</span> <span class="co">// Not in tail position</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="tail-call-example">Tail Call Example</h4>
+<p>In this version, the multiplication is computed before the recursive
+step and passed via an accumulator argument. The function directly
+returns the result of the recursive call:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;use strict&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">factorial</span>(n<span class="op">,</span> acc <span class="op">=</span> <span class="dv">1</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&lt;=</span> <span class="dv">1</span>) <span class="cf">return</span> acc<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">factorial</span>(n <span class="op">-</span> <span class="dv">1</span><span class="op">,</span> n <span class="op">*</span> acc)<span class="op">;</span> <span class="co">// In proper tail position</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="how-tail-call-optimization-works">How Tail Call Optimization
+Works</h3>
+<p>Under standard execution, every function call creates a new stack
+frame in the call stack to store local variables and execution contexts.
+Deep recursion can quickly exceed the memory limit, resulting in a
+<code>RangeError: Maximum call stack size exceeded</code>.</p>
+<p>With Tail Call Optimization, the JavaScript engine detects that the
+calling function has no further work to perform. Instead of pushing a
+new frame onto the call stack, the engine clears or reuses the current
+frame. This reduces memory consumption from <span
+class="math inline">\(O(n)\)</span> space complexity to <span
+class="math inline">\(O(1)\)</span>, allowing infinite recursive calls
+without crashing.</p>
+<hr />
+<h3 id="requirements-for-tco-in-javascript">Requirements for TCO in
+JavaScript</h3>
+<p>To qualify for Proper Tail Calls (PTC) as defined by the ES6
+specification, the code must meet specific criteria:</p>
+<ol type="1">
+<li><strong>Strict Mode:</strong> The code must execute in strict mode
+(<code>'use strict'</code>).</li>
+<li><strong>Proper Tail Position:</strong> The call must be in a return
+statement without surrounding operations (e.g., <code>return fn()</code>
+instead of <code>return 1 + fn()</code> or
+<code>return fn().toString()</code>).</li>
+<li><strong>No Outer Scope Binding:</strong> The calling function must
+not require access to variables in its own scope after the call
+completes.</li>
+</ol>
+<hr />
+<h3 id="engine-and-browser-support">Engine and Browser Support</h3>
+<p>Despite being part of the official ECMAScript 2015 specification,
+widespread support for Tail Call Optimization never materialized across
+major engines.</p>
+<ul>
+<li><strong>Safari / WebKit (JavaScriptCore):</strong> Fully supported.
+Safari is the only major browser engine that implements and enables ES6
+Proper Tail Calls by default.</li>
+<li><strong>Chrome / Node.js / Edge (V8):</strong> Not supported. The V8
+team implemented TCO behind an experimental flag in early versions but
+removed it. They raised concerns regarding lost stack traces during
+debugging and error tracking, as well as performance costs in specific
+non-recursive edge cases.</li>
+<li><strong>Firefox (SpiderMonkey):</strong> Not supported. The Mozilla
+team chose not to implement the feature due to the same debugging and
+standard consensus challenges faced by V8.</li>
+</ul>
+<hr />
+<h3 id="alternatives-to-tco">Alternatives to TCO</h3>
+<p>Because TCO cannot be relied upon across all environments, developers
+use two primary workarounds for handling deep recursion in
+JavaScript:</p>
+<ol type="1">
+<li><strong>Iterative Loops:</strong> Rewriting recursive logic as a
+standard <code>while</code> or <code>for</code> loop to eliminate stack
+growth entirely.</li>
+<li><strong>Trampolining:</strong> A design pattern where recursive
+functions return a function wrapper instead of executing immediately,
+allowing a loop to execute each step sequentially in constant stack
+space.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

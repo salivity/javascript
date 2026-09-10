@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How URL.createObjectURL Works with JavaScript Blobs - javascript</title>
+    <meta name="description" content="The URL.createObjectURL() method creates a unique, temporary URI pointing directly to a binary data object, such as a Blob or File, stored in browser memory. This article explains the internal mechanics of how the browser generates this pseudo-protocol s">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-url-createobjecturl-works-with-javascript-blobs">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How URL.createObjectURL Works with JavaScript Blobs - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-url-createobjecturl-works-with-javascript-blobs" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The URL.createObjectURL() method creates a unique, temporary URI pointing directly to a binary data object, such as a Blob or File, stored in browser memory. This article explains the internal mechanics of how the browser generates this pseudo-protocol s" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-urlcreateobjecturl-works-with-javascript-blobs">How
+URL.createObjectURL Works with JavaScript Blobs</h1>
+<p>The <code>URL.createObjectURL()</code> method creates a unique,
+temporary URI pointing directly to a binary data object, such as a
+<code>Blob</code> or <code>File</code>, stored in browser memory. This
+article explains the internal mechanics of how the browser generates
+this pseudo-protocol string, maps it to in-memory resources, provides
+fast access for DOM elements, and manages the lifecycle of the
+referenced data.</p>
+<h3 id="the-internal-object-url-mapping">The Internal Object URL
+Mapping</h3>
+<p>When you pass a <code>Blob</code> or <code>File</code> instance to
+<code>URL.createObjectURL(blob)</code>, the JavaScript engine does not
+serialize, copy, or convert the binary data. Instead, the browser's host
+environment adds an entry to an internal key-value table maintained in
+memory.</p>
+<p>This internal mapping pairs a newly generated unique identifier with
+the reference to the underlying binary data in the application's heap
+memory. Because the process only stores a memory reference rather than
+transforming the data into a format like Base64 (Data URLs), the
+operation is synchronous, near-instantaneous, and highly
+memory-efficient.</p>
+<h3 id="structure-of-a-blob-url">Structure of a Blob URL</h3>
+<p>The generated string conforms to the <code>blob:</code> URI scheme
+defined in the W3C File API specification. It typically follows this
+syntax:</p>
+<pre class="text"><code>blob:https://example.com/4a5b6c7d-8e9f-0a1b-2c3d-4e5f6a7b8c9d</code></pre>
+<p>The URL contains two essential security components:</p>
+<ol type="1">
+<li><strong>Origin:</strong> The scheme and origin (e.g.,
+<code>https://example.com</code>) of the <code>Document</code> or
+<code>Worker</code> context that executed the method. This enforces the
+Same-Origin Policy, preventing other websites from hijacking the memory
+reference.</li>
+<li><strong>UUID:</strong> A cryptographically random Universally Unique
+Identifier (UUID) acting as the lookup key in the browser's internal
+object store.</li>
+</ol>
+<h3 id="request-interception-and-data-retrieval">Request Interception
+and Data Retrieval</h3>
+<p>When a Blob URL is assigned to an HTML attribute (such as the
+<code>src</code> of an <code>&lt;img&gt;</code>,
+<code>&lt;video&gt;</code>, or <code>&lt;iframe&gt;</code>, or the
+<code>href</code> of an <code>&lt;a&gt;</code> tag), the browser
+processes it through its internal networking layer:</p>
+<ol type="1">
+<li><strong>Scheme Recognition:</strong> The browser intercepts the
+network request upon identifying the <code>blob:</code> protocol,
+bypassing standard external network requests (DNS lookup, TCP/TLS
+handshake).</li>
+<li><strong>Origin Verification:</strong> The browser checks whether the
+requesting context matches the origin embedded within the Blob URL. If
+the origins do not match, the request fails with a security error.</li>
+<li><strong>Table Lookup:</strong> The browser extracts the UUID,
+queries its internal object map, and retrieves the associated
+<code>Blob</code> reference.</li>
+<li><strong>Data Streaming:</strong> The underlying binary stream and
+its associated MIME type (defined on the <code>Blob.type</code>
+property) are delivered directly to the rendering engine or the
+requesting API.</li>
+</ol>
+<h3 id="lifecycle-and-memory-management">Lifecycle and Memory
+Management</h3>
+<p>A Blob URL retains a strong reference to its associated
+<code>Blob</code> in memory. This prevents the JavaScript garbage
+collector from reclaiming the memory used by the binary data, even if
+all other variables referencing the <code>Blob</code> are out of
+scope.</p>
+<p>The reference persists until one of two events occurs:</p>
+<ul>
+<li><strong>Explicit Revocation:</strong> Calling
+<code>URL.revokeObjectURL(objectURL)</code> removes the mapping from the
+browser's internal table immediately, freeing the <code>Blob</code> for
+garbage collection once no other references exist.</li>
+<li><strong>Document Unload:</strong> When the current document unloads
+(e.g., closing the tab, reloading, or navigating away), the browser
+automatically clears its entire internal mapping table and releases all
+associated resources.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

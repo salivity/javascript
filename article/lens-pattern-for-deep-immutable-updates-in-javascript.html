@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lens Pattern for Deep Immutable Updates in JavaScript - javascript</title>
+    <meta name="description" content="The lens pattern is a functional programming abstraction that pairs getters and setters to access and update nested data structures immutably. In JavaScript, managing deeply nested object state often leads to verbose, repetitive, and brittle spread synta">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/lens-pattern-for-deep-immutable-updates-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lens Pattern for Deep Immutable Updates in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/lens-pattern-for-deep-immutable-updates-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The lens pattern is a functional programming abstraction that pairs getters and setters to access and update nested data structures immutably. In JavaScript, managing deeply nested object state often leads to verbose, repetitive, and brittle spread synta" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="lens-pattern-for-deep-immutable-updates-in-javascript">Lens
+Pattern for Deep Immutable Updates in JavaScript</h1>
+<p>The lens pattern is a functional programming abstraction that pairs
+getters and setters to access and update nested data structures
+immutably. In JavaScript, managing deeply nested object state often
+leads to verbose, repetitive, and brittle spread syntax. Lenses solve
+this problem by providing composable, reusable "optics" that allow
+developers to target specific sub-properties, apply non-destructive
+updates, and automatically reconstruct the surrounding data structure
+without mutating the original object.</p>
+<h3 id="the-problem-deep-immutability-with-native-javascript">The
+Problem: Deep Immutability with Native JavaScript</h3>
+<p>JavaScript relies heavily on immutable patterns, especially within
+reactive frameworks like React and state management libraries like
+Redux. When an object contains multiple nested layers, updating a single
+property immutably requires copying every ancestor level via the spread
+operator:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">id</span><span class="op">:</span> <span class="dv">101</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">profile</span><span class="op">:</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alex&quot;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">address</span><span class="op">:</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">city</span><span class="op">:</span> <span class="st">&quot;Seattle&quot;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">zip</span><span class="op">:</span> <span class="st">&quot;98101&quot;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Updating the city immutably using object spread</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> updatedUser <span class="op">=</span> {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="op">...</span>user<span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">profile</span><span class="op">:</span> {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span>user<span class="op">.</span><span class="at">profile</span><span class="op">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">address</span><span class="op">:</span> {</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      <span class="op">...</span>user<span class="op">.</span><span class="at">profile</span><span class="op">.</span><span class="at">address</span><span class="op">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">city</span><span class="op">:</span> <span class="st">&quot;Portland&quot;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>This approach becomes unwieldy as structures grow deeper. It
+introduces cognitive overhead, clutters codebases with boilerplate, and
+invites subtle bugs if a layer is accidentally mutated or omitted during
+the spread operation.</p>
+<h3 id="what-is-a-lens">What is a Lens?</h3>
+<p>A lens is essentially a first-class reference to a sub-part of a data
+structure. It combines two pure functions:</p>
+<ol type="1">
+<li><strong>Getter (<code>view</code>)</strong>: Extracts a value from a
+specific path within an object.</li>
+<li><strong>Setter (<code>set</code>)</strong>: Takes a new value and an
+object, returning a new copy of the object with that specific path
+updated.</li>
+</ol>
+<p>A third derived function, <strong><code>over</code></strong> (or
+<code>modify</code>), takes a transformation function instead of a
+static value, applying that function to the target property and
+returning the newly updated object.</p>
+<h3 id="building-a-basic-lens-in-javascript">Building a Basic Lens in
+JavaScript</h3>
+<p>A minimal implementation of a lens requires a getter and a
+setter:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Lens constructor</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lens <span class="op">=</span> (getter<span class="op">,</span> setter) <span class="kw">=&gt;</span> ({</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span><span class="op">:</span> getter<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">set</span><span class="op">:</span> setter</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Fundamental lens operations</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> view <span class="op">=</span> (l<span class="op">,</span> target) <span class="kw">=&gt;</span> l<span class="op">.</span><span class="fu">get</span>(target)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> <span class="kw">set</span> <span class="op">=</span> (l<span class="op">,</span> value<span class="op">,</span> target) <span class="kw">=&gt;</span> l<span class="op">.</span><span class="fu">set</span>(value<span class="op">,</span> target)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> over <span class="op">=</span> (l<span class="op">,</span> fn<span class="op">,</span> target) <span class="kw">=&gt;</span> l<span class="op">.</span><span class="fu">set</span>(<span class="fu">fn</span>(l<span class="op">.</span><span class="fu">get</span>(target))<span class="op">,</span> target)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Helper to create a lens for a specific object property</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> prop <span class="op">=</span> (key) <span class="kw">=&gt;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lens</span>(</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    (obj) <span class="kw">=&gt;</span> obj<span class="op">?.</span>[key]<span class="op">,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    (val<span class="op">,</span> obj) <span class="kw">=&gt;</span> ({ <span class="op">...</span>obj<span class="op">,</span> [key]<span class="op">:</span> val })</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span></code></pre></div>
+<p>Using these primitives, you can interact with a shallow property
+cleanly:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> nameLens <span class="op">=</span> <span class="fu">prop</span>(<span class="st">&quot;name&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> person <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Jordan&quot;</span><span class="op">,</span> <span class="dt">age</span><span class="op">:</span> <span class="dv">30</span> }<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">view</span>(nameLens<span class="op">,</span> person)<span class="op">;</span> <span class="co">// &quot;Jordan&quot;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">set</span>(nameLens<span class="op">,</span> <span class="st">&quot;Taylor&quot;</span><span class="op">,</span> person)<span class="op">;</span> <span class="co">// { name: &quot;Taylor&quot;, age: 30 }</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">over</span>(nameLens<span class="op">,</span> (str) <span class="kw">=&gt;</span> str<span class="op">.</span><span class="fu">toUpperCase</span>()<span class="op">,</span> person)<span class="op">;</span> <span class="co">// { name: &quot;JORDAN&quot;, age: 30 }</span></span></code></pre></div>
+<h3 id="lens-composition">Lens Composition</h3>
+<p>The true strength of lenses lies in their composability. Because
+lenses are purely functional wrappers, two lenses can be composed
+together to focus on a nested field. Composing lens <span
+class="math inline">\(A\)</span> (focusing on an object property) with
+lens <span class="math inline">\(B\)</span> (focusing on a sub-property)
+produces a new lens that focuses directly from the root to the
+sub-property:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> composeLenses <span class="op">=</span> (lensA<span class="op">,</span> lensB) <span class="kw">=&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lens</span>(</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    (target) <span class="kw">=&gt;</span> lensB<span class="op">.</span><span class="fu">get</span>(lensA<span class="op">.</span><span class="fu">get</span>(target))<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    (val<span class="op">,</span> target) <span class="kw">=&gt;</span> lensA<span class="op">.</span><span class="fu">set</span>(lensB<span class="op">.</span><span class="fu">set</span>(val<span class="op">,</span> lensA<span class="op">.</span><span class="fu">get</span>(target))<span class="op">,</span> target)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Composing path lenses</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> profileLens <span class="op">=</span> <span class="fu">prop</span>(<span class="st">&quot;profile&quot;</span>)<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> addressLens <span class="op">=</span> <span class="fu">prop</span>(<span class="st">&quot;address&quot;</span>)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cityLens <span class="op">=</span> <span class="fu">prop</span>(<span class="st">&quot;city&quot;</span>)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userCityLens <span class="op">=</span> <span class="fu">composeLenses</span>(</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  profileLens<span class="op">,</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">composeLenses</span>(addressLens<span class="op">,</span> cityLens)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Updating the nested city without spread boilerplate</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> updated <span class="op">=</span> <span class="kw">set</span>(userCityLens<span class="op">,</span> <span class="st">&quot;Portland&quot;</span><span class="op">,</span> user)<span class="op">;</span></span></code></pre></div>
+<p>The resulting object contains the updated <code>city</code>, along
+with new references for <code>address</code>, <code>profile</code>, and
+the root object, while preserving untouched sibling references.</p>
+<h3 id="using-lenses-in-production">Using Lenses in Production</h3>
+<p>Rather than writing custom lens machinery from scratch, production
+JavaScript applications typically rely on mature functional
+libraries:</p>
+<ul>
+<li><strong>Ramda</strong>: Provides built-in functions including
+<code>R.lens</code>, <code>R.lensProp</code>, <code>R.lensPath</code>,
+<code>R.view</code>, <code>R.set</code>, and <code>R.over</code>. With
+Ramda, nested paths are concise:
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="op">*</span> <span class="im">as</span> R <span class="im">from</span> <span class="st">&#39;ramda&#39;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cityLens <span class="op">=</span> R<span class="op">.</span><span class="fu">lensPath</span>([<span class="st">&#39;profile&#39;</span><span class="op">,</span> <span class="st">&#39;address&#39;</span><span class="op">,</span> <span class="st">&#39;city&#39;</span>])<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> newCity <span class="op">=</span> R<span class="op">.</span><span class="fu">set</span>(cityLens<span class="op">,</span> <span class="st">&#39;Portland&#39;</span><span class="op">,</span> user)<span class="op">;</span></span></code></pre></div></li>
+<li><strong>Partial.lenses</strong>: An advanced library optimized for
+high-performance optics, supporting optional properties, arrays, and
+JSON transformation pipelines.</li>
+</ul>
+<h3 id="advantages-of-the-lens-pattern">Advantages of the Lens
+Pattern</h3>
+<ul>
+<li><strong>Decoupling</strong>: Data navigation logic is separated from
+operational business logic.</li>
+<li><strong>Reusability</strong>: Once defined, a lens can be shared
+across multiple components or services to read and write to the same
+path.</li>
+<li><strong>Maintainability</strong>: If the structure of the data model
+changes, developers only need to update the lens definition rather than
+every inline spread operation across the application.</li>
+<li><strong>Purity</strong>: Operations remain strictly immutable,
+preventing accidental side effects and rendering bugs in complex
+JavaScript applications.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

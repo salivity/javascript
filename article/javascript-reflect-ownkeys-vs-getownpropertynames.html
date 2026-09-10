@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Reflect.ownKeys vs getOwnPropertyNames - javascript</title>
+    <meta name="description" content="JavaScript provides multiple built-in methods to inspect an object's own properties, but they differ primarily in how they handle property key types. While Object.getOwnPropertyNames extracts string-based keys and Object.getOwnPropertySymbols isolates Sy">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-reflect-ownkeys-vs-getownpropertynames">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Reflect.ownKeys vs getOwnPropertyNames - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-reflect-ownkeys-vs-getownpropertynames" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript provides multiple built-in methods to inspect an object's own properties, but they differ primarily in how they handle property key types. While Object.getOwnPropertyNames extracts string-based keys and Object.getOwnPropertySymbols isolates Sy" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-reflectownkeys-vs-getownpropertynames">JavaScript
+Reflect.ownKeys vs getOwnPropertyNames</h1>
+<p>JavaScript provides multiple built-in methods to inspect an object's
+own properties, but they differ primarily in how they handle property
+key types. While <code>Object.getOwnPropertyNames</code> extracts
+string-based keys and <code>Object.getOwnPropertySymbols</code> isolates
+Symbol-based keys, <code>Reflect.ownKeys</code> combines both operations
+into a single call. This guide explains the specific behaviors of each
+method, how they handle non-enumerable properties, and how to choose the
+right one for your code.</p>
+<h3 id="core-differences">Core Differences</h3>
+<p>The fundamental distinction lies in the types of property keys each
+method targets:</p>
+<ul>
+<li><strong><code>Object.getOwnPropertyNames(target)</code></strong>:
+Returns an array of all string keys (including non-enumerable
+properties), completely ignoring <code>Symbol</code> keys.</li>
+<li><strong><code>Object.getOwnPropertySymbols(target)</code></strong>:
+Returns an array of all <code>Symbol</code> keys (including
+non-enumerable symbols), completely ignoring string keys.</li>
+<li><strong><code>Reflect.ownKeys(target)</code></strong>: Returns an
+array of all own property keys, combining both string and
+<code>Symbol</code> keys. Conceptually, it behaves as
+<code>[...Object.getOwnPropertyNames(target), ...Object.getOwnPropertySymbols(target)]</code>.</li>
+</ul>
+<p>None of these methods traverse the prototype chain; all three
+exclusively inspect the target object's own properties. Additionally,
+all three methods include non-enumerable properties, distinguishing them
+from methods like <code>Object.keys()</code> which filter for enumerable
+string properties only.</p>
+<h3 id="code-comparison">Code Comparison</h3>
+<p>Consider the following object containing standard string properties,
+a non-enumerable string property, and a <code>Symbol</code> key:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> idSymbol <span class="op">=</span> <span class="bu">Symbol</span>(<span class="st">&#39;id&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;Alex&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">role</span><span class="op">:</span> <span class="st">&#39;Admin&#39;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Add a Symbol property</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>user[idSymbol] <span class="op">=</span> <span class="dv">101</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Add a non-enumerable string property</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="bu">Object</span><span class="op">.</span><span class="fu">defineProperty</span>(user<span class="op">,</span> <span class="st">&#39;hiddenToken&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">value</span><span class="op">:</span> <span class="st">&#39;xyz-secret&#39;</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enumerable</span><span class="op">:</span> <span class="kw">false</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Calling each method on the <code>user</code> object yields different
+results:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Object.getOwnPropertyNames</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Object</span><span class="op">.</span><span class="fu">getOwnPropertyNames</span>(user))<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: [&#39;name&#39;, &#39;role&#39;, &#39;hiddenToken&#39;]</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Object.getOwnPropertySymbols</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Object</span><span class="op">.</span><span class="fu">getOwnPropertySymbols</span>(user))<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: [Symbol(id)]</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Reflect.ownKeys</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Reflect</span><span class="op">.</span><span class="fu">ownKeys</span>(user))<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: [&#39;name&#39;, &#39;role&#39;, &#39;hiddenToken&#39;, Symbol(id)]</span></span></code></pre></div>
+<h3 id="key-ordering-guarantee">Key Ordering Guarantee</h3>
+<p><code>Reflect.ownKeys()</code> follows the deterministic own-property
+traversal order defined by the ECMAScript specification:</p>
+<ol type="1">
+<li><strong>Integer indices</strong>: Numeric keys sorted in ascending
+numerical order.</li>
+<li><strong>String keys</strong>: Non-numeric strings in chronological
+insertion order.</li>
+<li><strong>Symbol keys</strong>: Symbols in chronological insertion
+order.</li>
+</ol>
+<p>While <code>Object.getOwnPropertyNames</code> also follows this
+specification for string and numeric keys, it discards symbols
+entirely.</p>
+<h3 id="summary-of-use-cases">Summary of Use Cases</h3>
+<ul>
+<li>Use <strong><code>Object.getOwnPropertyNames</code></strong> when
+serializing, cloning, or inspecting an object where Symbol-keyed
+metadata should intentionally be omitted.</li>
+<li>Use <strong><code>Object.getOwnPropertySymbols</code></strong> when
+specifically looking for private-like metadata, internal state hooks, or
+library-specific symbols attached to an object.</li>
+<li>Use <strong><code>Reflect.ownKeys</code></strong> when implementing
+meta-programming patterns, full property proxying, or deep cloning where
+complete fidelity of all own keys—both strings and symbols—is
+required.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

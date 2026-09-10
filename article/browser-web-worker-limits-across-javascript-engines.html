@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Web Worker Limits Across JavaScript Engines - javascript</title>
+    <meta name="description" content="Web Workers enable multi-threaded execution in client-side JavaScript, but their concurrency is constrained by both the host machine's hardware and browser-specific engine implementations. While the theoretical limit for parallel execution is bounded by">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/browser-web-worker-limits-across-javascript-engines">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Browser Web Worker Limits Across JavaScript Engines - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/browser-web-worker-limits-across-javascript-engines" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Web Workers enable multi-threaded execution in client-side JavaScript, but their concurrency is constrained by both the host machine's hardware and browser-specific engine implementations. While the theoretical limit for parallel execution is bounded by" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="browser-web-worker-limits-across-javascript-engines">Browser Web
+Worker Limits Across JavaScript Engines</h1>
+<p>Web Workers enable multi-threaded execution in client-side
+JavaScript, but their concurrency is constrained by both the host
+machine's hardware and browser-specific engine implementations. While
+the theoretical limit for parallel execution is bounded by the available
+logical CPU cores, individual engines—including Google’s V8, Mozilla’s
+SpiderMonkey, and Apple’s JavaScriptCore—handle worker instantiation,
+memory allocation, and maximum thread counts differently.</p>
+<h3 id="true-parallelism-vs-worker-instantiation">True Parallelism vs.
+Worker Instantiation</h3>
+<p>A distinction must be made between how many workers can run
+simultaneously and how many can simply exist in memory:</p>
+<ul>
+<li><strong>True Concurrency (Parallelism):</strong> Determined by the
+user's hardware. The <code>navigator.hardwareConcurrency</code> property
+exposes the number of logical processor cores available. If a script
+spawns more workers than available cores, the operating system's thread
+scheduler time-slices the workers across the existing CPU cores.</li>
+<li><strong>Instantiation Limit (Capacity):</strong> The maximum number
+of Web Workers that can be created before the browser throws an
+allocation error, drops execution, or crashes the tab.</li>
+</ul>
+<h3 id="chromium-based-browsers-v8-engine">Chromium-Based Browsers: V8
+Engine</h3>
+<p>Chromium (Google Chrome, Microsoft Edge, Brave, Opera) uses the V8
+JavaScript engine paired with Chromium's Blink rendering engine.</p>
+<ul>
+<li><strong>Thread Model:</strong> Chromium creates an actual OS thread
+for each dedicated Web Worker, along with a separate V8 Isolate (an
+independent instance of the V8 runtime with its own heap memory).</li>
+<li><strong>Concurrency Limits:</strong> Chromium does not enforce a
+strict, hardcoded worker cap in the engine source code for standard
+Dedicated Workers. Instead, the ceiling is governed by system RAM and
+virtual address space limits.</li>
+<li><strong>Behavior Under Load:</strong> In 64-bit desktop
+environments, you can often spawn several thousand idle workers before
+the browser runs out of memory. However, active CPU-bound workers will
+saturate the thread pool, and creating too many simultaneously will
+trigger an <code>Out of Memory</code> (OOM) crash or a renderer process
+termination.</li>
+<li><strong>SharedWorker / ServiceWorker Caps:</strong> Unlike Dedicated
+Workers, SharedWorkers and ServiceWorkers are managed globally across
+tabs and are subject to stricter browser-level throttling to prevent
+resource starvation.</li>
+</ul>
+<h3 id="mozilla-firefox-spidermonkey-engine">Mozilla Firefox:
+SpiderMonkey Engine</h3>
+<p>Firefox runs the SpiderMonkey JavaScript engine on top of the Gecko
+platform.</p>
+<ul>
+<li><strong>Thread Model:</strong> Firefox assigns dedicated OS-level
+threads to each worker, running independent runtime instances.</li>
+<li><strong>Concurrency Limits:</strong> Firefox historically
+implemented an internal cap of 512 Dedicated Workers per process to
+prevent thread exhaustion attacks. Modern versions rely heavily on
+OS-level thread availability and available system memory.</li>
+<li><strong>Behavior Under Load:</strong> If worker creation fails due
+to resource exhaustion or reaching internal thread limits, Firefox
+typically throws a <code>DOMException</code> (often a
+<code>QuotaExceededError</code> or an allocation failure) rather than
+immediately terminating the parent tab process, making error handling
+more predictable.</li>
+</ul>
+<h3 id="apple-safari-javascriptcore-webkit">Apple Safari: JavaScriptCore
+(WebKit)</h3>
+<p>Safari uses the JavaScriptCore (JSC) engine within the WebKit layout
+framework.</p>
+<ul>
+<li><strong>Thread Model:</strong> JSC allocates independent VM
+instances running on dedicated POSIX threads (pthreads) on macOS and
+iOS.</li>
+<li><strong>Concurrency Limits on macOS:</strong> On desktop systems,
+WebKit allows high worker instantiation counts, bounded primarily by
+available system memory and operating system thread limits.</li>
+<li><strong>Concurrency Limits on iOS (Mobile Safari):</strong> iOS
+enforces exceptionally strict memory thresholds (Jetsam limits) per
+process. Spawning dozens of workers will rapidly cause the WebKit
+subsystem to exceed its allocated memory budget, leading the OS watchdog
+to forcefully terminate the webpage without warning.</li>
+</ul>
+<h3 id="engine-comparison-summary">Engine Comparison Summary</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature / Limit</th>
+<th style="text-align: left;">Chromium (V8)</th>
+<th style="text-align: left;">Firefox (SpiderMonkey)</th>
+<th style="text-align: left;">Safari (JavaScriptCore)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Primary Bound</strong></td>
+<td style="text-align: left;">Available RAM / V8 Heap</td>
+<td style="text-align: left;">OS Threads / 512 Soft Cap</td>
+<td style="text-align: left;">Memory Limits (Jetsam on iOS)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Failure Mode</strong></td>
+<td style="text-align: left;">Tab Crash / Renderer OOM</td>
+<td style="text-align: left;"><code>DOMException</code> / JS Error</td>
+<td style="text-align: left;">Tab Reload / Immediate Process Kill</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Max Concurrent
+Execution</strong></td>
+<td
+style="text-align: left;"><code>navigator.hardwareConcurrency</code></td>
+<td
+style="text-align: left;"><code>navigator.hardwareConcurrency</code></td>
+<td
+style="text-align: left;"><code>navigator.hardwareConcurrency</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="architectural-best-practices">Architectural Best Practices</h3>
+<p>Because unbounded worker creation leads to heavy memory overhead and
+performance degradation from context switching, production applications
+should not spawn one worker per task. Instead, implement a
+<strong>Worker Pool</strong> pattern:</p>
+<ol type="1">
+<li>Query <code>navigator.hardwareConcurrency</code> to detect the
+system's core count.</li>
+<li>Initialize a fixed pool of workers matching
+<code>navigator.hardwareConcurrency - 1</code> (leaving one core free
+for the main UI thread).</li>
+<li>Queue incoming jobs and dispatch them to available workers as
+previous tasks complete.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

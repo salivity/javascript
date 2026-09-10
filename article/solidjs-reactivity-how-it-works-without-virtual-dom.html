@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolidJS Reactivity: How It Works Without Virtual DOM - javascript</title>
+    <meta name="description" content="SolidJS delivers exceptional performance by abandoning the Virtual DOM entirely in favor of fine-grained reactivity. Instead of re-rendering components and diffing an in-memory representation of the UI to determine updates, SolidJS compiles JSX into nati">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/solidjs-reactivity-how-it-works-without-virtual-dom">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="SolidJS Reactivity: How It Works Without Virtual DOM - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/solidjs-reactivity-how-it-works-without-virtual-dom" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="SolidJS delivers exceptional performance by abandoning the Virtual DOM entirely in favor of fine-grained reactivity. Instead of re-rendering components and diffing an in-memory representation of the UI to determine updates, SolidJS compiles JSX into nati" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="solidjs-reactivity-how-it-works-without-virtual-dom">SolidJS
+Reactivity: How It Works Without Virtual DOM</h1>
+<p>SolidJS delivers exceptional performance by abandoning the Virtual
+DOM entirely in favor of fine-grained reactivity. Instead of
+re-rendering components and diffing an in-memory representation of the
+UI to determine updates, SolidJS compiles JSX into native DOM operations
+and establishes a reactive dependency graph. When state changes, only
+the specific DOM nodes bound to that state update directly, bypassing
+component re-execution and eliminating reconciliation overhead.</p>
+<h3 id="reactive-primitives-signals-and-effects">Reactive Primitives:
+Signals and Effects</h3>
+<p>At the core of SolidJS's reactivity model are three fundamental
+primitives: <strong>Signals</strong>, <strong>Effects</strong>, and
+<strong>Memos</strong>.</p>
+<ul>
+<li><strong>Signals</strong> represent the source of truth. Created
+using <code>createSignal</code>, a signal returns a getter function and
+a setter function: <code>[count, setCount]</code>. Because the getter is
+a function, calling it allows SolidJS to detect precisely where and when
+the state is accessed.</li>
+<li><strong>Effects</strong> (<code>createEffect</code>) are observer
+functions that run automatically when the signals they depend on
+change.</li>
+<li><strong>Memos</strong> (<code>createMemo</code>) cache derived
+values and only re-evaluate when their dependencies update.</li>
+</ul>
+<p>SolidJS uses an internal runtime context to track dependencies
+dynamically. When an effect or a DOM-updating binding executes, it
+pushes itself onto an internal observer stack. Any signal read during
+that execution detects the current observer and registers it as a
+subscriber. When the signal's setter is called later, it notifies only
+those registered subscribers.</p>
+<h3 id="ahead-of-time-jsx-compilation">Ahead-of-Time JSX
+Compilation</h3>
+<p>In frameworks like React, JSX is compiled into Virtual DOM objects
+(via calls like <code>React.createElement</code>). This means every
+state change requires generating a new Virtual DOM tree to diff against
+the previous tree.</p>
+<p>SolidJS handles JSX entirely differently at compile time:</p>
+<ol type="1">
+<li><strong>Static DOM Templates:</strong> Static elements are compiled
+into HTML template strings cloned with native browser methods like
+<code>cloneNode</code>. This provides near-vanilla JavaScript
+instantiation speed.</li>
+<li><strong>Dynamic Bindings as Effects:</strong> Wherever dynamic
+expressions exist within the JSX, the compiler isolates them and wraps
+them inside reactive effects.</li>
+</ol>
+<p>For example, a dynamic heading like
+<code>&lt;h1&gt;{count()}&lt;/h1&gt;</code> is compiled into code that
+creates the <code>&lt;h1&gt;</code> element once, creates a text node
+inside it, and establishes an effect that updates only that text node's
+<code>data</code> property whenever <code>count()</code> emits a new
+value.</p>
+<h3 id="components-execute-only-once">Components Execute Only Once</h3>
+<p>A critical distinction between SolidJS and Virtual DOM frameworks is
+the component lifecycle. In SolidJS, components are simply setup
+functions. They execute exactly once during initialization to construct
+the reactive graph and the DOM nodes.</p>
+<p>Because components do not re-run on state changes:</p>
+<ul>
+<li>Hooks do not suffer from strict ordering rules or stale closure
+issues.</li>
+<li>Props are accessed as reactive getters rather than static object
+values.</li>
+<li>No CPU cycles are wasted recalculating entire subtrees.</li>
+</ul>
+<h3 id="fine-grained-direct-dom-updates">Fine-Grained Direct DOM
+Updates</h3>
+<p>Because state getters register individual DOM mutations directly as
+subscribers, the runtime skips any tree-walking or reconciliation
+algorithm. When a signal changes, the notification travels strictly from
+the signal to the specific native DOM properties attached to it (such as
+a text node, a class list, or an attribute).</p>
+<p>By combining compile-time DOM creation with runtime automatic
+dependency tracking, SolidJS achieves fine-grained reactivity that
+updates the real DOM with pinpoint precision and minimal JavaScript
+overhead.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

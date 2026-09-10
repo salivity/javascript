@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Compress Video with WebCodecs VideoEncoder - javascript</title>
+    <meta name="description" content="The WebCodecs API brings low-level, high-performance media processing directly to modern web browsers by exposing native hardware and software codecs to JavaScript. This article explains how the VideoEncoder interface processes raw VideoFrame instances,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-to-compress-video-with-webcodecs-videoencoder">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Compress Video with WebCodecs VideoEncoder - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-to-compress-video-with-webcodecs-videoencoder" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The WebCodecs API brings low-level, high-performance media processing directly to modern web browsers by exposing native hardware and software codecs to JavaScript. This article explains how the VideoEncoder interface processes raw VideoFrame instances," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-to-compress-video-with-webcodecs-videoencoder">How to
+Compress Video with WebCodecs VideoEncoder</h1>
+<p>The WebCodecs API brings low-level, high-performance media processing
+directly to modern web browsers by exposing native hardware and software
+codecs to JavaScript. This article explains how the
+<code>VideoEncoder</code> interface processes raw
+<code>VideoFrame</code> instances, applies user-defined compression
+configurations, and outputs serialized, compressed
+<code>EncodedVideoChunk</code> packets ready for storage, streaming, or
+container multiplexing.</p>
+<h3 id="core-architecture-of-videoencoder">Core Architecture of
+VideoEncoder</h3>
+<p>The <code>VideoEncoder</code> operates asynchronously using internal
+queues to manage computational load without blocking the main execution
+thread. The compression pipeline relies on three main components:</p>
+<ol type="1">
+<li><strong><code>VideoFrame</code></strong>: Represents a single
+uncompressed raw video frame derived from sources like an HTML canvas,
+an <code>OffscreenCanvas</code>, an image bitmap, or a
+<code>MediaStreamTrackProcessor</code>.</li>
+<li><strong><code>VideoEncoder</code></strong>: The processing engine
+configured with specific parameters (codec, resolution, bitrate, frame
+rate) that takes raw frames and schedules compression.</li>
+<li><strong><code>EncodedVideoChunk</code></strong>: The output packet
+containing the compressed bitstream data, metadata indicating frame type
+(key frame or delta frame), and timestamps.</li>
+</ol>
+<h3 id="step-1-initializing-the-encoder">Step 1: Initializing the
+Encoder</h3>
+<p>To start compression, create a <code>VideoEncoder</code> instance by
+supplying two essential callback functions: <code>output</code> and
+<code>error</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> init <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">output</span><span class="op">:</span> (chunk<span class="op">,</span> metadata) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// chunk is an EncodedVideoChunk</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">handleEncodedChunk</span>(chunk<span class="op">,</span> metadata)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">error</span><span class="op">:</span> (e) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&quot;Encoding error:&quot;</span><span class="op">,</span> e<span class="op">.</span><span class="at">message</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> encoder <span class="op">=</span> <span class="kw">new</span> <span class="fu">VideoEncoder</span>(init)<span class="op">;</span></span></code></pre></div>
+<p>The <code>output</code> callback is invoked whenever the encoder
+finishes processing a frame or sequence of frames into a packet.</p>
+<h3 id="step-2-configuring-codec-parameters">Step 2: Configuring Codec
+Parameters</h3>
+<p>Before sending frames to the encoder, call
+<code>encoder.configure()</code> with an object defining the target
+compression profile.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>encoder<span class="op">.</span><span class="fu">configure</span>({</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">codec</span><span class="op">:</span> <span class="st">&#39;vp8&#39;</span><span class="op">,</span> <span class="co">// e.g., &#39;avc1.42001E&#39; (H.264), &#39;vp8&#39;, &#39;vp09.00.10.08&#39;, &#39;av01.0.04M.08&#39;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">width</span><span class="op">:</span> <span class="dv">1920</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">height</span><span class="op">:</span> <span class="dv">1080</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">bitrate</span><span class="op">:</span> <span class="dv">2_000_000</span><span class="op">,</span> <span class="co">// 2 Mbps</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">framerate</span><span class="op">:</span> <span class="dv">30</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">hardwareAcceleration</span><span class="op">:</span> <span class="st">&#39;prefer-hardware&#39;</span><span class="op">,</span> <span class="co">// Options: &#39;no-preference&#39;, &#39;prefer-hardware&#39;, &#39;prefer-software&#39;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">latencyMode</span><span class="op">:</span> <span class="st">&#39;realtime&#39;</span> <span class="co">// &#39;quality&#39; or &#39;realtime&#39;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>You can verify hardware compatibility and supported options
+beforehand using the static method
+<code>VideoEncoder.isConfigSupported()</code>.</p>
+<h3 id="step-3-feeding-videoframes-and-managing-memory">Step 3: Feeding
+VideoFrames and Managing Memory</h3>
+<p>Raw frames must be wrapped in a <code>VideoFrame</code> object and
+passed to <code>encoder.encode()</code>. Because raw image buffers
+consume significant GPU and CPU memory, every <code>VideoFrame</code>
+must be manually closed once it is handed to the encoder.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">processCanvas</span>(canvasElement<span class="op">,</span> timestampInMicroseconds<span class="op">,</span> forceKeyFrame <span class="op">=</span> <span class="kw">false</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create a raw frame from a canvas source</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> frame <span class="op">=</span> <span class="kw">new</span> <span class="fu">VideoFrame</span>(canvasElement<span class="op">,</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timestamp</span><span class="op">:</span> timestampInMicroseconds</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Send the frame to the compression queue</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  encoder<span class="op">.</span><span class="fu">encode</span>(frame<span class="op">,</span> { <span class="dt">keyFrame</span><span class="op">:</span> forceKeyFrame })<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Explicitly free memory</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  frame<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The <code>keyFrame</code> parameter signals the underlying codec to
+produce a self-contained intra-coded frame (I-frame) rather than a
+predictive delta frame (P-frame or B-frame). This is critical for stream
+seeking or recovery points in live broadcasting.</p>
+<h3 id="step-4-extracting-the-encoded-packets">Step 4: Extracting the
+Encoded Packets</h3>
+<p>Inside the <code>output</code> callback defined during
+initialization, the compressed data is delivered as an
+<code>EncodedVideoChunk</code>.</p>
+<p>Key properties of an <code>EncodedVideoChunk</code> include:</p>
+<ul>
+<li><code>chunk.type</code>: String denoting whether the chunk is a
+<code>'key'</code> frame or <code>'delta'</code> frame.</li>
+<li><code>chunk.timestamp</code>: The original presentation timestamp
+(PTS) in microseconds.</li>
+<li><code>chunk.duration</code>: Optional frame duration in
+microseconds.</li>
+<li><code>chunk.byteLength</code>: The size of the compressed payload in
+bytes.</li>
+</ul>
+<p>To extract the binary packet for transmission or storage, copy the
+data into a buffer:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">handleEncodedChunk</span>(chunk<span class="op">,</span> metadata) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> buffer <span class="op">=</span> <span class="kw">new</span> <span class="bu">Uint8Array</span>(chunk<span class="op">.</span><span class="at">byteLength</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  chunk<span class="op">.</span><span class="fu">copyTo</span>(buffer)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Example: Forward over WebSocket or WebRTC DataChannel</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sendOverNetwork</span>({</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">type</span><span class="op">:</span> chunk<span class="op">.</span><span class="at">type</span><span class="op">,</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timestamp</span><span class="op">:</span> chunk<span class="op">.</span><span class="at">timestamp</span><span class="op">,</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">data</span><span class="op">:</span> buffer</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// If a codec configuration update occurs, it is provided in metadata</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (metadata<span class="op">.</span><span class="at">decoderConfig</span>) {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">saveDecoderConfig</span>(metadata<span class="op">.</span><span class="at">decoderConfig</span>)<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-5-flushing-and-finalizing">Step 5: Flushing and
+Finalizing</h3>
+<p>Video encoders often buffer multiple frames internally to compute
+inter-frame temporal redundancies (such as motion estimation). When the
+video stream ends, call <code>encoder.flush()</code> to ensure all
+buffered frames are processed and emitted through the
+<code>output</code> callback before closing the encoder.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">finishEncoding</span>() {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> encoder<span class="op">.</span><span class="fu">flush</span>()<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  encoder<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p><code>flush()</code> returns a promise that resolves only when every
+queued frame has been completely compressed and dispatched, leaving the
+pipeline cleanly finalized.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

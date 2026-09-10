@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pub-Sub in Decoupled JavaScript Architectures - javascript</title>
+    <meta name="description" content="This article explores how the Publish-Subscribe (Pub/Sub) pattern is implemented to build decoupled, scalable JavaScript architectures. It covers the core mechanics of the pattern, provides a lightweight custom implementation, examines native JavaScript">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/pub-sub-in-decoupled-javascript-architectures">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Pub-Sub in Decoupled JavaScript Architectures - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/pub-sub-in-decoupled-javascript-architectures" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Publish-Subscribe (Pub/Sub) pattern is implemented to build decoupled, scalable JavaScript architectures. It covers the core mechanics of the pattern, provides a lightweight custom implementation, examines native JavaScript" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="pub-sub-in-decoupled-javascript-architectures">Pub-Sub in
+Decoupled JavaScript Architectures</h1>
+<p>This article explores how the Publish-Subscribe (Pub/Sub) pattern is
+implemented to build decoupled, scalable JavaScript architectures. It
+covers the core mechanics of the pattern, provides a lightweight custom
+implementation, examines native JavaScript solutions in browser and
+Node.js environments, and highlights practical patterns for
+micro-frontends and modular systems.</p>
+<hr />
+<h3 id="understanding-the-pubsub-pattern">Understanding the Pub/Sub
+Pattern</h3>
+<p>The Publish-Subscribe pattern is a messaging pattern where senders of
+messages (publishers) do not send messages directly to specific
+receivers (subscribers). Instead, messages are categorized into channels
+or topics without knowledge of which subscribers, if any, exist.
+Similarly, subscribers express interest in one or more topics and only
+receive messages that match those topics, without knowledge of the
+publishers.</p>
+<p>In JavaScript architectures, this separation creates a decoupled
+system where modules operate independently, facilitating easier
+maintenance, testing, and scaling.</p>
+<pre><code>[ Publisher ] ──(emit event)──&gt; [ Event Broker / Topic ] ──(notify)──&gt; [ Subscriber A ]
+                                                         ──(notify)──&gt; [ Subscriber B ]</code></pre>
+<hr />
+<h3 id="core-implementation-custom-pubsub-manager">Core Implementation:
+Custom Pub/Sub Manager</h3>
+<p>A central event broker manages topics, listener registration, and
+message dispatch. Below is a standard, lightweight implementation in
+modern JavaScript (ES6+):</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PubSub {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">events</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Subscribe to a specific topic</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">subscribe</span>(topic<span class="op">,</span> callback) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">has</span>(topic)) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">set</span>(topic<span class="op">,</span> <span class="kw">new</span> <span class="bu">Set</span>())<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">get</span>(topic)<span class="op">.</span><span class="fu">add</span>(callback)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Return an unsubscribe function for easy cleanup</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> callbacks <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">get</span>(topic)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (callbacks) {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        callbacks<span class="op">.</span><span class="fu">delete</span>(callback)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (callbacks<span class="op">.</span><span class="at">size</span> <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>          <span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">delete</span>(topic)<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Publish data to all subscribers of a topic</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">publish</span>(topic<span class="op">,</span> data) {</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> callbacks <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">get</span>(topic)<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (callbacks) {</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>      callbacks<span class="op">.</span><span class="fu">forEach</span>((callback) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span> {</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>          <span class="fu">callback</span>(data)<span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">catch</span> (error) {</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>          <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="vs">`Error executing subscriber for topic &quot;</span><span class="sc">${</span>topic<span class="sc">}</span><span class="vs">&quot;:`</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Clear all subscribers for a topic or entire broker</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clear</span>(topic) {</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (topic) {</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">delete</span>(topic)<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">events</span><span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="co">// Export as a singleton for shared application state</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> eventBus <span class="op">=</span> <span class="kw">new</span> <span class="fu">PubSub</span>()<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="practical-example-decoupled-modules">Practical Example:
+Decoupled Modules</h3>
+<p>Consider an e-commerce checkout flow where multiple services (UI,
+Analytics, Inventory) need to respond to an order completion without
+directly referencing each other:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Module: Analytics Service (Subscriber)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { eventBus } <span class="im">from</span> <span class="st">&#39;./eventBus.js&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unsubscribeAnalytics <span class="op">=</span> eventBus<span class="op">.</span><span class="fu">subscribe</span>(<span class="st">&#39;order:placed&#39;</span><span class="op">,</span> (order) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`[Analytics] Logging order </span><span class="sc">${</span>order<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs"> with value $</span><span class="sc">${</span>order<span class="op">.</span><span class="at">total</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Module: Inventory Service (Subscriber)</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>eventBus<span class="op">.</span><span class="fu">subscribe</span>(<span class="st">&#39;order:placed&#39;</span><span class="op">,</span> (order) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`[Inventory] Reserving items for order </span><span class="sc">${</span>order<span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Module: Checkout UI Component (Publisher)</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">handleCheckoutSuccess</span>(orderData) {</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// UI logic executes here...</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Notify the system without importing Analytics or Inventory modules</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  eventBus<span class="op">.</span><span class="fu">publish</span>(<span class="st">&#39;order:placed&#39;</span><span class="op">,</span> {</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">id</span><span class="op">:</span> orderData<span class="op">.</span><span class="at">id</span><span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">total</span><span class="op">:</span> orderData<span class="op">.</span><span class="at">total</span><span class="op">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">items</span><span class="op">:</span> orderData<span class="op">.</span><span class="at">items</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="leveraging-native-platform-apis">Leveraging Native Platform
+APIs</h3>
+<p>JavaScript environments provide built-in event-driven constructs that
+can act as Pub/Sub mechanisms without third-party dependencies.</p>
+<h4 id="1-browser-eventtarget-and-customevent">1. Browser:
+<code>EventTarget</code> and <code>CustomEvent</code></h4>
+<p>Modern browsers expose the <code>EventTarget</code> interface, which
+can be instantiated directly as an event bus:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a shared target</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> bus <span class="op">=</span> <span class="kw">new</span> <span class="bu">EventTarget</span>()<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Subscriber</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>bus<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;user:login&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;User logged in:&#39;</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">detail</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Publisher</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>bus<span class="op">.</span><span class="fu">dispatchEvent</span>(<span class="kw">new</span> <span class="bu">CustomEvent</span>(<span class="st">&#39;user:login&#39;</span><span class="op">,</span> {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">detail</span><span class="op">:</span> { <span class="dt">userId</span><span class="op">:</span> <span class="st">&#39;12345&#39;</span><span class="op">,</span> <span class="dt">timestamp</span><span class="op">:</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>() }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>}))<span class="op">;</span></span></code></pre></div>
+<h4 id="2-nodejs-eventemitter">2. Node.js:
+<code>EventEmitter</code></h4>
+<p>In server-side JavaScript, the native <code>events</code> module
+provides an optimized Pub/Sub foundation:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { <span class="bu">EventEmitter</span> } <span class="im">from</span> <span class="st">&#39;events&#39;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AppEventBus <span class="kw">extends</span> <span class="bu">EventEmitter</span> {}</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> serverBus <span class="op">=</span> <span class="kw">new</span> <span class="fu">AppEventBus</span>()<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Subscriber</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>serverBus<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;file:processed&#39;</span><span class="op">,</span> (payload) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`File </span><span class="sc">${</span>payload<span class="op">.</span><span class="at">fileName</span><span class="sc">}</span><span class="vs"> processed successfully.`</span>)<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Publisher</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>serverBus<span class="op">.</span><span class="fu">emit</span>(<span class="st">&#39;file:processed&#39;</span><span class="op">,</span> { <span class="dt">fileName</span><span class="op">:</span> <span class="st">&#39;report.csv&#39;</span> })<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="architectural-considerations-and-best-practices">Architectural
+Considerations and Best Practices</h3>
+<ul>
+<li><strong>Lifecycle Management:</strong> Always unsubscribe listeners
+when components unmount (e.g., in React <code>useEffect</code> cleanups
+or Vue <code>beforeUnmount</code> hooks) to prevent memory leaks caused
+by lingering references.</li>
+<li><strong>Topic Namespacing:</strong> Use structured naming
+conventions (e.g., <code>domain:action:status</code> such as
+<code>cart:item:added</code>) to avoid topic collisions across large
+teams or micro-frontends.</li>
+<li><strong>Payload Immutability:</strong> Freeze or clone event
+payloads prior to publishing if subscribers must not mutate shared data
+references across handlers.</li>
+<li><strong>Observability:</strong> Centralize error handling and
+logging within the broker to monitor event flows without adding
+boilerplate to individual modules.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

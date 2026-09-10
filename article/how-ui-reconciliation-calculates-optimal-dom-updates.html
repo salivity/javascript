@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How UI Reconciliation Calculates Optimal DOM Updates - javascript</title>
+    <meta name="description" content="UI reconciliation is the process by which modern JavaScript frameworks compare an updated view declaration against the current screen state to determine the minimum number of changes required to update the browser’s Document Object Model (DOM). Because">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-ui-reconciliation-calculates-optimal-dom-updates">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How UI Reconciliation Calculates Optimal DOM Updates - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-ui-reconciliation-calculates-optimal-dom-updates" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="UI reconciliation is the process by which modern JavaScript frameworks compare an updated view declaration against the current screen state to determine the minimum number of changes required to update the browser’s Document Object Model (DOM). Because" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-ui-reconciliation-calculates-optimal-dom-updates">How UI
+Reconciliation Calculates Optimal DOM Updates</h1>
+<p>UI reconciliation is the process by which modern JavaScript
+frameworks compare an updated view declaration against the current
+screen state to determine the minimum number of changes required to
+update the browser’s Document Object Model (DOM). Because direct DOM
+manipulation is computationally expensive and triggers layout thrashing,
+engines like React and Vue maintain an in-memory representation known as
+the Virtual DOM (VDOM). By evaluating the structural and property
+differences between the previous and newly generated VDOM trees using
+optimized diffing algorithms, frameworks compute an exact set of
+mutation commands—known as patches—to bring the real DOM into sync
+efficiently.</p>
+<h2 id="the-cost-of-direct-dom-manipulation">The Cost of Direct DOM
+Manipulation</h2>
+<p>Browsers process DOM changes through a pipeline of style
+calculations, layout generation (reflow), and painting. Altering nodes
+individually in an imperative manner causes the browser to repeatedly
+recalculate these stages. Reconciliation mitigates this performance
+penalty by shifting structural comparisons into lightweight JavaScript
+memory, batching changes, and executing only the necessary mutations in
+a single browser render cycle.</p>
+<h2 id="the-diffing-algorithm-and-heuristics">The Diffing Algorithm and
+Heuristics</h2>
+<p>Finding the absolute minimum number of mutations to transform one
+arbitrary tree into another is an <span
+class="math inline">\(O(n^3)\)</span> problem, where <span
+class="math inline">\(n\)</span> is the number of elements. Modern
+frameworks reduce this complexity to <span
+class="math inline">\(O(n)\)</span> by employing two primary
+heuristics:</p>
+<ol type="1">
+<li><strong>Different Component Types Yield Different Trees:</strong> If
+two nodes possess different types (e.g., changing a
+<code>&lt;div&gt;</code> to a <code>&lt;section&gt;</code>, or replacing
+<code>ComponentA</code> with <code>ComponentB</code>), the algorithm
+assumes the subtrees are entirely dissimilar. The reconciliation engine
+skips deep comparison, unmounts the old branch, destroys its associated
+state, and constructs the new branch from scratch.</li>
+<li><strong>Keyed Identity in Child Lists:</strong> For dynamic lists of
+sibling nodes, algorithms rely on developer-provided unique
+<code>key</code> properties. Without keys, list updates fall back to
+index-based reconciliation, which can cause unnecessary mutation of
+unaffected elements. Unique keys allow the diffing algorithm to detect
+element reordering, insertion, and deletion without destroying or
+rebuilding identical subtrees.</li>
+</ol>
+<h2 id="the-patch-calculation-pipeline">The Patch Calculation
+Pipeline</h2>
+<p>When state updates occur, the framework generates a new virtual tree
+and executes a systematic, depth-first traversal to compute patches.</p>
+<h3 id="1-node-comparison-and-property-diffing">1. Node Comparison and
+Property Diffing</h3>
+<p>The engine compares the current virtual node (VNode) with the
+previous VNode at the same position in the hierarchy:</p>
+<ul>
+<li><strong>Identical Tag/Type:</strong> The existing DOM node is
+preserved. The framework inspects props, attributes, class lists, and
+event listeners. It generates an attribute patch containing only the
+modified, added, or removed values (e.g., updating a
+<code>className</code> or modifying an inline style).</li>
+<li><strong>Changed Tag/Type:</strong> A replacement patch is created,
+marking the old node for removal and the new node for insertion.</li>
+</ul>
+<h3 id="2-sibling-list-reconciliation">2. Sibling List
+Reconciliation</h3>
+<p>When comparing collections of children, modern engines use
+list-diffing strategies:</p>
+<ul>
+<li><strong>Two-Pointer Diffing (Vue/Snabbdom):</strong> Pointers track
+the start and end of both the old and new sibling lists simultaneously.
+The engine matches heads to heads, tails to tails, and heads to tails.
+This identifies common patterns like prepending, appending, or reversing
+items in <span class="math inline">\(O(n)\)</span> time.</li>
+<li><strong>Map-Based Lookups (React):</strong> Unmatched siblings are
+placed into a hash map indexed by their keys. The engine iterates over
+the new array of children, querying the map to determine if a node can
+be reused and moved via the DOM's <code>insertBefore</code> API, or if
+it must be created anew.</li>
+<li><strong>Longest Increasing Subsequence (LIS):</strong> Advanced
+engines calculate the LIS of node indices to determine the minimum
+number of DOM nodes that must physically move, leaving the majority of
+elements stationary.</li>
+</ul>
+<h2 id="patch-generation-and-execution">Patch Generation and
+Execution</h2>
+<p>Once the diffing phase concludes, the result is an executable set of
+instructions—the patch list. This list contains discrete operations:</p>
+<ul>
+<li><code>INSERT_NODE</code>: Creates and appends or inserts a new
+element.</li>
+<li><code>REMOVE_NODE</code>: Deletes an obsolete element.</li>
+<li><code>UPDATE_PROPS</code>: Applies modified attributes, properties,
+or event handlers.</li>
+<li><code>REORDER_CHILDREN</code>: Relocates existing nodes to match the
+new order.</li>
+<li><code>UPDATE_TEXT</code>: Changes raw text inside a text node.</li>
+</ul>
+<p>The framework enters the commit phase, where it iterates through the
+patch instructions and applies them to the real DOM in a single
+synchronous pass.</p>
+<h2 id="the-reactive-alternative-to-vdom-diffing">The Reactive
+Alternative to VDOM Diffing</h2>
+<p>While traditional reconciliation relies on post-render tree
+comparison, alternative modern frameworks such as Svelte and SolidJS
+bypass tree-diffing entirely. Instead of generating patches at runtime,
+these frameworks use compile-time static analysis or fine-grained
+reactivity.</p>
+<p>Dependencies are linked directly to discrete DOM nodes during
+compilation. When a reactive state variable updates, the framework
+executes pre-compiled, surgical DOM updates directly at the exact node
+address, calculating optimal patches ahead of time rather than through
+runtime tree reconciliation.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

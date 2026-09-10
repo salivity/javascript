@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mutation XSS: How innerHTML Bypasses Sanitizers - javascript</title>
+    <meta name="description" content="Mutation Cross-Site Scripting (mXSS) is an advanced injection vulnerability that occurs when a web browser's HTML parser modifies, normalizes, or "repairs" seemingly harmless markup during DOM insertion, unintentionally transforming it into executable ex">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/mutation-xss-how-innerhtml-bypasses-sanitizers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mutation XSS: How innerHTML Bypasses Sanitizers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/mutation-xss-how-innerhtml-bypasses-sanitizers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Mutation Cross-Site Scripting (mXSS) is an advanced injection vulnerability that occurs when a web browser's HTML parser modifies, normalizes, or "repairs" seemingly harmless markup during DOM insertion, unintentionally transforming it into executable ex" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="mutation-xss-how-innerhtml-bypasses-sanitizers">Mutation XSS:
+How innerHTML Bypasses Sanitizers</h1>
+<p>Mutation Cross-Site Scripting (mXSS) is an advanced injection
+vulnerability that occurs when a web browser's HTML parser modifies,
+normalizes, or "repairs" seemingly harmless markup during DOM insertion,
+unintentionally transforming it into executable exploit code. This
+article details the mechanics of mXSS, breaks down how the browser's
+<code>innerHTML</code> parsing lifecycle interacts with markup, and
+explains why this parsing behavior frequently bypasses robust JavaScript
+sanitizers.</p>
+<h3 id="what-is-mutation-xss">What is Mutation XSS?</h3>
+<p>Traditional Cross-Site Scripting (XSS) relies on injecting raw script
+tags or dangerous attributes directly into an application's output.
+Developers routinely combat this using client-side sanitizers such as
+DOMPurify, which inspect incoming HTML strings, strip disallowed tags
+(like <code>&lt;script&gt;</code>) and malicious attributes (like
+<code>onerror</code>), and return a "safe" HTML string.</p>
+<p>Mutation XSS arises not because the sanitizer failed to identify a
+known dangerous payload, but because the sanitizer and the browser
+interpret and rewrite the structure of the HTML differently. When the
+sanitized string is assigned to an element via
+<code>element.innerHTML</code>, the browser parses the string to
+construct DOM nodes. During this process, the browser's parser
+normalizes malformed syntax, closes unclosed tags, or handles namespace
+transitions. This automatic mutation can shift non-executable content
+(such as an attribute value or text inside an inert element) into an
+active execution context, generating an XSS vulnerability out of clean
+markup.</p>
+<h3 id="the-role-of-innerhtml-and-browser-parsing">The Role of
+<code>innerHTML</code> and Browser Parsing</h3>
+<p>To understand how sanitizers are bypassed, one must understand how
+the browser parses and serializes markup. When a string is assigned to
+<code>element.innerHTML</code>, the browser runs the HTML5 tokenization
+and tree-construction algorithms:</p>
+<ol type="1">
+<li><strong>Context Switching:</strong> Modern HTML allows mixing
+different XML namespaces directly inside HTML documents, notably
+Scalable Vector Graphics (<code>&lt;svg&gt;</code>) and Mathematical
+Markup Language (<code>&lt;math&gt;</code>). In standard HTML, tags like
+<code>&lt;style&gt;</code>, <code>&lt;title&gt;</code>, or
+<code>&lt;textarea&gt;</code> treat their contents as raw text or
+character data, meaning tags inside them are not parsed as elements.
+However, inside foreign content elements (such as MathML or SVG), the
+parser follows different rules unless a
+<code>&lt;foreignObject&gt;</code> or MathML text integration point
+switches the context back to HTML.</li>
+<li><strong>Tag and Attribute Mutation:</strong> Browsers are designed
+to be fault-tolerant. If an HTML fragment contains missing quotes,
+misplaced tags, or invalid nesting, the parser automatically reorders,
+closes, or creates elements to form a valid DOM tree.</li>
+<li><strong>Serialization Discrepancies:</strong> When an application
+reads from or writes to <code>innerHTML</code>, a round-trip occurs:
+String to DOM, DOM to String (serialization), and back to DOM. If a
+parser repairs or re-encodes a fragment during any step of this cycle,
+the resulting DOM tree may no longer match the sanitizer's original
+evaluation.</li>
+</ol>
+<h3 id="how-mutation-xss-bypasses-sanitizers">How Mutation XSS Bypasses
+Sanitizers</h3>
+<p>The standard client-side sanitization workflow introduces a critical
+desynchronization window:</p>
+<ol type="1">
+<li><strong>Ingestion:</strong> The sanitizer receives an untrusted HTML
+string.</li>
+<li><strong>Inert Parsing:</strong> The sanitizer parses the string into
+an inert DOM implementation (like
+<code>DOMImplementation.createHTMLDocument()</code>) to avoid executing
+scripts while analyzing the input.</li>
+<li><strong>Filtering:</strong> The sanitizer traverses this inert tree,
+removes dangerous elements or attributes, and verifies that the
+structure complies with its security policy.</li>
+<li><strong>Serialization:</strong> The sanitizer serializes the
+remaining clean DOM nodes back into an HTML string.</li>
+<li><strong>DOM Assignment:</strong> The application takes that returned
+string and assigns it to a live element:
+<code>targetElement.innerHTML = cleanHtml</code>.</li>
+</ol>
+<p>The bypass occurs between steps 4 and 5 due to semantic differences
+between how the inert DOM was parsed and how the live browser engine
+parses the serialized string.</p>
+<h4 id="namespace-confusion-and-context-escaping">Namespace Confusion
+and Context Escaping</h4>
+<p>A common mXSS attack vector exploits context-switching between HTML
+and MathML/SVG.</p>
+<p>Consider an element like <code>&lt;math&gt;&lt;style&gt;</code>. In
+standard HTML, <code>&lt;style&gt;</code> consumes everything as raw
+text. In certain parsing modes or older specifications, a browser
+parsing a MathML block might treat elements differently than a standard
+HTML context. An attacker can supply a payload where an opening
+<code>&lt;math&gt;</code> tag causes an inner tag to be treated as
+foreign content.</p>
+<p>When the sanitizer parses the string, it might interpret a payload as
+benign text safely trapped inside a <code>&lt;style&gt;</code> or
+<code>&lt;p&gt;</code> tag within an XML namespace. Consequently, the
+sanitizer preserves it. However, when the serialized output is written
+to the live document via <code>innerHTML</code>, subtle parsing
+corrections—such as the browser auto-closing the foreign namespace
+prematurely—cause the parser to break out of the inert text block. The
+remainder of the payload is suddenly interpreted as standard HTML,
+turning an attribute or string of text into a live tag, such as
+<code>&lt;img src="x" onerror="alert(1)"&gt;</code>.</p>
+<h4 id="entity-decoding-mutations">Entity Decoding Mutations</h4>
+<p>Another vector involves the automatic decoding of HTML entities.
+Inside attribute values, character entities (like
+<code>&amp;quot;</code> or numeric entities) are automatically decoded
+when transformed into DOM nodes. If an attribute contains nested markup
+designed to exploit quotation normalization, the sanitizer may see a
+safe, fully escaped string. When the browser serializes and reparses
+that string, unescaped quotes can escape the attribute boundaries,
+creating new HTML attributes or tags entirely.</p>
+<h3 id="preventing-mutation-xss">Preventing Mutation XSS</h3>
+<p>Defending against mXSS requires minimizing the reliance on
+string-based serialization loops:</p>
+<ul>
+<li><strong>Direct DOM Insertion:</strong> Instead of converting the
+sanitized DOM back into a string and assigning it via
+<code>innerHTML</code>, applications should adopt the clean DOM nodes
+directly into the live document using <code>Node.appendChild()</code> or
+<code>document.adoptNode()</code>. This eliminates the second parsing
+phase where mutations occur.</li>
+<li><strong>Keep Sanitization Libraries Updated:</strong> Libraries like
+DOMPurify continuously patch mutation vectors caused by browser engine
+updates and parser quirks. Using an outdated sanitization library
+significantly increases exposure to mXSS.</li>
+<li><strong>Adopt the Native Sanitizer API:</strong> Modern browsers are
+working toward a built-in Sanitizer API. Because the browser itself
+manages both sanitization and DOM tree creation natively, the
+desynchronization between third-party JavaScript parsers and the browser
+rendering engine is completely bypassed.</li>
+<li><strong>Defense in Depth via Content Security Policy (CSP):</strong>
+Enforcing a robust CSP without <code>'unsafe-inline'</code> ensures that
+even if an mXSS payload slips through parser mutations and reaches the
+DOM, injected inline scripts and event handlers remain blocked from
+executing.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

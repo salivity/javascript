@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js fs/promises Module for Asynchronous File I/O - javascript</title>
+    <meta name="description" content="This article provides an overview of the Node.js fs/promises module, explaining its purpose and how it handles asynchronous file operations. You will learn the mechanics behind its promise-based architecture, how to implement common input/output tasks su">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/node-js-fs-promises-module-for-asynchronous-file-i-o">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Node.js fs/promises Module for Asynchronous File I/O - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/node-js-fs-promises-module-for-asynchronous-file-i-o" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the Node.js fs/promises module, explaining its purpose and how it handles asynchronous file operations. You will learn the mechanics behind its promise-based architecture, how to implement common input/output tasks su" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="nodejs-fspromises-module-for-asynchronous-file-io">Node.js
+fs/promises Module for Asynchronous File I/O</h1>
+<p>This article provides an overview of the Node.js
+<code>fs/promises</code> module, explaining its purpose and how it
+handles asynchronous file operations. You will learn the mechanics
+behind its promise-based architecture, how to implement common
+input/output tasks such as reading and writing files using
+<code>async</code>/<code>await</code>, and how it improves application
+performance and code readability compared to traditional callback or
+synchronous methods.</p>
+<h2 id="what-is-the-fspromises-module">What is the fs/promises
+Module?</h2>
+<p>The <code>fs/promises</code> module is a built-in Node.js API that
+provides asynchronous file system operations returning standard
+JavaScript <code>Promise</code> objects. Historically, the Node.js
+<code>fs</code> module relied on callback functions following the
+error-first pattern (<code>(err, data) =&gt; ...</code>). To eliminate
+callback nesting ("callback hell") and integrate smoothly with modern
+ES6+ features, Node.js introduced <code>fs/promises</code>.</p>
+<p>You can import the module using CommonJS or ES Modules:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// ES Module syntax</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> fs <span class="im">from</span> <span class="st">&#39;node:fs/promises&#39;</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// CommonJS syntax</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fs <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;node:fs/promises&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="how-it-performs-asynchronous-file-io">How It Performs
+Asynchronous File I/O</h2>
+<p>File system operations involve hardware interaction, which is
+inherently slower than CPU computations. Performing these tasks
+synchronously blocks the single-threaded Node.js event loop, preventing
+other requests from executing.</p>
+<p>The <code>fs/promises</code> module solves this by delegating file
+operations to the underlying <strong>libuv thread pool</strong>. When an
+I/O operation is initiated:</p>
+<ol type="1">
+<li>Node.js sends the file request to a background thread managed by
+libuv.</li>
+<li>The main JavaScript thread remains free to handle other incoming
+events or user interactions.</li>
+<li>The method returns a <code>Pending</code> Promise immediately to the
+calling script.</li>
+<li>Once the file I/O finishes, the background thread signals the event
+loop.</li>
+<li>The Promise either resolves with the result or rejects with an
+error, allowing execution to resume in the main thread via
+<code>.then()</code> or <code>await</code>.</li>
+</ol>
+<h2 id="common-file-operations">Common File Operations</h2>
+<p>Because <code>fs/promises</code> returns standard promises, all
+operations are best handled using <code>async</code>/<code>await</code>
+paired with <code>try...catch</code> blocks for robust error
+management.</p>
+<h3 id="reading-a-file">Reading a File</h3>
+<p>The <code>readFile</code> method retrieves file contents
+asynchronously. Specifying an encoding (such as <code>'utf-8'</code>)
+returns a string; omitting it returns a raw <code>Buffer</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">loadConfig</span>(filePath) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> data <span class="op">=</span> <span class="cf">await</span> fs<span class="op">.</span><span class="fu">readFile</span>(filePath<span class="op">,</span> <span class="st">&#39;utf-8&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">parse</span>(data)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (error) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="vs">`Failed to read file at </span><span class="sc">${</span>filePath<span class="sc">}</span><span class="vs">:`</span><span class="op">,</span> error<span class="op">.</span><span class="at">message</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="writing-and-appending-to-a-file">Writing and Appending to a
+File</h3>
+<p>The <code>writeFile</code> method writes data to a file, creating the
+file if it does not exist or overwriting it if it does. If you want to
+retain existing content, <code>appendFile</code> adds data to the end of
+the file.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">logMessage</span>(filePath<span class="op">,</span> message) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> fs<span class="op">.</span><span class="fu">appendFile</span>(filePath<span class="op">,</span> <span class="vs">`</span><span class="sc">${</span><span class="kw">new</span> <span class="bu">Date</span>()<span class="op">.</span><span class="fu">toISOString</span>()<span class="sc">}</span><span class="vs"> - </span><span class="sc">${</span>message<span class="sc">}\n</span><span class="vs">`</span><span class="op">,</span> <span class="st">&#39;utf-8&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (error) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Failed to write log:&#39;</span><span class="op">,</span> error<span class="op">.</span><span class="at">message</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="directory-and-file-management">Directory and File
+Management</h3>
+<p>The module includes utilities for inspecting, modifying, and deleting
+files and directories:</p>
+<ul>
+<li><strong><code>fs.mkdir(path, { recursive: true })</code></strong>:
+Creates directories, including nested paths if <code>recursive</code> is
+set to <code>true</code>.</li>
+<li><strong><code>fs.readdir(path)</code></strong>: Reads the contents
+of a directory, returning an array of filenames.</li>
+<li><strong><code>fs.stat(path)</code></strong>: Retrieves file
+metadata, such as file size, creation date, and whether the target is a
+file or a directory.</li>
+<li><strong><code>fs.unlink(path)</code></strong>: Deletes a specified
+file.</li>
+<li><strong><code>fs.rm(path, { recursive: true, force: true })</code></strong>:
+Deletes directories and their contents.</li>
+</ul>
+<h2 id="error-handling">Error Handling</h2>
+<p>Unlike callback APIs that pass errors as the first argument,
+<code>fs/promises</code> rejections throw standard exceptions. This
+allows standard JavaScript error-handling patterns:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">removeTempFile</span>(filePath) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> fs<span class="op">.</span><span class="fu">unlink</span>(filePath)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;File deleted successfully.&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (error) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (error<span class="op">.</span><span class="at">code</span> <span class="op">===</span> <span class="st">&#39;ENOENT&#39;</span>) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&#39;File does not exist; nothing to delete.&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;An unexpected I/O error occurred:&#39;</span><span class="op">,</span> error<span class="op">.</span><span class="at">message</span>)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="summary-of-advantages">Summary of Advantages</h2>
+<ul>
+<li><strong>Non-blocking Execution</strong>: Delegates heavy disk
+operations to libuv worker threads, keeping the Node.js event loop fast
+and responsive.</li>
+<li><strong>Clean Syntax</strong>: Fully compatible with
+<code>async</code>/<code>await</code>, avoiding deeply nested
+callbacks.</li>
+<li><strong>Consistent Error Handling</strong>: Relies on standard
+<code>try...catch</code> blocks for capturing file system
+exceptions.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

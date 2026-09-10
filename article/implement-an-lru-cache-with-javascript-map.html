@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Implement an LRU Cache with JavaScript Map - javascript</title>
+    <meta name="description" content="A Least Recently Used (LRU) cache is a data structure that organizes items in order of use, discarding the least recently accessed item when the cache reaches its defined capacity. In JavaScript, an LRU cache can be implemented cleanly and efficiently us">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/implement-an-lru-cache-with-javascript-map">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Implement an LRU Cache with JavaScript Map - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/implement-an-lru-cache-with-javascript-map" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A Least Recently Used (LRU) cache is a data structure that organizes items in order of use, discarding the least recently accessed item when the cache reaches its defined capacity. In JavaScript, an LRU cache can be implemented cleanly and efficiently us" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="implement-an-lru-cache-with-javascript-map">Implement an LRU
+Cache with JavaScript Map</h1>
+<p>A Least Recently Used (LRU) cache is a data structure that organizes
+items in order of use, discarding the least recently accessed item when
+the cache reaches its defined capacity. In JavaScript, an LRU cache can
+be implemented cleanly and efficiently using the built-in
+<code>Map</code> object because <code>Map</code> maintains the insertion
+order of its keys. This guide explains how the <code>Map</code> ordering
+mechanics work and provides a direct, production-ready implementation of
+an LRU cache with constant <span class="math inline">\(O(1)\)</span>
+time complexity for both read and write operations.</p>
+<h3 id="why-javascript-map-works-for-lru-caches">Why JavaScript Map
+Works for LRU Caches</h3>
+<p>In standard JavaScript objects, property order is not strictly
+predictable. In contrast, ECMAScript guarantees that a <code>Map</code>
+iterates elements in the exact order they were inserted.</p>
+<p>This property enables a straightforward LRU strategy:</p>
+<ol type="1">
+<li><strong>Reading an item:</strong> If an item is accessed via
+<code>get</code>, it is deleted from the <code>Map</code> and
+re-inserted immediately. This moves it to the "newest" position (the end
+of the iteration sequence).</li>
+<li><strong>Adding an item:</strong> When an item is added via
+<code>set</code>, if it already exists, it is deleted and re-added to
+refresh its position. If the cache exceeds its maximum capacity, the
+oldest item—the very first key in the iteration sequence—is removed
+using <code>this.cache.keys().next().value</code>.</li>
+</ol>
+<p>Both operations execute in <span class="math inline">\(O(1)\)</span>
+average time complexity.</p>
+<hr />
+<h3 id="the-lru-cache-implementation">The LRU Cache Implementation</h3>
+<p>Below is the complete ES6 implementation of an LRU cache using a
+JavaScript <code>Map</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> LRUCache {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(capacity) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (capacity <span class="op">&lt;=</span> <span class="dv">0</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&quot;Capacity must be greater than 0&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">capacity</span> <span class="op">=</span> capacity<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">cache</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span>(key) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">undefined</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Refresh the key by removing and re-inserting it</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> value <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">get</span>(key)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">delete</span>(key)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">set</span>(key<span class="op">,</span> value)<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> value<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">put</span>(key<span class="op">,</span> value) {</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If the key exists, delete it first to reset its position</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">delete</span>(key)<span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    } </span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If the cache is full, evict the least recently used (first) item</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="at">size</span> <span class="op">&gt;=</span> <span class="kw">this</span><span class="op">.</span><span class="at">capacity</span>) {</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> oldestKey <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">keys</span>()<span class="op">.</span><span class="fu">next</span>()<span class="op">.</span><span class="at">value</span><span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">delete</span>(oldestKey)<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">set</span>(key<span class="op">,</span> value)<span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">has</span>(key) {</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">has</span>(key)<span class="op">;</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span> <span class="fu">size</span>() {</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="at">size</span><span class="op">;</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clear</span>() {</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">cache</span><span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="how-the-methods-work">How the Methods Work</h3>
+<h4 id="1-the-getkey-method">1. The <code>get(key)</code> Method</h4>
+<ul>
+<li>Checks if the key exists using <code>this.cache.has(key)</code>. If
+not, it returns <code>undefined</code>.</li>
+<li>If the key exists, it captures the current value, deletes the key
+from the <code>Map</code>, and immediately sets it again.</li>
+<li>By re-setting the key, it moves to the back of the
+<code>Map</code>'s internal entry list, marking it as the most recently
+used.</li>
+</ul>
+<h4 id="2-the-putkey-value-method">2. The <code>put(key, value)</code>
+Method</h4>
+<ul>
+<li>Checks if the key is already present. If so, it removes the existing
+entry so the new value can be appended at the end.</li>
+<li>If the key is new and the size matches <code>capacity</code>, it
+triggers eviction. The expression
+<code>this.cache.keys().next().value</code> retrieves the key from the
+first element yielded by the keys iterator, which is always the oldest
+item.</li>
+<li>Finally, it stores the key-value pair, ensuring it occupies the most
+recently used position.</li>
+</ul>
+<hr />
+<h3 id="usage-example">Usage Example</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cache <span class="op">=</span> <span class="kw">new</span> <span class="fu">LRUCache</span>(<span class="dv">3</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>cache<span class="op">.</span><span class="fu">put</span>(<span class="st">&quot;a&quot;</span><span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span> <span class="co">// Cache: {a: 1}</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>cache<span class="op">.</span><span class="fu">put</span>(<span class="st">&quot;b&quot;</span><span class="op">,</span> <span class="dv">2</span>)<span class="op">;</span> <span class="co">// Cache: {a: 1, b: 2}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>cache<span class="op">.</span><span class="fu">put</span>(<span class="st">&quot;c&quot;</span><span class="op">,</span> <span class="dv">3</span>)<span class="op">;</span> <span class="co">// Cache: {a: 1, b: 2, c: 3}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>cache<span class="op">.</span><span class="fu">get</span>(<span class="st">&quot;a&quot;</span>)<span class="op">;</span>    <span class="co">// Returns 1; Cache: {b: 2, c: 3, a: 1} (&quot;a&quot; refreshed)</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>cache<span class="op">.</span><span class="fu">put</span>(<span class="st">&quot;d&quot;</span><span class="op">,</span> <span class="dv">4</span>)<span class="op">;</span> <span class="co">// Evicts &quot;b&quot; (oldest); Cache: {c: 3, a: 1, d: 4}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(cache<span class="op">.</span><span class="fu">get</span>(<span class="st">&quot;b&quot;</span>))<span class="op">;</span> <span class="co">// Returns undefined (evicted)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(cache<span class="op">.</span><span class="fu">get</span>(<span class="st">&quot;c&quot;</span>))<span class="op">;</span> <span class="co">// Returns 3; Cache: {a: 1, d: 4, c: 3}</span></span></code></pre></div>
+<p>By leveraging <code>Map</code>'s built-in iteration ordering, this
+pattern avoids the overhead of manually managing a doubly linked list
+while delivering optimal performance.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

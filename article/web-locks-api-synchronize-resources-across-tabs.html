@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Locks API: Synchronize Resources Across Tabs - javascript</title>
+    <meta name="description" content="The Web Locks API is a built-in browser standard that allows JavaScript code running across multiple browsing contexts—such as different tabs, windows, iframes, or Web Workers—to coordinate access to shared resources. This article explains the core c">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-locks-api-synchronize-resources-across-tabs">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Web Locks API: Synchronize Resources Across Tabs - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-locks-api-synchronize-resources-across-tabs" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Web Locks API is a built-in browser standard that allows JavaScript code running across multiple browsing contexts—such as different tabs, windows, iframes, or Web Workers—to coordinate access to shared resources. This article explains the core c" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="web-locks-api-synchronize-resources-across-tabs">Web Locks API:
+Synchronize Resources Across Tabs</h1>
+<p>The Web Locks API is a built-in browser standard that allows
+JavaScript code running across multiple browsing contexts—such as
+different tabs, windows, iframes, or Web Workers—to coordinate access to
+shared resources. This article explains the core concepts of the Web
+Locks API, compares exclusive and shared lock modes, explores key
+options like non-blocking requests, and demonstrates practical code
+implementations to prevent race conditions and manage shared state
+effectively.</p>
+<h2 id="the-multi-tab-concurrency-problem">The Multi-Tab Concurrency
+Problem</h2>
+<p>Modern web applications often run concurrently across multiple
+browser tabs. When these tabs read from and write to shared storage
+mechanisms like IndexedDB, <code>localStorage</code>, or Cache Storage
+at the same time, race conditions can occur. Traditional JavaScript
+execution is single-threaded per context, but across multiple contexts,
+operations interleave unpredictably.</p>
+<p>Common issues include:</p>
+<ul>
+<li>Concurrent read-modify-write operations overwriting data in
+IndexedDB.</li>
+<li>Multiple tabs simultaneously attempting to refresh an expiring
+authentication token.</li>
+<li>Redundant background network requests or duplicate WebSocket
+connections.</li>
+</ul>
+<p>The Web Locks API solves these issues by providing a standardized
+mutual exclusion mechanism.</p>
+<h2 id="how-the-web-locks-api-works">How the Web Locks API Works</h2>
+<p>The API operates under <code>navigator.locks</code>. It allows an
+execution context to request a named lock. The lock is held for the
+duration of an asynchronous callback function passed to
+<code>navigator.locks.request()</code>. Once the returned Promise
+resolves or rejects, the browser automatically releases the lock for
+waiting contexts.</p>
+<h3 id="basic-exclusive-lock">Basic Exclusive Lock</h3>
+<p>By default, locks are <strong>exclusive</strong>. Only one context
+can hold an exclusive lock with a given name at any time.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">updateSharedData</span>(newData) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">request</span>(<span class="st">&#39;database_sync_lock&#39;</span><span class="op">,</span> <span class="kw">async</span> (lock) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Critical section: Only one tab executes this block at a time</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentData <span class="op">=</span> <span class="cf">await</span> <span class="fu">readFromIndexedDB</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> updatedData <span class="op">=</span> { <span class="op">...</span>currentData<span class="op">,</span> <span class="op">...</span>newData }<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> <span class="fu">writeToIndexedDB</span>(updatedData)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Data successfully updated by the lock holder.&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// The lock is automatically released here</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If Tab A is executing the callback, Tab B will pause at
+<code>navigator.locks.request('database_sync_lock', ...)</code> until
+Tab A finishes.</p>
+<h2 id="lock-modes-exclusive-vs-shared">Lock Modes: Exclusive vs.
+Shared</h2>
+<p>The API supports two distinct modes configured via the
+<code>mode</code> option:</p>
+<ol type="1">
+<li><strong><code>exclusive</code> (Default):</strong> Grants access to
+only one requester. All other requests (exclusive or shared) must wait
+in a FIFO queue.</li>
+<li><strong><code>shared</code>:</strong> Allows multiple contexts to
+acquire the lock concurrently, provided no exclusive lock on the same
+resource is active. This mirrors the reader-writer pattern, making it
+ideal for read-only tasks that should not run alongside writes.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Reader (Shared)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">readData</span>() {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">request</span>(<span class="st">&#39;resource_name&#39;</span><span class="op">,</span> { <span class="dt">mode</span><span class="op">:</span> <span class="st">&#39;shared&#39;</span> }<span class="op">,</span> <span class="kw">async</span> (lock) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cf">await</span> <span class="fu">readFromStorage</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Writer (Exclusive)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">writeData</span>(data) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">request</span>(<span class="st">&#39;resource_name&#39;</span><span class="op">,</span> { <span class="dt">mode</span><span class="op">:</span> <span class="st">&#39;exclusive&#39;</span> }<span class="op">,</span> <span class="kw">async</span> (lock) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> <span class="fu">writeToStorage</span>(data)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="advanced-request-options">Advanced Request Options</h2>
+<h3 id="non-blocking-requests-ifavailable">Non-Blocking Requests
+(<code>ifAvailable</code>)</h3>
+<p>By default, lock requests queue until the resource is free. Passing
+<code>{ ifAvailable: true }</code> instructs the browser to evaluate the
+lock immediately without queueing. If the lock is held elsewhere, the
+callback executes with <code>null</code> instead of a lock object.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">request</span>(<span class="st">&#39;leader_election&#39;</span><span class="op">,</span> { <span class="dt">ifAvailable</span><span class="op">:</span> <span class="kw">true</span> }<span class="op">,</span> <span class="kw">async</span> (lock) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>lock) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Another tab is already the leader.&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;This tab is now the designated leader.&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Keep the lock active to maintain leadership</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">keepAlive</span>()<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="abort-signals-and-timeouts">Abort Signals and Timeouts</h3>
+<p>Lock requests can be cancelled while waiting in the queue using
+standard <code>AbortController</code> signals.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> controller <span class="op">=</span> <span class="kw">new</span> <span class="fu">AbortController</span>()<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> controller<span class="op">.</span><span class="fu">abort</span>()<span class="op">,</span> <span class="dv">3000</span>)<span class="op">;</span> <span class="co">// 3-second timeout</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span> {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">request</span>(<span class="st">&#39;auth_token_refresh&#39;</span><span class="op">,</span> { <span class="dt">signal</span><span class="op">:</span> controller<span class="op">.</span><span class="at">signal</span> }<span class="op">,</span> <span class="kw">async</span> (lock) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> <span class="fu">refreshToken</span>()<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>} <span class="cf">catch</span> (err) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (err<span class="op">.</span><span class="at">name</span> <span class="op">===</span> <span class="st">&#39;AbortError&#39;</span>) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&#39;Failed to acquire lock before the timeout.&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="inspecting-lock-state">Inspecting Lock State</h2>
+<p>The API provides <code>navigator.locks.query()</code> to inspect
+active and pending locks across the origin. This is useful for
+diagnostics, debugging, and metrics.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> state <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">query</span>()<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Held locks:&#39;</span><span class="op">,</span> state<span class="op">.</span><span class="at">held</span>)<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Pending requests:&#39;</span><span class="op">,</span> state<span class="op">.</span><span class="at">pending</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="primary-use-cases">Primary Use Cases</h2>
+<ul>
+<li><strong>Token Refresh Coordination:</strong> Ensures only one tab
+makes a network request to refresh authentication credentials while
+other tabs wait for the new token.</li>
+<li><strong>Leader Election:</strong> Enables a single active tab to
+handle background polling, WebRTC connections, or WebSocket
+communication, offloading redundant network traffic.</li>
+<li><strong>Atomic Storage Mutations:</strong> Guarantees sequence
+safety when reading, modifying, and persisting transactional data across
+offline databases.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

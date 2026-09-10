@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Fiber Reconciliation: Prioritizing UI Updates - javascript</title>
+    <meta name="description" content="The React Fiber reconciliation engine prioritizes UI updates by replacing the legacy synchronous stack reconciler with an interruptible, priority-driven virtual stack frame architecture. By breaking component rendering down into discrete, incremental uni">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/react-fiber-reconciliation-prioritizing-ui-updates">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="React Fiber Reconciliation: Prioritizing UI Updates - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/react-fiber-reconciliation-prioritizing-ui-updates" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The React Fiber reconciliation engine prioritizes UI updates by replacing the legacy synchronous stack reconciler with an interruptible, priority-driven virtual stack frame architecture. By breaking component rendering down into discrete, incremental uni" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="react-fiber-reconciliation-prioritizing-ui-updates">React Fiber
+Reconciliation: Prioritizing UI Updates</h1>
+<p>The React Fiber reconciliation engine prioritizes UI updates by
+replacing the legacy synchronous stack reconciler with an interruptible,
+priority-driven virtual stack frame architecture. By breaking component
+rendering down into discrete, incremental units of work known as fibers,
+React can pause, resume, or abort rendering passes based on the urgency
+of the incoming task. This article explains how the Fiber architecture
+works, how the Lanes model classifies update priority, and how the
+Scheduler package uses cooperative multitasking to keep web applications
+responsive.</p>
+<h2 id="the-problem-with-the-legacy-stack-reconciler">The Problem with
+the Legacy Stack Reconciler</h2>
+<p>In versions prior to React 16, React relied on a recursive,
+synchronous algorithm known as the Stack Reconciler. When an update
+occurred, React traversed the entire component tree and generated
+updates in a single, blocking execution thread.</p>
+<p>If the component tree was deep or complex, rendering could take
+dozens or hundreds of milliseconds. Because JavaScript runs on a single
+thread alongside layout, paint, and input processing, this synchronous
+traversal blocked the browser's main thread. Users experienced jank,
+dropped animation frames, and unresponsive inputs whenever large state
+updates took place.</p>
+<h2 id="the-fiber-node-an-interruptible-unit-of-work">The Fiber Node: An
+Interruptible Unit of Work</h2>
+<p>React Fiber resolves this bottleneck by turning the call stack into a
+linked-list-based tree of JavaScript objects called
+<strong>Fibers</strong>. Each fiber corresponds to a component or DOM
+node and stores:</p>
+<ul>
+<li>The component's state and props.</li>
+<li>Pointers to its parent (<code>return</code>), first child
+(<code>child</code>), and immediate sibling (<code>sibling</code>).</li>
+<li>A pointer to its alternate version used in the double-buffering
+pattern (<code>alternate</code>).</li>
+<li>A priority representation indicating the urgency of pending updates
+(<code>lanes</code> and <code>childLanes</code>).</li>
+</ul>
+<p>Because fibers are linked explicitly via pointers rather than relying
+on the JavaScript execution call stack, React can stop executing after
+completing work on any individual fiber node, yield execution back to
+the browser, and resume traversing the linked list later.</p>
+<h2 id="the-two-phases-render-vs-commit">The Two Phases: Render vs.
+Commit</h2>
+<p>To manage priorities safely, Fiber divides reconciliation into two
+distinct phases:</p>
+<ol type="1">
+<li><strong>The Render Phase (Concurrent &amp; Interruptible):</strong>
+React traverses the fiber tree using the <code>workLoopConcurrent</code>
+function, computing changes, running lifecycle methods or hooks, and
+building a list of mutations (effects). Because no actual DOM mutations
+occur during this phase, it can be paused, thrown away, or restarted at
+a higher priority if a more critical update arrives.</li>
+<li><strong>The Commit Phase (Synchronous &amp;
+Non-interruptible):</strong> Once the render phase finishes, React
+applies all calculated changes to the real DOM in a single, unbroken
+pass. This prevents users from seeing half-rendered, inconsistent UI
+states.</li>
+</ol>
+<h2 id="the-lanes-model-classifying-urgency">The Lanes Model:
+Classifying Urgency</h2>
+<p>React historically used simple timestamps ("expiration times") to
+manage priority, but modern Fiber uses a fine-grained bitmask system
+called <strong>Lanes</strong>.</p>
+<p>Each lane represents a 32-bit integer where individual bits
+correspond to different types and sources of updates. Using bitwise
+operators, React can check, merge, and clear update groups with high
+computational efficiency. The primary priority categories include:</p>
+<ul>
+<li><strong>SyncLane / InputContinuousLane:</strong> Discrete and
+continuous user interactions (e.g., typing in a text field, clicking, or
+dragging). These updates require immediate feedback within a 16ms frame
+boundary.</li>
+<li><strong>DefaultLane:</strong> Standard data updates, such as
+responses from network requests or non-interactive state changes.</li>
+<li><strong>TransitionLane:</strong> Updates wrapped in
+<code>startTransition</code> or <code>useTransition</code>. These
+represent non-urgent UI transitions, such as switching tabs or filtering
+large lists, where waiting for content is acceptable.</li>
+<li><strong>IdleLane:</strong> Low-priority background tasks, such as
+offscreen component pre-rendering or analytics logging.</li>
+</ul>
+<h2 id="time-slicing-and-the-scheduler">Time-Slicing and the
+Scheduler</h2>
+<p>Prioritization works hand-in-hand with React’s internal
+<strong>Scheduler</strong> package. The Scheduler implements cooperative
+multitasking via browser APIs such as <code>MessageChannel</code> and
+<code>performance.now()</code>.</p>
+<ol type="1">
+<li><strong>Time Slicing:</strong> React divides work into small slices,
+typically targeting a deadline of around 5 milliseconds.</li>
+<li><strong>Yield Check:</strong> During the render phase, after
+processing each fiber node, React checks
+<code>shouldYieldToHost()</code>. If the 5ms allocation has elapsed,
+React pauses rendering and yields the main thread to let the browser
+handle pending paint tasks, style calculations, or user inputs.</li>
+<li><strong>Scheduling a Continuation:</strong> React schedules a
+callback via the Scheduler to resume processing the remaining fibers
+once the browser is idle.</li>
+</ol>
+<h2 id="preemption-in-action">Preemption in Action</h2>
+<p>The true power of the Fiber prioritization model is
+<strong>preemption</strong>—the ability for an urgent task to interrupt
+a lower-priority task currently in progress.</p>
+<p>When a high-priority event occurs (e.g., a user types into an input
+field) while React is mid-way through rendering a low-priority
+transition (e.g., filtering a 10,000-row table):</p>
+<ol type="1">
+<li>React registers the incoming input update under
+<code>SyncLane</code>.</li>
+<li>During the next yield check in the work loop, React notices that the
+newly scheduled lane has a higher priority than the currently active
+render lane.</li>
+<li>React immediately pauses the low-priority render phase.</li>
+<li>React switches context and processes the high-priority update
+immediately, rendering and committing the input change to the
+screen.</li>
+<li>Once the main thread is clear of high-priority work, React either
+resumes the low-priority work or discards it and restarts from the
+beginning if the state changed in a way that invalidated the previous
+work.</li>
+</ol>
+<p>Through this combination of linked-list fiber structures, the Lanes
+priority bitmask, and time-sliced scheduling, React Fiber ensures that
+JavaScript rendering workloads never block critical user
+interactions.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

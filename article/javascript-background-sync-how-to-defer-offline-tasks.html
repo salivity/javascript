@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Background Sync: How to Defer Offline Tasks - javascript</title>
+    <meta name="description" content="Background Sync is a web API that enables web applications to defer actions and network requests until a user has a stable internet connection. By combining Service Workers with the Background Sync API, developers can ensure that user actions—such as s">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-background-sync-how-to-defer-offline-tasks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Background Sync: How to Defer Offline Tasks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-background-sync-how-to-defer-offline-tasks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Background Sync is a web API that enables web applications to defer actions and network requests until a user has a stable internet connection. By combining Service Workers with the Background Sync API, developers can ensure that user actions—such as s" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="javascript-background-sync-how-to-defer-offline-tasks">JavaScript
+Background Sync: How to Defer Offline Tasks</h1>
+<p>Background Sync is a web API that enables web applications to defer
+actions and network requests until a user has a stable internet
+connection. By combining Service Workers with the Background Sync API,
+developers can ensure that user actions—such as sending a chat message,
+submitting a form, or uploading data—are not lost when connectivity
+drops. This article explains what the Background Sync API is, how it
+operates under the hood, and how to implement it in JavaScript to
+reliably handle offline tasks.</p>
+<h2 id="understanding-the-background-sync-api">Understanding the
+Background Sync API</h2>
+<p>The Background Sync API is built on top of Service Workers. Unlike
+standard <code>fetch</code> requests triggered from the main browser
+thread, background sync operations run in the background inside a
+Service Worker.</p>
+<p>When a user performs an action while offline, the application
+registers a "sync tag" with the Service Worker. Even if the user
+navigates away from the page or closes the browser tab, the browser
+retains this sync registration. As soon as the device detects that
+internet connectivity has been restored, the browser wakes up the
+Service Worker and fires the <code>sync</code> event, allowing the
+queued requests to be processed automatically.</p>
+<h2 id="how-javascript-implements-background-sync">How JavaScript
+Implements Background Sync</h2>
+<p>Implementing background sync involves a three-step workflow: storing
+the offline data locally, registering a sync event in the main script,
+and handling the sync event inside the Service Worker.</p>
+<h3 id="1-storing-offline-data-locally">1. Storing Offline Data
+Locally</h3>
+<p>Since the page might be closed before connectivity returns, any
+payload (such as form data) must be persisted in an offline-accessible
+storage mechanism, typically <strong>IndexedDB</strong>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example: Storing an action in IndexedDB</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">saveTaskForSync</span>(taskData) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="cf">await</span> <span class="fu">openDatabase</span>()<span class="op">;</span> <span class="co">// Open your IndexedDB instance</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> tx <span class="op">=</span> db<span class="op">.</span><span class="fu">transaction</span>(<span class="st">&#39;outbox&#39;</span><span class="op">,</span> <span class="st">&#39;readwrite&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> tx<span class="op">.</span><span class="fu">objectStore</span>(<span class="st">&#39;outbox&#39;</span>)<span class="op">.</span><span class="fu">add</span>(taskData)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> tx<span class="op">.</span><span class="at">done</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-registering-the-sync-event-from-the-main-thread">2.
+Registering the Sync Event from the Main Thread</h3>
+<p>Once the data is saved in IndexedDB, the client registers a sync
+event using the Service Worker registration.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">requestSync</span>(tag) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="st">&#39;serviceWorker&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span> <span class="op">&amp;&amp;</span> <span class="st">&#39;SyncManager&#39;</span> <span class="kw">in</span> <span class="bu">window</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> registration <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">serviceWorker</span><span class="op">.</span><span class="at">ready</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> registration<span class="op">.</span><span class="at">sync</span><span class="op">.</span><span class="fu">register</span>(tag)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fallback for browsers that do not support the Background Sync API</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sendDataDirectly</span>()<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-listening-for-the-sync-event-in-the-service-worker">3.
+Listening for the Sync Event in the Service Worker</h3>
+<p>Inside the <code>sw.js</code> (Service Worker file), you listen for
+the <code>sync</code> event. When triggered, retrieve the pending items
+from IndexedDB and send them to the server.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;sync&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">tag</span> <span class="op">===</span> <span class="st">&#39;sync-messages&#39;</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="fu">waitUntil</span>(<span class="fu">sendPendingMessages</span>())<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">sendPendingMessages</span>() {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> db <span class="op">=</span> <span class="cf">await</span> <span class="fu">openDatabase</span>()<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> messages <span class="op">=</span> <span class="cf">await</span> db<span class="op">.</span><span class="fu">getAll</span>(<span class="st">&#39;outbox&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> message <span class="kw">of</span> messages) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/send-message&#39;</span><span class="op">,</span> {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">method</span><span class="op">:</span> <span class="st">&#39;POST&#39;</span><span class="op">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">headers</span><span class="op">:</span> { <span class="st">&#39;Content-Type&#39;</span><span class="op">:</span> <span class="st">&#39;application/json&#39;</span> }<span class="op">,</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">body</span><span class="op">:</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(message)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (response<span class="op">.</span><span class="at">ok</span>) {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Remove successfully sent message from IndexedDB</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">await</span> db<span class="op">.</span><span class="fu">delete</span>(<span class="st">&#39;outbox&#39;</span><span class="op">,</span> message<span class="op">.</span><span class="at">id</span>)<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>      } <span class="cf">else</span> {</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Throw an error to signal the sync should be retried later</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&#39;Server responded with an error&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">catch</span> (error) {</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Re-throwing causes the browser to schedule another sync attempt</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> error<span class="op">;</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="retry-mechanism-and-resilience">Retry Mechanism and
+Resilience</h2>
+<p>The <code>event.waitUntil()</code> method is critical to background
+sync. It takes a Promise and tells the browser not to terminate the
+Service Worker until the operation completes.</p>
+<p>If the network drops mid-request or the server returns a failure, the
+Promise passed to <code>event.waitUntil()</code> rejects. The browser
+recognizes this failure and automatically reschedules the sync event to
+retry after a short backoff period.</p>
+<h2 id="fallback-strategies">Fallback Strategies</h2>
+<p>For browsers that do not support the Background Sync API (such as
+Safari and Firefox), applications should implement a fallback mechanism.
+The standard approach uses the
+<code>window.addEventListener('online', ...)</code> event listener in
+the main execution thread to detect restored connectivity and
+immediately flush any queued tasks stored in IndexedDB.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

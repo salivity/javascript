@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Tail Call Elimination Prevents Stack Overflow - javascript</title>
+    <meta name="description" content="Tail call elimination (TCE), also referred to as proper tail calls (PTC), prevents stack overflow errors in JavaScript by reusing the current function's execution stack frame instead of creating a new one for recursive operations. In traditional recursiv">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-tail-call-elimination-prevents-stack-overflow">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Tail Call Elimination Prevents Stack Overflow - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-tail-call-elimination-prevents-stack-overflow" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tail call elimination (TCE), also referred to as proper tail calls (PTC), prevents stack overflow errors in JavaScript by reusing the current function's execution stack frame instead of creating a new one for recursive operations. In traditional recursiv" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-tail-call-elimination-prevents-stack-overflow">How Tail Call
+Elimination Prevents Stack Overflow</h1>
+<p>Tail call elimination (TCE), also referred to as proper tail calls
+(PTC), prevents stack overflow errors in JavaScript by reusing the
+current function's execution stack frame instead of creating a new one
+for recursive operations. In traditional recursive functions, every
+nested call adds a new frame to the call stack, which eventually exceeds
+the maximum stack size and crashes the program. By ensuring the
+recursive call is the absolute final action in a function, JavaScript
+engines that support tail call optimization can overwrite the existing
+frame, keeping the call stack at a constant size of <span
+class="math inline">\(O(1)\)</span> memory.</p>
+<h3 id="the-call-stack-and-stack-overflow">The Call Stack and Stack
+Overflow</h3>
+<p>When a JavaScript engine executes a function, it allocates a chunk of
+memory called a stack frame. This frame stores local variables,
+arguments, and the return address. In standard recursive calls, each
+call must wait for the subsequent call to complete before it can
+evaluate its own return value.</p>
+<p>Consider a standard recursive factorial implementation:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">factorial</span>(n) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&lt;=</span> <span class="dv">1</span>) <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> n <span class="op">*</span> <span class="fu">factorial</span>(n <span class="op">-</span> <span class="dv">1</span>)<span class="op">;</span> <span class="co">// Not a tail call: multiplication happens after the call returns</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Because the engine must perform <code>n * result</code> after
+<code>factorial(n - 1)</code> finishes, each frame must stay on the
+stack. For large inputs (e.g., <code>factorial(100000)</code>),
+thousands of frames accumulate, exceeding the browser or runtime memory
+limits and triggering a
+<code>RangeError: Maximum call stack size exceeded</code>.</p>
+<h3 id="what-constitutes-a-tail-call">What Constitutes a Tail Call</h3>
+<p>A function call is in the "tail position" if it is the very last
+operation evaluated before the function returns. No additional
+computation or variable retention can occur after the call.</p>
+<p>To enable tail call optimization, the factorial function must be
+refactored to pass the intermediate state via an accumulator
+argument:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;use strict&quot;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">factorial</span>(n<span class="op">,</span> accumulator <span class="op">=</span> <span class="dv">1</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&lt;=</span> <span class="dv">1</span>) <span class="cf">return</span> accumulator<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">factorial</span>(n <span class="op">-</span> <span class="dv">1</span><span class="op">,</span> n <span class="op">*</span> accumulator)<span class="op">;</span> <span class="co">// Proper tail call</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>In this version, the engine needs no data from the current function
+frame once it invokes <code>factorial(n - 1, ...)</code>. The return
+value of the inner call becomes directly the return value of the outer
+call.</p>
+<h3 id="how-tail-call-elimination-prevents-errors">How Tail Call
+Elimination Prevents Errors</h3>
+<p>When the JavaScript engine recognizes a proper tail call under strict
+mode (<code>"use strict"</code>), it applies tail call elimination
+through the following mechanism:</p>
+<ol type="1">
+<li><strong>Stack Frame Deallocation:</strong> Instead of creating a new
+frame on top of the call stack, the engine clears the local variables
+and state of the active frame.</li>
+<li><strong>Frame Reutilization:</strong> The engine writes the new
+arguments into the existing frame and jumps back to the start of the
+function.</li>
+<li><strong>Constant Space Complexity:</strong> The memory footprint
+remains <span class="math inline">\(O(1)\)</span> regardless of whether
+the recursion depth is 10 or 10,000,000 iterations.</li>
+</ol>
+<p>Because the stack size never grows beyond a single frame for the
+recursive loop, the memory threshold is never reached, entirely
+eliminating stack overflow errors.</p>
+<h3 id="requirements-and-engine-support">Requirements and Engine
+Support</h3>
+<p>Under the ECMAScript 2015 (ES6) specification, Proper Tail Calls are
+standard behavior, but they depend on specific conditions:</p>
+<ul>
+<li><strong>Strict Mode:</strong> Functions must execute in strict mode
+(<code>"use strict"</code>) to ensure access to legacy call stack
+properties like <code>arguments.callee</code> and
+<code>function.caller</code> is restricted, as TCE removes intermediate
+frames from the stack trace.</li>
+<li><strong>Engine Implementation:</strong> WebKit (Safari) fully
+supports Proper Tail Calls natively. Other engines, such as Google's V8
+(Chrome, Node.js), have historically deferred default implementation due
+to debugging complexities in stack traces, often requiring alternative
+design patterns like trampolines or traditional iteration in
+non-supporting environments.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

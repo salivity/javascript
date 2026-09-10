@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache API in JavaScript Service Workers for Offline Use - javascript</title>
+    <meta name="description" content="The Cache API provides a persistent storage mechanism in modern browsers that allows service workers to intercept network traffic and save Request/Response object pairs. By decoupling resource delivery from an active internet connection, developers can s">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/cache-api-in-javascript-service-workers-for-offline-use">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Cache API in JavaScript Service Workers for Offline Use - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/cache-api-in-javascript-service-workers-for-offline-use" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Cache API provides a persistent storage mechanism in modern browsers that allows service workers to intercept network traffic and save Request/Response object pairs. By decoupling resource delivery from an active internet connection, developers can s" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="cache-api-in-javascript-service-workers-for-offline-use">Cache
+API in JavaScript Service Workers for Offline Use</h1>
+<p>The Cache API provides a persistent storage mechanism in modern
+browsers that allows service workers to intercept network traffic and
+save Request/Response object pairs. By decoupling resource delivery from
+an active internet connection, developers can store critical assets such
+as HTML, CSS, JavaScript files, and API data directly on the client's
+device, enabling web applications to load instantly and function
+completely offline.</p>
+<h3 id="the-request-and-response-storage-model">The Request and Response
+Storage Model</h3>
+<p>Unlike traditional HTTP caching mechanisms governed by HTTP headers,
+the Cache API is fully programmable via JavaScript. It acts as a
+key-value store where the key is a <code>Request</code> object (or a URL
+string) and the value is a <code>Response</code> object.</p>
+<p>Because the storage is tied to the origin of the web application,
+service workers operate inside an isolated sandbox, ensuring cached
+network assets are securely segregated per domain.</p>
+<h3 id="opening-and-creating-caches">Opening and Creating Caches</h3>
+<p>To store data, a service worker first opens a named cache using the
+global <code>caches.open()</code> method. If the specified cache does
+not exist, the browser automatically creates it.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CACHE_NAME <span class="op">=</span> <span class="st">&#39;app-shell-v1&#39;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;install&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">waitUntil</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    caches<span class="op">.</span><span class="fu">open</span>(CACHE_NAME)<span class="op">.</span><span class="fu">then</span>((cache) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> cache<span class="op">.</span><span class="fu">addAll</span>([</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;/&#39;</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;/index.html&#39;</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;/styles/main.css&#39;</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;/scripts/app.js&#39;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      ])<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>The <code>cache.addAll()</code> method accepts an array of URLs,
+fetches them across the network, and automatically saves the resulting
+<code>Response</code> objects into the cache upon completion.</p>
+<h3 id="dynamic-caching-with-cacheput">Dynamic Caching with
+<code>cache.put()</code></h3>
+<p>When handling runtime traffic, service workers intercept fetch events
+and store responses dynamically using the <code>cache.put()</code>
+method.</p>
+<p>Because <code>Response</code> bodies are readable streams that can
+only be read once, the response must be cloned using
+<code>response.clone()</code> before saving it to the cache if it is
+also being returned to the browser.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>self<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;fetch&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">event</span><span class="op">.</span><span class="fu">respondWith</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    caches<span class="op">.</span><span class="fu">match</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span>)<span class="op">.</span><span class="fu">then</span>((cachedResponse) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (cachedResponse) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> cachedResponse<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="fu">fetch</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span>)<span class="op">.</span><span class="fu">then</span>((networkResponse) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>networkResponse <span class="op">||</span> networkResponse<span class="op">.</span><span class="at">status</span> <span class="op">!==</span> <span class="dv">200</span> <span class="op">||</span> networkResponse<span class="op">.</span><span class="at">type</span> <span class="op">!==</span> <span class="st">&#39;basic&#39;</span>) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>          <span class="cf">return</span> networkResponse<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> responseToCache <span class="op">=</span> networkResponse<span class="op">.</span><span class="fu">clone</span>()<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        caches<span class="op">.</span><span class="fu">open</span>(CACHE_NAME)<span class="op">.</span><span class="fu">then</span>((cache) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>          cache<span class="op">.</span><span class="fu">put</span>(<span class="bu">event</span><span class="op">.</span><span class="at">request</span><span class="op">,</span> responseToCache)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> networkResponse<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="retrieving-cached-responses-offline">Retrieving Cached Responses
+Offline</h3>
+<p>When a user triggers a network request, the service worker's
+<code>fetch</code> event listener intercepts it. The
+<code>caches.match()</code> method evaluates whether the incoming
+<code>event.request</code> matches an existing entry in the cache.</p>
+<p>If a match is found, <code>caches.match()</code> resolves with the
+cached <code>Response</code> object without making a network call. If no
+match is found, the request falls back to the network using
+<code>fetch()</code>. If the user is offline and the asset has been
+cached, the application serves the saved response seamlessly.</p>
+<h3 id="cache-maintenance-and-cleanup">Cache Maintenance and
+Cleanup</h3>
+<p>Because cached data persists indefinitely until manually cleared or
+purged by the browser under extreme storage pressure, service workers
+use the <code>activate</code> event to remove outdated caches. By
+comparing existing cache keys against the current version, obsolete
+assets are deleted using <code>caches.delete()</code>, ensuring the user
+does not consume stale resources.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

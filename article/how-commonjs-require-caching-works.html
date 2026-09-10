@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How CommonJS Require Caching Works - javascript</title>
+    <meta name="description" content="In Node.js and CommonJS environments, the require() function automatically caches loaded modules to optimize performance and maintain consistent state across an application. When a file is imported for the first time, Node.js resolves its absolute file p">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-commonjs-require-caching-works">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How CommonJS Require Caching Works - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-commonjs-require-caching-works" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In Node.js and CommonJS environments, the require() function automatically caches loaded modules to optimize performance and maintain consistent state across an application. When a file is imported for the first time, Node.js resolves its absolute file p" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-commonjs-require-caching-works">How CommonJS Require Caching
+Works</h1>
+<p>In Node.js and CommonJS environments, the <code>require()</code>
+function automatically caches loaded modules to optimize performance and
+maintain consistent state across an application. When a file is imported
+for the first time, Node.js resolves its absolute file path, reads the
+file, executes its code, and stores the resulting
+<code>module.exports</code> object in an internal cache object called
+<code>require.cache</code>. Subsequent <code>require()</code> calls for
+the exact same file skip the evaluation step entirely and instantly
+return the already cached exports.</p>
+<h3 id="the-initial-require-sequence">The Initial <code>require()</code>
+Sequence</h3>
+<p>When you invoke <code>require('./myModule')</code> for the first
+time, Node.js executes the following steps:</p>
+<ol type="1">
+<li><strong>Resolution:</strong> Node.js resolves the relative path to
+an absolute file path on the file system (e.g.,
+<code>/app/src/myModule.js</code>).</li>
+<li><strong>Cache Check:</strong> Node.js checks
+<code>require.cache</code> to see if a key corresponding to this
+absolute path exists.</li>
+<li><strong>Module Loading and Execution:</strong> Since the cache is
+empty for this path, Node.js instantiates a new <code>Module</code>
+object, wraps the module's code in a wrapper function to provide local
+variables like <code>exports</code>, <code>require</code>,
+<code>module</code>, <code>__filename</code>, and
+<code>__dirname</code>, and executes it.</li>
+<li><strong>Caching:</strong> The populated <code>Module</code> instance
+is stored inside <code>require.cache[resolvedPath]</code>.</li>
+<li><strong>Return Value:</strong> The value of
+<code>module.exports</code> is returned to the caller.</li>
+</ol>
+<h3 id="how-subsequent-requests-are-handled">How Subsequent Requests Are
+Handled</h3>
+<p>When another file or the same file executes
+<code>require('./myModule')</code> later in the application lifecycle,
+Node.js follows a fast-path lookup:</p>
+<ol type="1">
+<li><strong>Path Resolution:</strong> The path is resolved to the
+absolute path (<code>/app/src/myModule.js</code>).</li>
+<li><strong>Cache Lookup:</strong> Node.js checks
+<code>require.cache[resolvedPath]</code>.</li>
+<li><strong>Immediate Return:</strong> Finding an existing entry,
+Node.js immediately returns
+<code>require.cache[resolvedPath].exports</code> without reading the
+file from the disk or executing the module code again.</li>
+</ol>
+<p>Because the code is not re-executed, any top-level side effects (such
+as logging to the console, initializing database connections, or
+configuring instances) only run once.</p>
+<h3 id="key-implications-of-commonjs-caching">Key Implications of
+CommonJS Caching</h3>
+<h4 id="1-modules-act-as-singletons">1. Modules Act as Singletons</h4>
+<p>Because the exact same <code>module.exports</code> reference is
+shared across all subsequent imports, CommonJS modules act as singletons
+by default. If one file mutates a property on an exported object, all
+other files requiring that same module will see the mutation.</p>
+<h4 id="2-exact-path-resolution-defines-the-cache-key">2. Exact Path
+Resolution Defines the Cache Key</h4>
+<p>The cache is keyed by the fully resolved, canonical file path. If two
+different files require a module using different relative paths (such as
+<code>require('../utils')</code> vs <code>require('./utils')</code>),
+both resolve to the same absolute path and point to the identical cache
+entry. However, if symlinks or case-insensitive file systems cause the
+paths to resolve to different strings, Node.js may treat them as
+separate modules.</p>
+<h4 id="3-handling-circular-dependencies">3. Handling Circular
+Dependencies</h4>
+<p>When module A requires module B, and module B requires module A, the
+caching mechanism prevents infinite loops. When module B requests module
+A, Node.js returns the current (possibly incomplete)
+<code>module.exports</code> object stored in <code>require.cache</code>
+before module A has finished its execution.</p>
+<h3 id="manually-manipulating-requirecache">Manually Manipulating
+<code>require.cache</code></h3>
+<p>The cache is exposed directly to developers as a plain JavaScript
+object via <code>require.cache</code>. It is possible to inspect or
+invalidate the cache programmatically:</p>
+<ul>
+<li><strong>Inspecting the Cache:</strong> You can view the cached
+module object using
+<code>require.cache[require.resolve('./myModule')]</code>.</li>
+<li><strong>Invalidating the Cache:</strong> Deleting an entry via
+<code>delete require.cache[require.resolve('./myModule')]</code> forces
+Node.js to re-read and re-evaluate the file on the next
+<code>require()</code> call. This technique is commonly used in testing
+environments and development hot-reloading tools.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

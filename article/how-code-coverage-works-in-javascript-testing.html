@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Code Coverage Works in JavaScript Testing - javascript</title>
+    <meta name="description" content="Code coverage measurement in JavaScript testing frameworks calculates the percentage of your source code executed during automated tests. This article explains the underlying mechanics of how coverage tools track your code, detailing the processes of cod">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-code-coverage-works-in-javascript-testing">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Code Coverage Works in JavaScript Testing - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-code-coverage-works-in-javascript-testing" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Code coverage measurement in JavaScript testing frameworks calculates the percentage of your source code executed during automated tests. This article explains the underlying mechanics of how coverage tools track your code, detailing the processes of cod" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-code-coverage-works-in-javascript-testing">How Code Coverage
+Works in JavaScript Testing</h1>
+<p>Code coverage measurement in JavaScript testing frameworks calculates
+the percentage of your source code executed during automated tests. This
+article explains the underlying mechanics of how coverage tools track
+your code, detailing the processes of code instrumentation, runtime data
+collection, metrics calculation (statements, branches, functions, and
+lines), and final report mapping using modern tools like Istanbul and
+the V8 engine.</p>
+<h2 id="the-two-main-approaches-to-javascript-code-coverage">The Two
+Main Approaches to JavaScript Code Coverage</h2>
+<p>JavaScript testing frameworks typically rely on one of two methods to
+measure coverage: Abstract Syntax Tree (AST) instrumentation or native
+runtime profiling.</p>
+<h3 id="1-ast-based-instrumentation-eg-istanbulnyc">1. AST-Based
+Instrumentation (e.g., Istanbul/NYC)</h3>
+<p>AST instrumentation is the traditional and most widely used method in
+JavaScript. It modifies the source code before execution to insert
+tracking mechanisms.</p>
+<ol type="1">
+<li><strong>Parsing to AST:</strong> The coverage tool reads the
+original JavaScript code and parses it into an Abstract Syntax Tree
+(AST) using parsers like Babel or Acorn.</li>
+<li><strong>Injecting Counters:</strong> The tool traverses the AST and
+injects counter variables around every statement, function, and branch.
+It also initializes a global tracking object (such as
+<code>__coverage__</code>) at the top of the file.</li>
+<li><strong>Execution:</strong> The test runner (Jest, Mocha, Vitest)
+executes the instrumented code. Whenever a line, branch, or function
+executes, its corresponding counter in the global object
+increments.</li>
+<li><strong>Source Mapping:</strong> Because the code was altered, the
+coverage tool uses source maps to correlate execution counters back to
+the exact lines in the original source files.</li>
+</ol>
+<h4 id="example-of-code-instrumentation">Example of Code
+Instrumentation</h4>
+<p>Original code:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">isPositive</span>(n) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Instrumented code representation:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> coverageData <span class="op">=</span> (<span class="bu">global</span><span class="op">.</span><span class="at">__coverage__</span> <span class="op">=</span> <span class="bu">global</span><span class="op">.</span><span class="at">__coverage__</span> <span class="op">||</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">functions</span><span class="op">:</span> [<span class="dv">0</span>]<span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">statements</span><span class="op">:</span> [<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>]<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">branches</span><span class="op">:</span> [<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>]<span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">isPositive</span>(n) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  coverageData<span class="op">.</span><span class="at">functions</span>[<span class="dv">0</span>]<span class="op">++;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  coverageData<span class="op">.</span><span class="at">statements</span>[<span class="dv">0</span>]<span class="op">++;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    coverageData<span class="op">.</span><span class="at">branches</span>[<span class="dv">0</span>]<span class="op">++;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    coverageData<span class="op">.</span><span class="at">statements</span>[<span class="dv">1</span>]<span class="op">++;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    coverageData<span class="op">.</span><span class="at">branches</span>[<span class="dv">1</span>]<span class="op">++;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  coverageData<span class="op">.</span><span class="at">statements</span>[<span class="dv">2</span>]<span class="op">++;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-native-runtime-profiling-v8-coverage">2. Native Runtime
+Profiling (V8 Coverage)</h3>
+<p>Modern tools (such as native Node.js coverage and Vitest) can
+leverage the built-in profiling capabilities of the V8 JavaScript
+engine.</p>
+<ol type="1">
+<li><strong>Inspector Protocol:</strong> The test runner enables V8's
+native code coverage via the Node.js Inspector API
+(<code>Profiler.startPreciseCoverage</code>).</li>
+<li><strong>Bytecode Tracking:</strong> The V8 engine tracks which
+bytecode offsets are executed directly in memory during execution
+without modifying the source files.</li>
+<li><strong>Offset Mapping:</strong> After the tests finish, the runner
+retrieves raw function-level and block-level byte offsets and uses
+source maps to map them back to the original source positions.</li>
+</ol>
+<p>Native V8 coverage is significantly faster than AST instrumentation
+because it avoids the overhead of parsing, modifying, and re-evaluating
+the entire codebase.</p>
+<h2 id="the-four-core-coverage-metrics">The Four Core Coverage
+Metrics</h2>
+<p>JavaScript coverage tools calculate four standard criteria to measure
+test completeness:</p>
+<ul>
+<li><strong>Statement Coverage:</strong> Measures whether each
+independent executable statement in the code was executed at least
+once.</li>
+<li><strong>Function Coverage:</strong> Measures whether each declared
+function or method was called during the test run.</li>
+<li><strong>Branch Coverage:</strong> Measures whether each path in a
+control structure (such as both <code>true</code> and <code>false</code>
+paths of an <code>if</code> statement, ternary operators, or
+<code>switch</code> cases) was taken.</li>
+<li><strong>Line Coverage:</strong> Measures the percentage of physical
+lines containing executable code that were touched by the test
+suite.</li>
+</ul>
+<h2 id="generating-the-final-report">Generating the Final Report</h2>
+<p>Once all test suites complete execution, the testing framework
+aggregates the collected data:</p>
+<ol type="1">
+<li><strong>Aggregation:</strong> If tests were run across multiple
+worker threads or processes, the framework merges their individual
+coverage objects into a single global dataset.</li>
+<li><strong>Exclusions:</strong> The tool filters out ignored files
+specified by configuration, such as test files, build outputs, or files
+marked with ignore comments (e.g.,
+<code>/* istanbul ignore next */</code>).</li>
+<li><strong>Formatting:</strong> The combined dataset is passed to
+reporters that output human-readable formats (such as HTML dashboards)
+or machine-readable formats (such as LCOV, Cobertura, or JSON) for
+integration into CI/CD pipelines.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

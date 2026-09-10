@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript eval and Function Constructor Security Risks - javascript</title>
+    <meta name="description" content="JavaScript provides dynamic execution mechanisms through the eval() function and the Function constructor, enabling programs to evaluate text strings as executable code at runtime. While these tools offer runtime flexibility, they introduce critical secu">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-eval-and-function-constructor-security-risks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript eval and Function Constructor Security Risks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-eval-and-function-constructor-security-risks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript provides dynamic execution mechanisms through the eval() function and the Function constructor, enabling programs to evaluate text strings as executable code at runtime. While these tools offer runtime flexibility, they introduce critical secu" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="javascript-eval-and-function-constructor-security-risks">JavaScript
+eval and Function Constructor Security Risks</h1>
+<p>JavaScript provides dynamic execution mechanisms through the
+<code>eval()</code> function and the <code>Function</code> constructor,
+enabling programs to evaluate text strings as executable code at
+runtime. While these tools offer runtime flexibility, they introduce
+critical security vulnerabilities, significant performance degradation,
+scope pollution, and maintainability issues. This article examines the
+primary risks associated with <code>eval()</code> and the
+<code>Function</code> constructor, details how they impact application
+stability, and provides secure modern alternatives.</p>
+<h3 id="severe-security-vulnerabilities-code-injection">Severe Security
+Vulnerabilities (Code Injection)</h3>
+<p>The most dangerous aspect of <code>eval()</code> and
+<code>new Function()</code> is their susceptibility to arbitrary code
+execution and Cross-Site Scripting (XSS). If any part of the string
+passed into these functions includes unescaped or unsanitized user
+input, an attacker can inject malicious JavaScript.</p>
+<p>When an attacker executes code within your application's context,
+they can:</p>
+<ul>
+<li>Access and exfiltrate sensitive data, including authentication
+tokens, cookies, and local storage.</li>
+<li>Perform unauthorized API requests on behalf of the user.</li>
+<li>Modify the DOM to display phishing interfaces or malicious
+redirects.</li>
+</ul>
+<p>While the <code>Function</code> constructor only executes in the
+global scope (unlike <code>eval()</code>, which can access local scope),
+it remains equally vulnerable to malicious payload execution.</p>
+<h3 id="performance-penalties">Performance Penalties</h3>
+<p>Modern JavaScript engines, such as V8, optimize code execution
+through Just-In-Time (JIT) compilation. The engine analyzes code
+structure ahead of time to predict variable types and optimize
+lookups.</p>
+<p>Using <code>eval()</code> or the <code>Function</code> constructor
+disables these optimizations:</p>
+<ul>
+<li><strong>De-optimization:</strong> The engine cannot predict what
+dynamic code will do, forcing it to fall back to slower, interpreted
+execution.</li>
+<li><strong>Scope Invalidation:</strong> <code>eval()</code> can
+introduce new variables into the enclosing scope at runtime, forcing the
+JavaScript engine to perform expensive dynamic variable lookups instead
+of utilizing direct memory offsets.</li>
+</ul>
+<h3 id="scope-pollution-and-unintended-side-effects">Scope Pollution and
+Unintended Side Effects</h3>
+<p>Direct execution of <code>eval()</code> runs within the local lexical
+scope where it is called. This means dynamic strings can inadvertently
+or maliciously read, reassign, or mutate existing local variables.</p>
+<p>While the <code>Function</code> constructor avoids local scope access
+by always evaluating code in the global scope, it still poses a risk of
+modifying or polluting global objects and functions, leading to
+hard-to-track side effects and race conditions across the
+application.</p>
+<h3 id="debugging-tooling-and-maintenance-obstacles">Debugging, Tooling,
+and Maintenance Obstacles</h3>
+<p>Dynamic code evaluation breaks the developer workflow and automated
+tooling:</p>
+<ul>
+<li><strong>Static Analysis Failures:</strong> Linters, TypeScript
+compilers, and minifiers cannot analyze code encapsulated in strings.
+Dead-code elimination (tree-shaking) will not work properly.</li>
+<li><strong>Obfuscated Stack Traces:</strong> Errors thrown from inside
+<code>eval()</code> or dynamic functions often lack accurate line
+numbers, file references, or source mapping, making debugging
+exceptionally difficult.</li>
+<li><strong>Content Security Policy (CSP) Restrictions:</strong> Secure
+environments typically block dynamic string evaluation entirely via CSP
+directives like <code>script-src 'self'</code>. Using
+<code>eval()</code> will cause scripts to fail outright under standard
+security policies.</li>
+</ul>
+<h3 id="safe-alternatives-to-dynamic-evaluation">Safe Alternatives to
+Dynamic Evaluation</h3>
+<p>Most legacy use cases for dynamic code execution have modern, secure
+replacements:</p>
+<ul>
+<li><strong>Parsing Data:</strong> Use <code>JSON.parse()</code> instead
+of evaluating JSON-like strings. <code>JSON.parse()</code> only accepts
+valid JSON syntax and will not execute arbitrary JavaScript.</li>
+<li><strong>Accessing Dynamic Properties:</strong> Use bracket notation
+(<code>object[propertyName]</code>) instead of evaluating dynamic
+property paths.</li>
+<li><strong>Mathematical Expressions:</strong> Use dedicated math
+parsing libraries that parse and interpret tokens safely rather than
+passing equations directly to <code>eval()</code>.</li>
+<li><strong>Isolated Execution:</strong> If running user-submitted code
+is a hard requirement, run it inside a strictly sandboxed environment,
+such as a secure Web Worker, an isolated <code>&lt;iframe&gt;</code>
+with restricted permissions, or a server-side container.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

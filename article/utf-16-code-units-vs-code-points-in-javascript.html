@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTF-16 Code Units vs Code Points in JavaScript - javascript</title>
+    <meta name="description" content="JavaScript internally encodes strings as sequences of 16-bit UTF-16 code units. This architectural design means that while characters within the Basic Multilingual Plane (BMP) map directly to a single code unit, supplementary characters—such as emojis,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/utf-16-code-units-vs-code-points-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="UTF-16 Code Units vs Code Points in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/utf-16-code-units-vs-code-points-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript internally encodes strings as sequences of 16-bit UTF-16 code units. This architectural design means that while characters within the Basic Multilingual Plane (BMP) map directly to a single code unit, supplementary characters—such as emojis," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="utf-16-code-units-vs-code-points-in-javascript">UTF-16 Code
+Units vs Code Points in JavaScript</h1>
+<p>JavaScript internally encodes strings as sequences of 16-bit UTF-16
+code units. This architectural design means that while characters within
+the Basic Multilingual Plane (BMP) map directly to a single code unit,
+supplementary characters—such as emojis, mathematical symbols, and
+historical scripts—require two code units, known as a surrogate pair.
+This article explores how JavaScript distinguishes between UTF-16 code
+units and Unicode code points, the common pitfalls with legacy string
+methods, and the modern features designed to handle full Unicode
+accurately.</p>
+<h2 id="code-units-vs-code-points-the-core-difference">Code Units vs.
+Code Points: The Core Difference</h2>
+<p>A <strong>Unicode code point</strong> is a numerical value assigned
+to a specific abstract character in the Unicode standard, ranging from
+<code>U+0000</code> to <code>U+10FFFF</code>.</p>
+<p>A <strong>UTF-16 code unit</strong> is a 16-bit binary value used to
+encode code points:</p>
+<ul>
+<li><strong>Basic Multilingual Plane (BMP):</strong> Covers code points
+from <code>U+0000</code> to <code>U+FFFF</code>. These fit into a single
+16-bit code unit.</li>
+<li><strong>Supplementary Planes:</strong> Cover code points from
+<code>U+010000</code> to <code>U+10FFFF</code>. These cannot fit into 16
+bits, so UTF-16 encodes them as a pair of 16-bit units called a
+<strong>surrogate pair</strong> (one high surrogate and one low
+surrogate).</li>
+</ul>
+<h2 id="legacy-javascript-operating-on-code-units">Legacy JavaScript:
+Operating on Code Units</h2>
+<p>Historically, ECMAScript defined strings strictly as sequences of
+16-bit elements. As a result, standard property lookups and legacy
+methods operate on UTF-16 code units rather than Unicode code
+points.</p>
+<h3 id="1-string-length">1. String Length</h3>
+<p>The <code>.length</code> property returns the number of UTF-16 code
+units, not the number of rendered characters or code points.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> char <span class="op">=</span> <span class="st">&quot;A&quot;</span><span class="op">;</span> <span class="co">// BMP: U+0041</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(char<span class="op">.</span><span class="at">length</span>)<span class="op">;</span> <span class="co">// 1</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> emoji <span class="op">=</span> <span class="st">&quot;😀&quot;</span><span class="op">;</span> <span class="co">// Supplementary: U+1F600 (encoded as \uD83D\uDE00)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(emoji<span class="op">.</span><span class="at">length</span>)<span class="op">;</span> <span class="co">// 2</span></span></code></pre></div>
+<h3 id="2-indexing-and-charat">2. Indexing and
+<code>charAt()</code></h3>
+<p>Bracket notation (<code>str[index]</code>) and
+<code>.charAt(index)</code> return the code unit at the specified
+position. Accessing an index of a surrogate pair splits the character
+and returns an isolated, invalid surrogate.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> emoji <span class="op">=</span> <span class="st">&quot;😀&quot;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(emoji[<span class="dv">0</span>])<span class="op">;</span> <span class="co">// &quot;\uD83D&quot; (High surrogate, cannot be displayed alone)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(emoji<span class="op">.</span><span class="fu">charAt</span>(<span class="dv">0</span>))<span class="op">;</span> <span class="co">// &quot;\uD83D&quot;</span></span></code></pre></div>
+<h3 id="3-character-codes">3. Character Codes</h3>
+<p><code>.charCodeAt()</code> returns the 16-bit numeric value of the
+code unit at the given index.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> emoji <span class="op">=</span> <span class="st">&quot;😀&quot;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(emoji<span class="op">.</span><span class="fu">charCodeAt</span>(<span class="dv">0</span>))<span class="op">;</span> <span class="co">// 55357 (0xD83D)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(emoji<span class="op">.</span><span class="fu">charCodeAt</span>(<span class="dv">1</span>))<span class="op">;</span> <span class="co">// 56832 (0xDE00)</span></span></code></pre></div>
+<h2 id="modern-javascript-code-point-aware-features">Modern JavaScript:
+Code-Point Aware Features</h2>
+<p>ECMAScript 2015 (ES6) introduced native support for full Unicode code
+points across iterations, methods, and regular expressions.</p>
+<h3 id="1-codepointat-and-stringfromcodepoint">1.
+<code>codePointAt()</code> and <code>String.fromCodePoint()</code></h3>
+<p>To retrieve the complete 21-bit Unicode value, use
+<code>codePointAt()</code>. It reads both halves of a surrogate pair
+when called on the index of the leading surrogate. Conversely,
+<code>String.fromCodePoint()</code> converts code points into properly
+encoded strings.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> emoji <span class="op">=</span> <span class="st">&quot;😀&quot;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(emoji<span class="op">.</span><span class="fu">codePointAt</span>(<span class="dv">0</span>))<span class="op">;</span> <span class="co">// 128512 (0x1F600)</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">String</span><span class="op">.</span><span class="fu">fromCodePoint</span>(<span class="bn">0x1F600</span>))<span class="op">;</span> <span class="co">// &quot;😀&quot;</span></span></code></pre></div>
+<h3 id="2-iterators-and-spread-syntax">2. Iterators and Spread
+Syntax</h3>
+<p>JavaScript's string iterator is code-point aware. Using
+<code>for...of</code> or the spread operator (<code>...</code>) iterates
+over complete Unicode code points rather than raw code units.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> text <span class="op">=</span> <span class="st">&quot;A😀B&quot;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Length in code units</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(text<span class="op">.</span><span class="at">length</span>)<span class="op">;</span> <span class="co">// 4</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Length in code points using the spread operator</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> codePoints <span class="op">=</span> [<span class="op">...</span>text]<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(codePoints)<span class="op">;</span> <span class="co">// [&quot;A&quot;, &quot;😀&quot;, &quot;B&quot;]</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(codePoints<span class="op">.</span><span class="at">length</span>)<span class="op">;</span> <span class="co">// 3</span></span></code></pre></div>
+<h3 id="3-unicode-regular-expressions-u-and-v-flags">3. Unicode Regular
+Expressions (<code>u</code> and <code>v</code> flags)</h3>
+<p>Using the <code>u</code> (Unicode) or <code>v</code> (Unicode Sets)
+flag in regular expressions ensures patterns match full code points
+instead of single code units.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Without the &#39;u&#39; flag, &#39;.&#39; matches a single code unit:</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="ss">/</span><span class="sc">^</span><span class="ss">.</span><span class="sc">$</span><span class="ss">/</span><span class="op">.</span><span class="fu">test</span>(<span class="st">&quot;😀&quot;</span>))<span class="op">;</span> <span class="co">// false</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">// With the &#39;u&#39; flag, &#39;.&#39; matches a full code point:</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="ss">/</span><span class="sc">^</span><span class="ss">.</span><span class="sc">$</span><span class="ss">/u</span><span class="op">.</span><span class="fu">test</span>(<span class="st">&quot;😀&quot;</span>))<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h2 id="summary-comparison">Summary Comparison</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Operation</th>
+<th style="text-align: left;">Code Unit Level (16-bit)</th>
+<th style="text-align: left;">Code Point Level (Full Unicode)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Length Count</strong></td>
+<td style="text-align: left;"><code>str.length</code></td>
+<td style="text-align: left;"><code>[...str].length</code> or
+<code>Array.from(str).length</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Character Access</strong></td>
+<td style="text-align: left;"><code>str[i]</code> /
+<code>str.charAt(i)</code></td>
+<td style="text-align: left;"><code>[...str][i]</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Numeric Value</strong></td>
+<td style="text-align: left;"><code>str.charCodeAt(i)</code></td>
+<td style="text-align: left;"><code>str.codePointAt(i)</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>String Generation</strong></td>
+<td style="text-align: left;"><code>String.fromCharCode(...)</code></td>
+<td
+style="text-align: left;"><code>String.fromCodePoint(...)</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Pattern Matching</strong></td>
+<td style="text-align: left;"><code>/^.$/</code></td>
+<td style="text-align: left;"><code>/^.$/u</code></td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

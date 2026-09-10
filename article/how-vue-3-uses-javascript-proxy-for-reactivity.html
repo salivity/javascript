@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Vue 3 Uses JavaScript Proxy for Reactivity - javascript</title>
+    <meta name="description" content="Vue 3 relies on JavaScript Proxy objects to power its reactivity system, completely replacing the Object.defineProperty mechanism used in Vue 2. By wrapping state objects inside a proxy, Vue intercepts fundamental operations such as reading, writing, and">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-vue-3-uses-javascript-proxy-for-reactivity">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Vue 3 Uses JavaScript Proxy for Reactivity - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-vue-3-uses-javascript-proxy-for-reactivity" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Vue 3 relies on JavaScript Proxy objects to power its reactivity system, completely replacing the Object.defineProperty mechanism used in Vue 2. By wrapping state objects inside a proxy, Vue intercepts fundamental operations such as reading, writing, and" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-vue-3-uses-javascript-proxy-for-reactivity">How Vue 3 Uses
+JavaScript Proxy for Reactivity</h1>
+<p>Vue 3 relies on JavaScript <code>Proxy</code> objects to power its
+reactivity system, completely replacing the
+<code>Object.defineProperty</code> mechanism used in Vue 2. By wrapping
+state objects inside a proxy, Vue intercepts fundamental operations such
+as reading, writing, and deleting properties through handler functions
+called traps. This architecture enables seamless dependency tracking and
+update triggering while overcoming previous limitations with dynamically
+added properties and array mutations.</p>
+<h2 id="the-role-of-javascript-proxy">The Role of JavaScript Proxy</h2>
+<p>A <code>Proxy</code> object wraps another target object and
+intercepts internal operations performed on it. Instead of mutating the
+original object to attach getters and setters to specific properties,
+Vue 3 wraps the entire object within a proxy handler.</p>
+<p>When you define reactive state using <code>reactive()</code>, Vue
+passes the target object to a factory function that instantiates a new
+<code>Proxy</code> with specialized trap handlers:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> reactiveState <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(target<span class="op">,</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span>(target<span class="op">,</span> key<span class="op">,</span> receiver) { <span class="co">/* trap logic */</span> }<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">set</span>(target<span class="op">,</span> key<span class="op">,</span> value<span class="op">,</span> receiver) { <span class="co">/* trap logic */</span> }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">deleteProperty</span>(target<span class="op">,</span> key) { <span class="co">/* trap logic */</span> }<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">has</span>(target<span class="op">,</span> key) { <span class="co">/* trap logic */</span> }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="the-get-trap-dependency-tracking">The <code>get</code> Trap:
+Dependency Tracking</h2>
+<p>The <code>get</code> trap intercepts any operation that reads a
+property from the proxy. When code reads
+<code>reactiveState.count</code>, the <code>get</code> trap executes the
+following steps:</p>
+<ol type="1">
+<li><strong>Retrieve the Value</strong>: It reads the property using
+<code>Reflect.get(target, key, receiver)</code>, ensuring that
+<code>this</code> context binds correctly inside custom getters.</li>
+<li><strong>Track Dependencies (<code>track</code>)</strong>: If a
+reactive effect (such as a component render function, a
+<code>watchEffect</code>, or a <code>computed</code> property) is
+currently running, Vue registers that active effect as a subscriber to
+<code>(target, key)</code>.</li>
+<li><strong>Lazy Nesting</strong>: If the retrieved value is an object,
+Vue recursively wraps it in a reactive proxy on demand. Unlike Vue 2,
+which recursively converted deeply nested objects upfront, Vue 3
+performs this lazily upon access, substantially improving initialization
+performance.</li>
+</ol>
+<h2 id="the-set-trap-triggering-updates">The <code>set</code> Trap:
+Triggering Updates</h2>
+<p>The <code>set</code> trap intercepts any property assignment, such as
+<code>reactiveState.count = 2</code>. When a property modification
+occurs, the <code>set</code> trap coordinates the update:</p>
+<ol type="1">
+<li><strong>Compare Values</strong>: It checks whether the new value is
+actually different from the existing value to avoid redundant
+re-renders.</li>
+<li><strong>Identify Operation Type</strong>: It determines if the
+operation adds a brand-new key (<code>ADD</code>) or modifies an
+existing one (<code>SET</code>).</li>
+<li><strong>Apply the Change</strong>: It updates the raw target object
+using <code>Reflect.set(target, key, value, receiver)</code>.</li>
+<li><strong>Trigger Effects (<code>trigger</code>)</strong>: It looks up
+all effects subscribed to <code>(target, key)</code> in Vue's internal
+dependency registry and schedules them to re-run. If a new property was
+added, it also triggers effects monitoring array lengths or iteration
+keys.</li>
+</ol>
+<h2 id="additional-traps-deleteproperty-and-has">Additional Traps:
+<code>deleteProperty</code> and <code>has</code></h2>
+<p>Vue 3 handles operations that were previously impossible to detect
+reliably in earlier versions:</p>
+<ul>
+<li><strong><code>deleteProperty</code></strong>: Intercepts the
+<code>delete</code> operator (e.g.,
+<code>delete reactiveState.count</code>). Vue updates the target object
+via <code>Reflect.deleteProperty</code> and invokes <code>trigger</code>
+to alert effects that rely on the deleted key or object keys
+enumeration.</li>
+<li><strong><code>has</code></strong>: Intercepts the <code>in</code>
+operator (e.g., <code>'count' in reactiveState</code>). Vue runs
+<code>track</code> to record that an effect depends on the existence of
+that property.</li>
+</ul>
+<h2 id="the-dependency-registry-structure">The Dependency Registry
+Structure</h2>
+<p>To connect traps to reactive effects, Vue maintains a centralized
+dependency tree using nested collections:</p>
+<ul>
+<li><strong><code>targetMap</code> (<code>WeakMap</code>)</strong>: Maps
+raw target objects to property maps. Using a <code>WeakMap</code>
+ensures that garbage collection is not blocked when targets fall out of
+scope.</li>
+<li><strong><code>depsMap</code> (<code>Map</code>)</strong>: Maps
+specific property keys to a set of effects.</li>
+<li><strong><code>dep</code> (<code>Set</code>)</strong>: Stores the
+distinct effect functions subscribed to that specific key.</li>
+</ul>
+<p>When the <code>get</code> trap calls <code>track()</code>, it adds
+the active effect to the relevant <code>dep</code> Set. When the
+<code>set</code> or <code>deleteProperty</code> trap calls
+<code>trigger()</code>, it extracts that <code>dep</code> Set and
+executes each subscribed effect, synchronizing the user interface with
+the modified state.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

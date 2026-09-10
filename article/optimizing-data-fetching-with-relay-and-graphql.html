@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizing Data Fetching with Relay and GraphQL - javascript</title>
+    <meta name="description" content="Modern JavaScript applications often struggle with efficient data retrieval, leading to network waterfalls, over-fetching, and tightly coupled codebases. By combining GraphQL fragments with the Relay framework, developers can colocate data requirements d">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/optimizing-data-fetching-with-relay-and-graphql">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Optimizing Data Fetching with Relay and GraphQL - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/optimizing-data-fetching-with-relay-and-graphql" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern JavaScript applications often struggle with efficient data retrieval, leading to network waterfalls, over-fetching, and tightly coupled codebases. By combining GraphQL fragments with the Relay framework, developers can colocate data requirements d" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="optimizing-data-fetching-with-relay-and-graphql">Optimizing Data
+Fetching with Relay and GraphQL</h1>
+<p>Modern JavaScript applications often struggle with efficient data
+retrieval, leading to network waterfalls, over-fetching, and tightly
+coupled codebases. By combining GraphQL fragments with the Relay
+framework, developers can colocate data requirements directly within UI
+components. This approach enables build-time query aggregation, strict
+data encapsulation, and automated cache normalization, ultimately
+streamlining network performance and simplifying component
+maintenance.</p>
+<h3 id="component-level-data-colocation">Component-Level Data
+Colocation</h3>
+<p>In standard REST or unoptimized GraphQL implementations, parent
+components frequently fetch a broad set of data and pass it down to
+deeply nested child components. This creates tight coupling; updating a
+child component often requires modifying queries defined higher up the
+component tree.</p>
+<p>GraphQL fragments solve this by allowing individual components to
+declare their exact data dependencies. In Relay, a component defines a
+fragment containing only the fields it needs to render:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> UserAvatarFragment <span class="op">=</span> <span class="fu">graphql</span><span class="vs">`</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="vs">  fragment UserAvatar_user on User {</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="vs">    profilePicture(size: 50) {</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="vs">      url</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="vs">    }</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="vs">    username</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="vs">  }</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="vs">`</span><span class="op">;</span></span></code></pre></div>
+<p>By colocating this fragment with the <code>UserAvatar</code>
+component, the data requirements remain self-contained and modular.</p>
+<h3 id="query-aggregation-without-network-waterfalls">Query Aggregation
+Without Network Waterfalls</h3>
+<p>Declaring data needs at the component level can lead to network
+waterfalls if each component executes its own request upon mounting.
+Relay prevents this using its ahead-of-time (AOT) compiler.</p>
+<p>During the build step, the Relay compiler traverses the component
+tree, collects all nested fragments, and composes them into a single,
+optimized GraphQL root query for the view. When the page loads, the
+application sends only one request to the server, fetching all required
+data in a single network round-trip.</p>
+<h3 id="data-masking-and-encapsulation">Data Masking and
+Encapsulation</h3>
+<p>Relay enforces data masking (or fragment isolation). Even though
+fragments are aggregated into a single root query, the Relay runtime
+ensures that a parent component cannot access data fields declared
+inside a child component's fragment unless explicitly specified in its
+own fragment.</p>
+<p>This encapsulation prevents implicit data dependencies:</p>
+<ul>
+<li>Parent components cannot accidentally rely on data fetched for
+children.</li>
+<li>Removing or refactoring a child component will not inadvertently
+break parent rendering logic.</li>
+<li>Components remain truly reusable across different screens and
+queries.</li>
+</ul>
+<h3 id="automatic-cache-normalization">Automatic Cache
+Normalization</h3>
+<p>Relay maintains a normalized client-side record store where each
+entity is uniquely identified (typically via a global <code>id</code>).
+When a query containing fragments is resolved, Relay writes the
+individual fields to their respective normalized entities in the
+store.</p>
+<p>Because fragments define the exact shape of these entities, Relay can
+automatically:</p>
+<ul>
+<li>Update all components subscribed to a specific fragment whenever its
+underlying entity updates in the cache.</li>
+<li>Handle pagination and optimistic UI updates consistently without
+manual cache-management code.</li>
+<li>Deduplicate identical entity requests across different
+components.</li>
+</ul>
+<h3 id="reduced-over-fetching-and-dead-code">Reduced Over-Fetching and
+Dead Code</h3>
+<p>As UI designs evolve, unused fields often linger in large API queries
+because developers fear breaking other parts of the application. With
+Relay and GraphQL fragments, deleting a UI component automatically
+removes its associated fragment from the parent query during
+compilation. This guarantees that the application never fetches dead
+data over the wire, keeping payload sizes minimal and application
+performance high.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

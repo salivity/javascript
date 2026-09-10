@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Top-Level Await and Dependency Graphs - javascript</title>
+    <meta name="description" content="Top-level await allows developers to use the await keyword outside of async functions at the root level of ECMAScript (ES) modules. This article explains what top-level await is, how it fundamentally alters the execution order of the JavaScript module de">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-top-level-await-and-dependency-graphs">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Top-Level Await and Dependency Graphs - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-top-level-await-and-dependency-graphs" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Top-level await allows developers to use the await keyword outside of async functions at the root level of ECMAScript (ES) modules. This article explains what top-level await is, how it fundamentally alters the execution order of the JavaScript module de" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-top-level-await-and-dependency-graphs">JavaScript
+Top-Level Await and Dependency Graphs</h1>
+<p>Top-level <code>await</code> allows developers to use the
+<code>await</code> keyword outside of <code>async</code> functions at
+the root level of ECMAScript (ES) modules. This article explains what
+top-level <code>await</code> is, how it fundamentally alters the
+execution order of the JavaScript module dependency graph, and how the
+runtime manages asynchronous module evaluation without blocking sibling
+dependencies.</p>
+<h2 id="what-is-top-level-await">What is Top-Level Await?</h2>
+<p>Introduced in ECMAScript 2022 (ES2022), top-level <code>await</code>
+enables ES modules to act as asynchronous entry points. Prior to this
+feature, <code>await</code> could only be executed inside functions
+marked with the <code>async</code> keyword. To perform asynchronous
+operations at startup—such as fetching configuration data, connecting to
+databases, or dynamically loading dependencies—developers had to wrap
+logic inside Immediately Invoked Async Function Expressions (IIAFEs) or
+export promises.</p>
+<p>Top-level <code>await</code> eliminates these workarounds by allowing
+direct asynchronous evaluation in the module body:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// dbConnection.js</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> config <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/config&#39;</span>)<span class="op">.</span><span class="fu">then</span>(res <span class="kw">=&gt;</span> res<span class="op">.</span><span class="fu">json</span>())<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> connection <span class="op">=</span> <span class="cf">await</span> <span class="fu">createDatabaseConnection</span>(config)<span class="op">;</span></span></code></pre></div>
+<h2 id="module-execution-and-the-dependency-graph">Module Execution and
+the Dependency Graph</h2>
+<p>JavaScript engines process ES modules in three distinct phases:</p>
+<ol type="1">
+<li><strong>Construction (Parsing):</strong> Finding, downloading, and
+parsing all module files into module records.</li>
+<li><strong>Instantiation:</strong> Allocating memory for module
+bindings (linking imports and exports).</li>
+<li><strong>Evaluation:</strong> Executing the code to populate memory
+locations with real values.</li>
+</ol>
+<p>In a standard, synchronous module graph, module evaluation follows a
+<strong>depth-first, post-order traversal</strong>. The engine traverses
+to the deepest leaf modules, evaluates them synchronously, and bubbles
+up to the root module.</p>
+<h2 id="how-top-level-await-alters-execution">How Top-Level Await Alters
+Execution</h2>
+<p>When a module uses top-level <code>await</code>, its evaluation
+becomes asynchronous, converting the module and any parent importing it
+into an asynchronous boundary. This affects graph execution in the
+following ways:</p>
+<h3 id="1-paused-module-evaluation">1. Paused Module Evaluation</h3>
+<p>When the engine encounters a top-level <code>await</code> in a
+module, execution of that specific module is paused until the awaited
+promise resolves. The module returns an unresolved promise to its
+importers.</p>
+<h3 id="2-upstream-blocking-parent-modules">2. Upstream Blocking (Parent
+Modules)</h3>
+<p>Any parent module that imports a module with top-level
+<code>await</code> cannot begin evaluation until all its imported
+dependencies finish evaluating. Consequently, the resolution propagates
+upward, delaying the parent module’s execution until the child's
+asynchronous operation completes.</p>
+<h3 id="3-non-blocking-sibling-branches-concurrent-execution">3.
+Non-Blocking Sibling Branches (Concurrent Execution)</h3>
+<p>Top-level <code>await</code> does not block the entire application.
+Sibling branches in the dependency graph that do not depend on the
+awaiting module continue to evaluate normally.</p>
+<p>For example, consider the following graph:</p>
+<pre class="text"><code>       Root
+      /    \
+ ModuleA   ModuleB
+    |
+ ModuleC (contains top-level await)</code></pre>
+<ol type="1">
+<li>The engine begins evaluation at <code>ModuleC</code>.</li>
+<li><code>ModuleC</code> hits an <code>await</code> and pauses
+evaluation.</li>
+<li><code>ModuleA</code> must wait because it depends directly on
+<code>ModuleC</code>.</li>
+<li><code>Root</code> must wait because it depends on
+<code>ModuleA</code>.</li>
+<li><strong><code>ModuleB</code> evaluates immediately</strong> because
+its sub-graph contains no unresolved dependencies.</li>
+<li>Once <code>ModuleC</code> resolves, <code>ModuleA</code> evaluates,
+followed finally by <code>Root</code>.</li>
+</ol>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<ul>
+<li><strong>Dynamic Dependency Loading:</strong> Importing polyfills or
+platform-specific implementations based on runtime conditions.</li>
+<li><strong>Resource Initialization:</strong> Initializing databases,
+authenticating clients, or loading translation files before rendering
+the application.</li>
+<li><strong>Module Fallbacks:</strong> Gracefully falling back to a
+secondary CDN or local module if a primary resource fails to load.</li>
+</ul>
+<h2 id="considerations-and-best-practices">Considerations and Best
+Practices</h2>
+<p>While top-level <code>await</code> provides cleaner initialization
+syntax, it introduces potential performance bottlenecks. A slow or
+stalled asynchronous operation in a deeply nested leaf module will halt
+the evaluation of all ancestor modules. To avoid slow application
+startup times, top-level <code>await</code> should be reserved for
+essential initializations rather than non-critical background tasks.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angular Signals vs RxJS: Architectural Differences - javascript</title>
+    <meta name="description" content="Angular Signals and RxJS Observables represent two distinct reactive paradigms within the JavaScript ecosystem. While RxJS is an asynchronous, event-driven stream processing library based on the Gang of Four Observer pattern, Angular Signals are synchron">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/angular-signals-vs-rxjs-architectural-differences">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Angular Signals vs RxJS: Architectural Differences - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/angular-signals-vs-rxjs-architectural-differences" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Angular Signals and RxJS Observables represent two distinct reactive paradigms within the JavaScript ecosystem. While RxJS is an asynchronous, event-driven stream processing library based on the Gang of Four Observer pattern, Angular Signals are synchron" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="angular-signals-vs-rxjs-architectural-differences">Angular
+Signals vs RxJS: Architectural Differences</h1>
+<p>Angular Signals and RxJS Observables represent two distinct reactive
+paradigms within the JavaScript ecosystem. While RxJS is an
+asynchronous, event-driven stream processing library based on the Gang
+of Four Observer pattern, Angular Signals are synchronous, fine-grained
+state management primitives based on an internally tracked push-pull
+dependency graph. Understanding their architectural differences reveals
+how they complement each other rather than serve as direct drop-in
+replacements.</p>
+<h2 id="reactivity-model-push-streams-vs-push-pull-graphs">Reactivity
+Model: Push Streams vs. Push-Pull Graphs</h2>
+<p>The primary architectural distinction lies in how data propagates
+from producer to consumer.</p>
+<ul>
+<li><strong>RxJS (Push-Based Streams):</strong> Observables operate on a
+purely push-based contract. The producer emits a value, and the consumer
+reacts via an observer callback. The stream controls <em>when</em> the
+consumer receives data. Observables do not inherently retain state; they
+represent pipelines through which values pass.</li>
+<li><strong>Angular Signals (Push-Pull / Glitch-Free):</strong> Signals
+use a two-phase push-pull evaluation algorithm. When a signal’s value
+changes, a "push" phase synchronously marks dependent computed values
+and effects as dirty. The actual re-computation occurs lazily during the
+"pull" phase, when the consumer reads the value. This ensures
+"glitch-free" execution, eliminating unnecessary computations and
+diamond dependency issues common in pure push models.</li>
+</ul>
+<h2 id="state-representation-vs-event-streams">State Representation vs.
+Event Streams</h2>
+<p>The nature of the data handled by each abstraction dictates its
+structure and usage:</p>
+<ul>
+<li><strong>Signals Model State:</strong> A signal represents a value
+that exists continuously over time. It is always synchronous and always
+possesses a current value that can be accessed without creating a
+subscription (<code>mySignal()</code>). Signals cannot error out or
+complete; they only change state.</li>
+<li><strong>Observables Model Events:</strong> An Observable models
+discrete events over time. A stream might emit zero, one, or infinite
+values, and can either complete successfully or terminate with an error.
+Values can be delivered synchronously or asynchronously. Importantly, a
+standard Observable does not have an intrinsic "current value" unless
+converted into a stateful construct like a
+<code>BehaviorSubject</code>.</li>
+</ul>
+<h2 id="angular-change-detection-integration">Angular Change Detection
+Integration</h2>
+<p>Architecturally, Signals were designed to evolve Angular's rendering
+engine away from global dirty-checking.</p>
+<ul>
+<li><strong>Observables and Zone.js:</strong> Angular traditionally
+relies on <code>Zone.js</code> to monkey-patch browser APIs and
+intercept asynchronous operations, triggering top-down change detection
+cycles across component trees. Observables do not inform Angular
+<em>which</em> DOM node changed unless bridged through the
+<code>async</code> pipe, which internally calls
+<code>ChangeDetectorRef.markForCheck()</code>.</li>
+<li><strong>Signals and Fine-Grained Reactivity:</strong> Signals
+directly integrate with Angular's reactive graph. The framework knows
+precisely which template nodes depend on which signals. This enables
+signal-based change detection (zoneless architecture), allowing targeted
+updates to specific components or template expressions without
+traversing the entire component hierarchy.</li>
+</ul>
+<h2 id="lifecycle-and-memory-management">Lifecycle and Memory
+Management</h2>
+<ul>
+<li><strong>RxJS Subscription Overhead:</strong> Observables require
+active subscription lifecycle management. If a developer subscribes
+imperatively to an Observable without tearing it down via
+<code>takeUntil</code>, <code>takeUntilDestroyed</code>, or explicit
+<code>unsubscribe()</code> calls, it risks creating memory leaks.</li>
+<li><strong>Signals Dynamic Tracking:</strong> Signals manage
+dependencies automatically. When a signal is read inside a
+<code>computed()</code> or <code>effect()</code>, it dynamically
+registers itself as a dependency. When a branch of conditional logic no
+longer reads that signal, the dependency is automatically pruned from
+the graph. Cleanup is tied to the enclosing injection context or
+component lifecycle without manual unsubscription.</li>
+</ul>
+<h2 id="composition-and-asynchrony">Composition and Asynchrony</h2>
+<ul>
+<li><strong>RxJS for Asynchronous Orchestration:</strong> RxJS excels at
+complex asynchronous operations. Its rich operator pipeline
+(<code>switchMap</code>, <code>debounceTime</code>,
+<code>mergeMap</code>, <code>retry</code>) makes it the architectural
+standard for handling race conditions, HTTP requests, WebSockets, and
+cancellable event pipelines.</li>
+<li><strong>Signals for Synchronous Computations:</strong> Signals are
+strictly synchronous. Derived state is generated using pure computations
+(<code>computed(() =&gt; a() + b())</code>). Signals lack native
+mechanisms for debouncing, throttling, or orchestrating asynchronous
+workflows, relying instead on interop utilities (<code>toSignal</code>
+and <code>toObservable</code>) to bridge with RxJS when asynchronous
+manipulation is required.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

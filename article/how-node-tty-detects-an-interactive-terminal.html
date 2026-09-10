@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How node:tty Detects an Interactive Terminal - javascript</title>
+    <meta name="description" content="The node:tty module determines whether a Node.js process is running in an interactive terminal by inspecting the underlying operating system file descriptors for standard input and output streams. This article explains how the node:tty module uses libuv">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-node-tty-detects-an-interactive-terminal">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How node:tty Detects an Interactive Terminal - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-node-tty-detects-an-interactive-terminal" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The node:tty module determines whether a Node.js process is running in an interactive terminal by inspecting the underlying operating system file descriptors for standard input and output streams. This article explains how the node:tty module uses libuv" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-nodetty-detects-an-interactive-terminal">How node:tty
+Detects an Interactive Terminal</h1>
+<p>The <code>node:tty</code> module determines whether a Node.js process
+is running in an interactive terminal by inspecting the underlying
+operating system file descriptors for standard input and output streams.
+This article explains how the <code>node:tty</code> module uses libuv
+and OS-level system calls like <code>isatty()</code> and
+<code>GetConsoleMode</code> to differentiate between interactive
+terminal emulators, redirected files, and piped processes.</p>
+<h2 id="the-public-interface-ttyisatty">The Public Interface:
+<code>tty.isatty()</code></h2>
+<p>At the JavaScript layer, the primary mechanism for detecting a
+terminal is the <code>tty.isatty(fd)</code> method. By default, standard
+input (stdin), standard output (stdout), and standard error (stderr) are
+mapped to file descriptors <code>0</code>, <code>1</code>, and
+<code>2</code>, respectively.</p>
+<p>When Node.js initializes, it evaluates these descriptors:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tty <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;node:tty&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(tty<span class="op">.</span><span class="fu">isatty</span>(<span class="dv">0</span>))<span class="op">;</span> <span class="co">// true if stdin is an interactive terminal</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(tty<span class="op">.</span><span class="fu">isatty</span>(<span class="dv">1</span>))<span class="op">;</span> <span class="co">// true if stdout is an interactive terminal</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(tty<span class="op">.</span><span class="fu">isatty</span>(<span class="dv">2</span>))<span class="op">;</span> <span class="co">// true if stderr is an interactive terminal</span></span></code></pre></div>
+<p>If <code>tty.isatty()</code> returns <code>true</code>, Node.js wraps
+the respective stream using the <code>tty.ReadStream</code> or
+<code>tty.WriteStream</code> classes rather than the generic
+<code>net.Socket</code> or <code>fs.SyncWriteStream</code> classes. This
+assignment populates the <code>isTTY</code> property on
+<code>process.stdin</code>, <code>process.stdout</code>, and
+<code>process.stderr</code> (e.g.,
+<code>process.stdout.isTTY === true</code>).</p>
+<h2 id="under-the-hood-libuv-and-uv_guess_handle">Under the Hood: libuv
+and <code>uv_guess_handle</code></h2>
+<p>The JavaScript method <code>tty.isatty(fd)</code> directly binds to
+C++ bindings in the Node.js core, which in turn call the libuv function
+<code>uv_guess_handle(uv_file file)</code>.</p>
+<p><code>uv_guess_handle</code> probes the file descriptor to classify
+its type into one of several categories, such as <code>UV_TTY</code>,
+<code>UV_FILE</code>, or <code>UV_NAMED_PIPE</code>. The module only
+classifies a stream as a TTY if libuv explicitly returns
+<code>UV_TTY</code>.</p>
+<h2 id="platform-specific-implementations">Platform-Specific
+Implementations</h2>
+<p>Because Windows and POSIX-compliant systems handle standard input and
+output devices differently, libuv employs platform-specific mechanisms
+to detect terminals.</p>
+<h3 id="posix-linux-macos-bsd">POSIX (Linux, macOS, BSD)</h3>
+<p>On POSIX platforms, libuv calls the standard C library function
+<code>isatty(fd)</code>:</p>
+<ol type="1">
+<li>The <code>isatty(fd)</code> system call verifies whether the
+specified file descriptor refers to a terminal device.</li>
+<li>Internally, <code>isatty(fd)</code> executes an <code>ioctl()</code>
+system call requesting terminal parameters (typically
+<code>TCGETS</code> or <code>TIOCGETA</code>).</li>
+<li>If the descriptor is connected to a terminal, the driver processes
+the request and returns success (<code>0</code>).</li>
+<li>If the descriptor points to a regular file, a pipe (<code>|</code>),
+or a socket, the operation fails and sets <code>errno</code> to
+<code>ENOTTY</code> (Inappropriate I/O control operation). Libuv
+recognizes this failure and concludes that the stream is not a TTY.</li>
+</ol>
+<h3 id="windows">Windows</h3>
+<p>Windows does not use standard POSIX file descriptors or
+<code>ioctl()</code> calls for consoles. Instead, libuv uses the Windows
+API:</p>
+<ol type="1">
+<li>It converts the file descriptor into an operating system handle
+using <code>_get_osfhandle(fd)</code>.</li>
+<li>It calls the Windows API function
+<code>GetConsoleMode(handle, &amp;mode)</code>.</li>
+<li>If the handle represents a genuine console screen buffer or console
+input buffer, <code>GetConsoleMode</code> succeeds, and libuv identifies
+the stream as <code>UV_TTY</code>.</li>
+<li>If the output has been redirected to a file or piped to another
+process, <code>GetConsoleMode</code> fails with
+<code>ERROR_INVALID_HANDLE</code>, indicating that the stream is not an
+interactive terminal.</li>
+</ol>
+<h2 id="summary-of-detection-behavior">Summary of Detection
+Behavior</h2>
+<ul>
+<li><strong>Direct Execution (<code>node app.js</code>)</strong>: File
+descriptors <code>0</code>, <code>1</code>, and <code>2</code> are
+attached to the controlling terminal or console buffer.
+<code>isatty</code> succeeds, creating <code>tty.WriteStream</code>
+instances where <code>isTTY</code> is <code>true</code>.</li>
+<li><strong>Piped Execution (<code>node app.js | cat</code>)</strong>:
+The stdout descriptor refers to an anonymous pipe. The OS system call
+fails to query terminal attributes, so <code>node:tty</code> treats the
+stream as a non-interactive stream, and
+<code>process.stdout.isTTY</code> is <code>undefined</code>.</li>
+<li><strong>Redirected Execution
+(<code>node app.js &gt; output.txt</code>)</strong>: The stdout
+descriptor refers to a disk file. The terminal parameter check fails,
+resulting in a standard file stream instead of a TTY stream.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

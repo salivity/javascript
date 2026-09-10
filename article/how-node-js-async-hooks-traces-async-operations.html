@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Node.js async_hooks Traces Async Operations - javascript</title>
+    <meta name="description" content="The node:asynchooks module provides an internal API to monitor the creation, execution, and destruction of asynchronous resources in a Node.js application. By intercepting low-level C++ and JavaScript operations, it assigns unique identifiers to asynchro">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-node-js-async-hooks-traces-async-operations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Node.js async_hooks Traces Async Operations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-node-js-async-hooks-traces-async-operations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The node:asynchooks module provides an internal API to monitor the creation, execution, and destruction of asynchronous resources in a Node.js application. By intercepting low-level C++ and JavaScript operations, it assigns unique identifiers to asynchro" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-nodejs-async_hooks-traces-async-operations">How Node.js
+async_hooks Traces Async Operations</h1>
+<p>The <code>node:async_hooks</code> module provides an internal API to
+monitor the creation, execution, and destruction of asynchronous
+resources in a Node.js application. By intercepting low-level C++ and
+JavaScript operations, it assigns unique identifiers to asynchronous
+events and registers lifecycle callbacks. This enables monitoring tools
+and context-tracking utilities, such as <code>AsyncLocalStorage</code>,
+to preserve state across concurrent, non-blocking operations without
+manually passing references through function signatures.</p>
+<h3 id="core-concepts-identifiers-and-causality">Core Concepts:
+Identifiers and Causality</h3>
+<p>At the heart of the tracing mechanism are two unique numeric
+identifiers assigned to every asynchronous resource:</p>
+<ul>
+<li><strong><code>asyncId</code></strong>: A unique number identifying
+the specific instance of an asynchronous resource for its entire
+lifetime.</li>
+<li><strong><code>triggerAsyncId</code></strong>: The
+<code>asyncId</code> of the resource or execution context that triggered
+the creation of the new asynchronous resource.</li>
+</ul>
+<p>By pairing each resource's <code>asyncId</code> with its
+<code>triggerAsyncId</code>, Node.js constructs a causal dependency
+tree. When an incoming HTTP request initializes a timer or initiates a
+database query, the timer or query receives a distinct
+<code>asyncId</code> while recording the HTTP request’s
+<code>asyncId</code> as its <code>triggerAsyncId</code>. This
+parent-child mapping establishes context lineage across the asynchronous
+boundary.</p>
+<h3 id="the-lifecycle-hooks">The Lifecycle Hooks</h3>
+<p>A tracing instance created via <code>async_hooks.createHook()</code>
+tracks state transitions through five core callbacks:</p>
+<ol type="1">
+<li><strong><code>init(asyncId, type, triggerAsyncId, resource)</code></strong>:
+Fired when an asynchronous object is instantiated. It exposes the
+resource type (such as <code>TCPWRAP</code>, <code>PROMISE</code>, or
+<code>Timeout</code>), the causality identifiers, and the underlying
+reference. Context stores allocate tracking data at this stage.</li>
+<li><strong><code>before(asyncId)</code></strong>: Fired immediately
+prior to the execution of the asynchronous resource’s user-land
+callback. Node.js updates its internal execution context so that any new
+async resources created within this callback inherit this
+<code>asyncId</code> as their <code>triggerAsyncId</code>.</li>
+<li><strong><code>after(asyncId)</code></strong>: Fired immediately
+after the callback execution completes. This signals that the active
+execution scope for the resource has concluded.</li>
+<li><strong><code>destroy(asyncId)</code></strong>: Fired when the
+resource is garbage-collected or explicitly closed at the C++ layer.
+Context trackers use this event to purge associated metadata from memory
+to prevent leaks.</li>
+<li><strong><code>promiseResolve(asyncId)</code></strong>: Specifically
+triggered when the <code>resolve</code> function of a
+<code>Promise</code> is invoked, which may occur prior to the execution
+of chained <code>.then()</code> callbacks.</li>
+</ol>
+<h3 id="execution-context-tracking">Execution Context Tracking</h3>
+<p>The module maintains an internal execution stack that tracks what is
+actively executing on the main thread. When a callback begins, the
+runtime pushes the current <code>asyncId</code> to this stack, making it
+available via <code>async_hooks.executionAsyncId()</code>.</p>
+<p>When asynchronous operations are scheduled, the runtime captures the
+current <code>executionAsyncId()</code> and assigns it as the new
+operation's <code>triggerAsyncId</code>. When the event loop processes
+the completed task later, the <code>before</code> hook sets the active
+<code>executionAsyncId</code> back to that task's ID, restoring the
+logical continuity of the asynchronous chain.</p>
+<h3 id="integration-with-the-v8-engine">Integration with the V8
+Engine</h3>
+<p>Node.js bridges JavaScript operations with native C++ abstractions.
+For native handles such as file descriptors and network sockets,
+lifecycle events are dispatched directly from the C++ layer using
+internal hooks like <code>AsyncWrap</code>.</p>
+<p>For standard JavaScript promises, Node.js hooks directly into the V8
+engine's promise lifecycle via native V8 microtask hooks. This allows
+Node.js to register microtask queue transitions and retain execution
+context seamlessly across <code>Promise.resolve()</code>,
+<code>await</code> expressions, and chained callbacks.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

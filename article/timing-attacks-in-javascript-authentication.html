@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timing Attacks in JavaScript Authentication - javascript</title>
+    <meta name="description" content="Standard string equality checks in JavaScript authentication workflows are vulnerable to timing attacks because built-in comparison operators use short-circuit evaluation, returning immediately upon finding the first mismatched character. This behavior c">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/timing-attacks-in-javascript-authentication">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Timing Attacks in JavaScript Authentication - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/timing-attacks-in-javascript-authentication" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Standard string equality checks in JavaScript authentication workflows are vulnerable to timing attacks because built-in comparison operators use short-circuit evaluation, returning immediately upon finding the first mismatched character. This behavior c" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="timing-attacks-in-javascript-authentication">Timing Attacks in
+JavaScript Authentication</h1>
+<p>Standard string equality checks in JavaScript authentication
+workflows are vulnerable to timing attacks because built-in comparison
+operators use short-circuit evaluation, returning immediately upon
+finding the first mismatched character. This behavior causes the
+execution time of the comparison to correlate directly with the number
+of consecutive characters that match between the user's input and the
+stored secret. Over time, an attacker can measure these subtle time
+differences across repeated requests to infer sensitive secrets—such as
+API keys, authentication tokens, and password hashes—character by
+character.</p>
+<h2 id="how-javascript-compares-strings">How JavaScript Compares
+Strings</h2>
+<p>JavaScript engines like V8 and SpiderMonkey are heavily optimized for
+performance. When evaluating an equality expression such as
+<code>secret === userInput</code>, the engine executes several
+sequential steps:</p>
+<ol type="1">
+<li><strong>Reference and Length Check:</strong> If the strings occupy
+the same memory location, the check returns <code>true</code>. If their
+lengths differ, it immediately returns <code>false</code>.</li>
+<li><strong>Sequential Character Comparison:</strong> The engine
+compares characters from left to right, one by one.</li>
+<li><strong>Early Exit Optimization:</strong> As soon as an index is
+reached where the characters do not match, the operation stops and
+returns <code>false</code>. The remaining characters are never
+evaluated.</li>
+</ol>
+<p>Because the engine terminates the loop early, comparing two strings
+that match in zero characters takes measurably less CPU time than
+comparing two strings that match in ten characters.</p>
+<h2 id="how-attackers-exploit-the-timing-difference">How Attackers
+Exploit the Timing Difference</h2>
+<p>A timing attack transforms a brute-force problem with exponential
+complexity into one with linear complexity. Instead of guessing an
+entire secret at once, the attacker guesses one character at a time:</p>
+<ul>
+<li><strong>Guessing the First Character:</strong> The attacker sends
+inputs starting with different characters (e.g., <code>a...</code>,
+<code>b...</code>, <code>c...</code>). When the input's first character
+matches the secret's first character, the comparison must check at least
+the second character before failing, taking slightly longer.</li>
+<li><strong>Iterating Through the String:</strong> After determining the
+first character based on the highest average response latency, the
+attacker repeats the process for the second character, then the third,
+and so on.</li>
+</ul>
+<p>Although network jitter, Node.js event loop latency, and garbage
+collection introduce noise, attackers overcome this by sending hundreds
+or thousands of requests and applying statistical analysis (such as
+calculating the mean and standard deviation) to extract the timing
+signal.</p>
+<h2 id="preventing-timing-attacks-in-javascript">Preventing Timing
+Attacks in JavaScript</h2>
+<p>To eliminate this vulnerability, authentication routines must use
+<strong>constant-time comparisons</strong>. A constant-time algorithm
+always evaluates every single byte of the input regardless of where a
+mismatch occurs, ensuring that the execution duration remains identical
+whether the strings match completely or not at all.</p>
+<p>In Node.js, the built-in <code>crypto</code> module provides a
+dedicated function for this purpose:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> crypto <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;crypto&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">safeCompare</span>(a<span class="op">,</span> b) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bufferA <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>(a)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bufferB <span class="op">=</span> <span class="bu">Buffer</span><span class="op">.</span><span class="fu">from</span>(b)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (bufferA<span class="op">.</span><span class="at">length</span> <span class="op">!==</span> bufferB<span class="op">.</span><span class="at">length</span>) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> crypto<span class="op">.</span><span class="fu">timingSafeEqual</span>(bufferA<span class="op">,</span> bufferB)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p><code>crypto.timingSafeEqual</code> operates directly on memory
+buffers using bitwise operations (such as XOR accumulation) to verify
+equality across all bytes before returning a final boolean value. In
+browser environments or contexts where Node.js APIs are unavailable,
+libraries like Web Crypto or vetted constant-time string comparison
+packages should be used in place of native operators like
+<code>===</code> for all security-critical validations.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

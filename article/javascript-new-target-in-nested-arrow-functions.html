@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript new.target in Nested Arrow Functions - javascript</title>
+    <meta name="description" content="This article explains how the JavaScript runtime resolves the new.target meta-property when it is accessed inside an arrow function nested within a constructor. It examines the lexical scoping rules governing arrow functions, details how the execution co">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-new-target-in-nested-arrow-functions">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript new.target in Nested Arrow Functions - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-new-target-in-nested-arrow-functions" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the JavaScript runtime resolves the new.target meta-property when it is accessed inside an arrow function nested within a constructor. It examines the lexical scoping rules governing arrow functions, details how the execution co" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-newtarget-in-nested-arrow-functions">JavaScript
+new.target in Nested Arrow Functions</h1>
+<p>This article explains how the JavaScript runtime resolves the
+<code>new.target</code> meta-property when it is accessed inside an
+arrow function nested within a constructor. It examines the lexical
+scoping rules governing arrow functions, details how the execution
+context resolves <code>new.target</code> up the scope chain, and
+demonstrates this behavior across standard function constructors and ES6
+class inheritance.</p>
+<h2 id="lexical-binding-in-arrow-functions">Lexical Binding in Arrow
+Functions</h2>
+<p>Unlike standard function declarations or function expressions, arrow
+functions do not define their own execution context bindings for
+<code>this</code>, <code>arguments</code>, <code>super</code>, or
+<code>new.target</code>. They lack the internal
+<code>[[Construct]]</code> method, meaning they cannot be invoked with
+the <code>new</code> operator.</p>
+<p>Because arrow functions do not create their own
+<code>new.target</code> binding, the JavaScript engine treats
+<code>new.target</code> as a lexical identifier. When the property is
+evaluated inside an arrow function, the engine resolves it by looking up
+the lexical environment scope chain until it finds the nearest enclosing
+non-arrow function or constructor environment.</p>
+<h2 id="the-resolution-process">The Resolution Process</h2>
+<p>When <code>new.target</code> is encountered inside an arrow
+function:</p>
+<ol type="1">
+<li>The runtime inspects the current environment record created for the
+arrow function.</li>
+<li>Because the arrow function environment record lacks an internal
+<code>[[NewTarget]]</code> field, the lookup delegates to the outer
+lexical environment.</li>
+<li>This traversal continues outward through any intermediate arrow
+functions until it encounters an ordinary function environment record
+(the constructor).</li>
+<li>The engine reads the value of the outer function’s
+<code>[[NewTarget]]</code> slot and returns it.</li>
+</ol>
+<p>If the enclosing constructor was invoked with <code>new</code>,
+<code>new.target</code> resolves to the function or class reference that
+was originally instantiated. If the enclosing constructor was called
+without <code>new</code>, <code>new.target</code> resolves to
+<code>undefined</code>.</p>
+<h2 id="example-basic-constructor-resolution">Example: Basic Constructor
+Resolution</h2>
+<p>In the following example, the arrow function <code>getTarget</code>
+captures <code>new.target</code> from the surrounding constructor:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Container</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> getTarget <span class="op">=</span> () <span class="kw">=&gt;</span> <span class="kw">new</span><span class="op">.</span><span class="at">target</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">capturedTarget</span> <span class="op">=</span> <span class="fu">getTarget</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> instance <span class="op">=</span> <span class="kw">new</span> <span class="fu">Container</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(instance<span class="op">.</span><span class="at">capturedTarget</span> <span class="op">===</span> Container)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> directCall <span class="op">=</span> <span class="fu">Container</span>()<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Inside directCall, new.target was undefined, so getTarget() returns undefined</span></span></code></pre></div>
+<p>Regardless of when or where the arrow function is executed, its
+reference to <code>new.target</code> remains bound to the environment in
+which it was created:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Delayed</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">checkTarget</span> <span class="op">=</span> () <span class="kw">=&gt;</span> <span class="kw">new</span><span class="op">.</span><span class="at">target</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> item <span class="op">=</span> <span class="kw">new</span> <span class="fu">Delayed</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> detachedCheck <span class="op">=</span> item<span class="op">.</span><span class="at">checkTarget</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">detachedCheck</span>() <span class="op">===</span> Delayed)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<h2 id="behavior-with-es6-class-inheritance">Behavior with ES6 Class
+Inheritance</h2>
+<p>The lexical resolution of <code>new.target</code> is particularly
+relevant in class hierarchies. When a subclass extends a base class and
+invokes <code>super()</code>, the base class constructor runs, but
+<code>new.target</code> points to the derived class constructor that was
+actually invoked by <code>new</code>.</p>
+<p>Because arrow functions capture <code>new.target</code> lexically, an
+arrow function inside a base class constructor resolves to the derived
+class:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> resolveTarget <span class="op">=</span> () <span class="kw">=&gt;</span> <span class="kw">new</span><span class="op">.</span><span class="at">target</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">target</span> <span class="op">=</span> <span class="fu">resolveTarget</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="kw">extends</span> Base {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span>()<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> baseInstance <span class="op">=</span> <span class="kw">new</span> <span class="fu">Base</span>()<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(baseInstance<span class="op">.</span><span class="at">target</span> <span class="op">===</span> Base)<span class="op">;</span> <span class="co">// true</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> derivedInstance <span class="op">=</span> <span class="kw">new</span> <span class="fu">Derived</span>()<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(derivedInstance<span class="op">.</span><span class="at">target</span> <span class="op">===</span> Derived)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<p>In this scenario, when <code>new Derived()</code> executes:</p>
+<ol type="1">
+<li>The <code>Derived</code> constructor triggers <code>super()</code>,
+running <code>Base</code>'s constructor.</li>
+<li>Inside <code>Base</code>, <code>new.target</code> refers to
+<code>Derived</code>.</li>
+<li>The arrow function <code>resolveTarget</code> lexically captures
+<code>Base</code>'s <code>new.target</code>.</li>
+<li>Therefore, <code>resolveTarget()</code> evaluates directly to
+<code>Derived</code>.</li>
+</ol>
+<h2 id="summary">Summary</h2>
+<p>Arrow functions do not establish their own <code>new.target</code>
+reference. When <code>new.target</code> appears inside an arrow function
+nested within a constructor, JavaScript resolves it lexically by
+traversing outward to the enclosing constructor function's environment
+record. It evaluates to whatever constructor was originally targeted by
+the <code>new</code> invocation that created that environment.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

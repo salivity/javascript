@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebCodecs API: Low-Level Audio and Video in JavaScript - javascript</title>
+    <meta name="description" content="The WebCodecs API provides web developers with low-level access to the browser's built-in media decoders and encoders. Before its introduction, handling video and audio on the web was restricted to high-level abstractions like the <video> element, MediaS">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/webcodecs-api-low-level-audio-and-video-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebCodecs API: Low-Level Audio and Video in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/webcodecs-api-low-level-audio-and-video-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The WebCodecs API provides web developers with low-level access to the browser's built-in media decoders and encoders. Before its introduction, handling video and audio on the web was restricted to high-level abstractions like the <video> element, MediaS" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="webcodecs-api-low-level-audio-and-video-in-javascript">WebCodecs
+API: Low-Level Audio and Video in JavaScript</h1>
+<p>The WebCodecs API provides web developers with low-level access to
+the browser's built-in media decoders and encoders. Before its
+introduction, handling video and audio on the web was restricted to
+high-level abstractions like the <code>&lt;video&gt;</code> element,
+MediaStream Recording API, and WebRTC, or inefficient workarounds using
+WebAssembly and software decoders. WebCodecs eliminates these
+limitations by exposing the underlying hardware-accelerated processing
+pipeline directly to JavaScript, enabling granular manipulation of
+individual audio and video frames.</p>
+<h3 id="what-is-webcodecs">What Is WebCodecs?</h3>
+<p>WebCodecs is a standardized W3C specification that exposes the
+browser's native audio and video encoding and decoding capabilities.
+Instead of treating media streams as opaque "black boxes," WebCodecs
+breaks down media processing into manageable, raw primitives. This
+allows developers to intercept, modify, generate, and process audio and
+video data at the frame level with minimal latency and reduced CPU
+overhead.</p>
+<h3 id="key-components-and-interfaces">Key Components and
+Interfaces</h3>
+<p>WebCodecs organizes media processing through several core
+interfaces:</p>
+<ul>
+<li><strong><code>VideoDecoder</code> and
+<code>AudioDecoder</code></strong>: These classes accept encoded chunks
+of media data and output raw, uncompressed frames
+(<code>VideoFrame</code> or <code>AudioData</code>).</li>
+<li><strong><code>VideoEncoder</code> and
+<code>AudioEncoder</code></strong>: These classes accept raw frames and
+output encoded media packets (<code>EncodedVideoChunk</code> or
+<code>EncodedAudioChunk</code>).</li>
+<li><strong><code>VideoFrame</code></strong>: Represents a single, raw
+video frame. It can wrap various sources such as an
+<code>HTMLCanvasElement</code>, <code>ImageBitmap</code>, or raw pixel
+buffers (like YUV or RGBA formats). It can be directly rendered to a
+<code>Canvas</code> via <code>drawImage()</code> or WebGL.</li>
+<li><strong><code>AudioData</code></strong>: Represents raw,
+uncompressed PCM audio buffers with specific sample rates, formats, and
+channel configurations.</li>
+<li><strong><code>EncodedVideoChunk</code> /
+<code>EncodedAudioChunk</code></strong>: Contains the compressed media
+payload, a timestamp, a duration, and metadata designating whether the
+chunk is a keyframe or delta frame.</li>
+</ul>
+<h3 id="how-webcodecs-operates">How WebCodecs Operates</h3>
+<p>The workflow for WebCodecs centers around asynchronous pipelines
+configured with callbacks.</p>
+<h4 id="decoding-pipeline">Decoding Pipeline</h4>
+<ol type="1">
+<li><strong>Initialization</strong>: An instance of
+<code>VideoDecoder</code> is created with <code>output</code> and
+<code>error</code> callback functions.</li>
+<li><strong>Configuration</strong>: The decoder is configured using
+<code>decoder.configure()</code>, specifying parameters like codec
+string (e.g., <code>'vp8'</code>, <code>'avc1.42001E'</code>), display
+width, and coded height.</li>
+<li><strong>Feeding Chunks</strong>: The application feeds incoming
+binary packets into the decoder using
+<code>decoder.decode(new EncodedVideoChunk({ ... }))</code>.</li>
+<li><strong>Frame Output</strong>: As the hardware decodes the packets,
+the <code>output</code> callback receives individual
+<code>VideoFrame</code> objects. These can be inspected, altered, or
+drawn to a screen. Once used, the frame must be closed using
+<code>frame.close()</code> to release GPU and system memory.</li>
+</ol>
+<h4 id="encoding-pipeline">Encoding Pipeline</h4>
+<ol type="1">
+<li><strong>Initialization</strong>: A <code>VideoEncoder</code> is
+initialized with <code>output</code> and <code>error</code>
+callbacks.</li>
+<li><strong>Configuration</strong>: The encoder is configured with the
+target codec, resolution, bitrate, framerate, and hardware acceleration
+preference.</li>
+<li><strong>Feeding Frames</strong>: The application supplies raw frames
+to the encoder using <code>encoder.encode(videoFrame)</code>. Developers
+can force keyframes when needed.</li>
+<li><strong>Chunk Output</strong>: The <code>output</code> callback
+receives <code>EncodedVideoChunk</code> instances, which can be
+transmitted over networks (via WebSockets or WebTransport) or packaged
+into a media container.</li>
+</ol>
+<h3 id="why-low-level-access-matters">Why Low-Level Access Matters</h3>
+<p>By bypassing the overhead of software decoding and heavy container
+demuxing, WebCodecs enables several advanced use cases:</p>
+<ul>
+<li><strong>Ultra-Low Latency Streaming</strong>: When paired with
+WebTransport, WebCodecs allows custom streaming protocols for cloud
+gaming and live broadcasting.</li>
+<li><strong>In-Browser Video Editing</strong>: Editors can seek to exact
+frames, apply custom WebGL/WebGPU shaders or machine learning filters,
+and export the result without relying on server-side rendering.</li>
+<li><strong>Computer Vision and Real-Time ML</strong>: Raw frames can be
+directly transferred into WebAssembly or WebGPU models with zero-copy
+memory operations where supported.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

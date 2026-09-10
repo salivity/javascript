@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How V8 Hidden Classes Optimize Property Access - javascript</title>
+    <meta name="description" content="In JavaScript, objects are dynamic dictionaries where properties can be added, modified, or removed at runtime. Because this dynamic nature makes standard hash-table lookups slow, Google's V8 engine uses internal data structures known as hidden classes (">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-v8-hidden-classes-optimize-property-access">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How V8 Hidden Classes Optimize Property Access - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-v8-hidden-classes-optimize-property-access" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript, objects are dynamic dictionaries where properties can be added, modified, or removed at runtime. Because this dynamic nature makes standard hash-table lookups slow, Google's V8 engine uses internal data structures known as hidden classes (" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-v8-hidden-classes-optimize-property-access">How V8 Hidden
+Classes Optimize Property Access</h1>
+<p>In JavaScript, objects are dynamic dictionaries where properties can
+be added, modified, or removed at runtime. Because this dynamic nature
+makes standard hash-table lookups slow, Google's V8 engine uses internal
+data structures known as hidden classes (or "Shapes" and "Maps") along
+with Inline Caching (IC) to optimize property access. This article
+explains how V8 creates, transitions, and reuses these hidden classes to
+convert dynamic property lookups into fast, fixed-offset memory
+operations.</p>
+<h3 id="the-challenge-of-dynamic-objects">The Challenge of Dynamic
+Objects</h3>
+<p>In statically typed languages like C++ or Java, an object's structure
+and memory layout are fixed at compile time. The compiler knows the
+exact memory offset of each property, allowing for near-instantaneous
+memory retrieval.</p>
+<p>JavaScript does not have static layouts. Properties can be added or
+deleted at any time, requiring engines to perform costly
+dictionary-based hash table lookups by default. To overcome this
+performance bottleneck, V8 creates internal hidden classes behind the
+scenes during execution.</p>
+<h3 id="how-hidden-classes-work">How Hidden Classes Work</h3>
+<p>When an object is created, V8 assigns it an initial hidden class. The
+hidden class acts as a descriptor of the object's layout, storing:</p>
+<ul>
+<li>The names of the properties.</li>
+<li>The memory offset where each property’s value is stored within the
+object.</li>
+<li>Pointers to subsequent hidden classes via transition trees.</li>
+</ul>
+<p>Instead of searching a hash table for a property name, the engine
+inspects the object's hidden class, reads the predefined memory offset
+for that property, and retrieves the value in a single direct memory
+read.</p>
+<h3 id="transitions-and-the-transition-tree">Transitions and the
+Transition Tree</h3>
+<p>When a new property is added to an existing object, V8 creates a new
+hidden class and establishes a transition path from the old hidden class
+to the new one.</p>
+<p>Consider the following example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Point</span>(x<span class="op">,</span> y) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span> <span class="co">// Transition from initial Map0 to Map1</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span> <span class="co">// Transition from Map1 to Map2</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> p1 <span class="op">=</span> <span class="kw">new</span> <span class="bu">Point</span>(<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> p2 <span class="op">=</span> <span class="kw">new</span> <span class="bu">Point</span>(<span class="dv">3</span><span class="op">,</span> <span class="dv">4</span>)<span class="op">;</span></span></code></pre></div>
+<ol type="1">
+<li>When <code>new Point()</code> executes, an empty object with an
+initial hidden class (<code>Map0</code>) is created.</li>
+<li>When <code>this.x = x</code> executes, V8 transitions the object to
+<code>Map1</code>, which defines the property <code>x</code> at offset
+0.</li>
+<li>When <code>this.y = y</code> executes, V8 transitions the object to
+<code>Map2</code>, which defines <code>x</code> at offset 0 and
+<code>y</code> at offset 1.</li>
+</ol>
+<p>Because <code>p2</code> follows the exact same property
+initialization sequence, it follows the same transition tree and ends up
+sharing <code>Map2</code> with <code>p1</code>. Both objects now share
+the same hidden class, minimizing memory usage and standardizing layout
+access.</p>
+<p>If properties are added in a different order:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> objA <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>objA<span class="op">.</span><span class="at">a</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>objA<span class="op">.</span><span class="at">b</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> objB <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>objB<span class="op">.</span><span class="at">b</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>objB<span class="op">.</span><span class="at">a</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span></code></pre></div>
+<p><code>objA</code> and <code>objB</code> follow different transition
+branches and will end up with two completely different hidden classes,
+preventing optimizations from being shared between them.</p>
+<h3 id="inline-caching-ic">Inline Caching (IC)</h3>
+<p>Hidden classes achieve their maximum performance benefit when
+combined with Inline Caching.</p>
+<p>When a function accesses an object property (e.g.,
+<code>point.x</code>), V8 records the object's hidden class and the
+property's offset at that specific call site. On subsequent calls:</p>
+<ol type="1">
+<li>V8 checks if the incoming object has the same hidden class as
+previous invocations.</li>
+<li>If it matches (a <strong>monomorphic</strong> call site), V8
+bypasses the lookup entirely and directly reads the value at the cached
+memory offset.</li>
+<li>If the call site encounters a small number of different hidden
+classes (a <strong>polymorphic</strong> call site), V8 maintains a small
+lookup table for those classes.</li>
+<li>If too many different hidden classes pass through (a
+<strong>megamorphic</strong> call site), the engine bails out of
+fast-path caching and falls back to standard dictionary lookup.</li>
+</ol>
+<h3 id="developer-takeaways-for-high-performance">Developer Takeaways
+for High Performance</h3>
+<p>To ensure V8 can effectively optimize property access:</p>
+<ul>
+<li><strong>Initialize properties in constructors:</strong> Avoid adding
+properties to objects after instantiation.</li>
+<li><strong>Maintain property order:</strong> Always initialize object
+properties in the exact same order across your codebase.</li>
+<li><strong>Avoid <code>delete</code>:</strong> Deleting a property
+breaks the transition chain and often forces V8 to convert the object
+into a slow hash map. Instead, assign properties to <code>null</code> or
+<code>undefined</code> if they are no longer needed.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

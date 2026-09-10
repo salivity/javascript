@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reference Counting Garbage Collection in JavaScript - javascript</title>
+    <meta name="description" content="This article provides a concise explanation of reference counting garbage collection in JavaScript, examines how circular references cause memory leaks by circumventing this mechanism, and explores how modern JavaScript runtimes solve this problem using">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/reference-counting-garbage-collection-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Reference Counting Garbage Collection in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/reference-counting-garbage-collection-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a concise explanation of reference counting garbage collection in JavaScript, examines how circular references cause memory leaks by circumventing this mechanism, and explores how modern JavaScript runtimes solve this problem using" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="reference-counting-garbage-collection-in-javascript">Reference
+Counting Garbage Collection in JavaScript</h1>
+<p>This article provides a concise explanation of reference counting
+garbage collection in JavaScript, examines how circular references cause
+memory leaks by circumventing this mechanism, and explores how modern
+JavaScript runtimes solve this problem using reachability
+algorithms.</p>
+<h2 id="what-is-reference-counting-garbage-collection">What Is Reference
+Counting Garbage Collection?</h2>
+<p>Reference counting is a memory management algorithm where the runtime
+tracks the total number of references pointing to each allocated object
+in memory.</p>
+<p>The algorithm operates on a simple premise:</p>
+<ol type="1">
+<li>When an object is created and assigned to a variable, its reference
+count is set to 1.</li>
+<li>Whenever another variable or property points to this object, the
+reference count increments by 1.</li>
+<li>When a reference to the object is overwritten, set to
+<code>null</code>, or goes out of scope, the count decrements by 1.</li>
+<li>When the reference count reaches zero (<code>0</code>), the object
+is deemed unreachable and its allocated memory is immediately
+freed.</li>
+</ol>
+<h2 id="how-circular-references-defeat-reference-counting">How Circular
+References Defeat Reference Counting</h2>
+<p>A circular reference occurs when two or more objects reference each
+other, creating a closed loop. In a pure reference-counting system, this
+loop prevents the reference counter from ever reaching zero, even if the
+objects are no longer accessible by the rest of the application.</p>
+<p>Consider the following example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createCircularReference</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> objectA <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> objectB <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Create mutual references</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  objectA<span class="op">.</span><span class="at">other</span> <span class="op">=</span> objectB<span class="op">;</span> <span class="co">// objectB count = 2 (local variable + objectA.other)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  objectB<span class="op">.</span><span class="at">other</span> <span class="op">=</span> objectA<span class="op">;</span> <span class="co">// objectA count = 2 (local variable + objectB.other)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="st">&quot;done&quot;</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">createCircularReference</span>()<span class="op">;</span></span></code></pre></div>
+<p>When <code>createCircularReference()</code> finishes executing, both
+<code>objectA</code> and <code>objectB</code> fall out of scope. In an
+ideal scenario, their memory should be released.</p>
+<p>However, under reference counting:</p>
+<ul>
+<li>The local variable references are dropped, decrementing each
+object's count from 2 to 1.</li>
+<li><code>objectA</code> still holds a reference to
+<code>objectB</code>, keeping <code>objectB</code>'s count at 1.</li>
+<li><code>objectB</code> still holds a reference to
+<code>objectA</code>, keeping <code>objectA</code>'s count at 1.</li>
+</ul>
+<p>Because neither count drops to zero, the garbage collector never
+reclaims the memory allocated for either object, resulting in a memory
+leak.</p>
+<h2 id="the-modern-solution-mark-and-sweep">The Modern Solution:
+Mark-and-Sweep</h2>
+<p>Due to the limitation with circular references, modern JavaScript
+engines (such as V8, SpiderMonkey, and JavaScriptCore) no longer rely on
+simple reference counting. Instead, they use tracing garbage collection
+algorithms, predominantly <strong>Mark-and-Sweep</strong>.</p>
+<p>Instead of asking whether an object has zero references, the
+Mark-and-Sweep algorithm asks whether an object is
+<strong>reachable</strong> from a set of root objects (such as the
+global object and currently active execution stack variables).</p>
+<ol type="1">
+<li><strong>Roots Phase:</strong> The collector starts at the
+roots.</li>
+<li><strong>Mark Phase:</strong> It traverses all references outward
+from the roots and marks every object it can find as "reachable."</li>
+<li><strong>Sweep Phase:</strong> Any object in memory that was not
+marked during the traversal is unreachable from the root, meaning it
+cannot be used by the program. The engine safely reclaims its
+memory.</li>
+</ol>
+<p>Under Mark-and-Sweep, isolated circular references are simply skipped
+during the traversal because there is no path from the root to the
+circular group. Consequently, the entire circular structure is collected
+and freed correctly.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

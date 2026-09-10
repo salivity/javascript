@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referential Transparency in JavaScript Optimizations - javascript</title>
+    <meta name="description" content="Referential transparency is a foundational concept in functional programming that occurs when an expression can be replaced with its resulting value without altering the program's behavior. In JavaScript, writing referentially transparent code provides t">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/referential-transparency-in-javascript-optimizations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Referential Transparency in JavaScript Optimizations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/referential-transparency-in-javascript-optimizations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Referential transparency is a foundational concept in functional programming that occurs when an expression can be replaced with its resulting value without altering the program's behavior. In JavaScript, writing referentially transparent code provides t" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1
+id="referential-transparency-in-javascript-optimizations">Referential
+Transparency in JavaScript Optimizations</h1>
+<p>Referential transparency is a foundational concept in functional
+programming that occurs when an expression can be replaced with its
+resulting value without altering the program's behavior. In JavaScript,
+writing referentially transparent code provides the predictability
+required for JavaScript engines and build tools to safely apply advanced
+compiler optimizations. This article breaks down what referential
+transparency is, how to identify it, and how Just-In-Time (JIT)
+compilers and bundlers leverage it to perform optimizations like
+constant folding, common subexpression elimination, and dead code
+elimination.</p>
+<h3 id="what-is-referential-transparency">What is Referential
+Transparency?</h3>
+<p>An expression or function is referentially transparent if, for a
+given set of inputs, it always produces the same output and causes no
+observable side effects (such as modifying global state, mutating
+parameters, throwing exceptions, or performing I/O operations).</p>
+<p>Consider the following example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Referentially transparent</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">add</span>(a<span class="op">,</span> b) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Referentially opaque (non-transparent)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> counter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">addWithCounter</span>(a<span class="op">,</span> b) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  counter<span class="op">++;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> a <span class="op">+</span> b <span class="op">+</span> counter<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>In the case of <code>add(2, 3)</code>, the expression will always
+evaluate to <code>5</code>. You could manually or automatically replace
+<code>add(2, 3)</code> with <code>5</code> anywhere in your code, and
+the application would behave identically.</p>
+<p>Conversely, <code>addWithCounter(2, 3)</code> depends on and modifies
+external state (<code>counter</code>). Replacing it with its return
+value removes the side effect of incrementing <code>counter</code>,
+altering how the rest of the application runs.</p>
+<h3 id="how-javascript-compilers-handle-optimization">How JavaScript
+Compilers Handle Optimization</h3>
+<p>JavaScript is dynamically typed and traditionally interpreted, but
+modern runtimes use Just-In-Time (JIT) compilation (such as V8 in
+Node.js and Chrome) to convert bytecode into optimized machine code
+during runtime.</p>
+<p>Because JavaScript is dynamic, the compiler must make conservative
+assumptions. If a function contains side effects, the compiler cannot
+safely reorder, precalculate, or eliminate it. Referential transparency
+provides guarantees that make these aggressive transformations safe.</p>
+<h3
+id="key-compiler-optimizations-enabled-by-referential-transparency">Key
+Compiler Optimizations Enabled by Referential Transparency</h3>
+<h4 id="1-constant-folding-and-propagation">1. Constant Folding and
+Propagation</h4>
+<p>Constant folding evaluates operations at compile time rather than
+runtime. When a compiler encounters a pure, referentially transparent
+function called with literal arguments, it can execute the function
+during compilation and insert the resulting literal directly into the
+binary or bytecode.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Source code</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> secondsPerDay <span class="op">=</span> <span class="fu">multiply</span>(<span class="dv">60</span><span class="op">,</span> <span class="fu">multiply</span>(<span class="dv">60</span><span class="op">,</span> <span class="dv">24</span>))<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// After constant folding</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> secondsPerDay <span class="op">=</span> <span class="dv">86400</span><span class="op">;</span></span></code></pre></div>
+<p>If <code>multiply</code> were not referentially transparent (e.g., if
+it logged to the console or depended on an external variable), the
+compiler would be forced to invoke it every time to preserve those side
+effects.</p>
+<h4 id="2-common-subexpression-elimination-cse">2. Common Subexpression
+Elimination (CSE)</h4>
+<p>When an identical expression appears multiple times within a scope,
+computing it once and caching the result reduces redundant CPU
+instructions.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Source code</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> x <span class="op">=</span> <span class="fu">computeDistance</span>(p1<span class="op">,</span> p2) <span class="op">*</span> factorA<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> y <span class="op">=</span> <span class="fu">computeDistance</span>(p1<span class="op">,</span> p2) <span class="op">*</span> factorB<span class="op">;</span></span></code></pre></div>
+<p>If <code>computeDistance</code> is referentially transparent and
+neither <code>p1</code> nor <code>p2</code> changes between calls, the
+compiler can optimize the code to:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Optimized machine execution equivalent</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tmp <span class="op">=</span> <span class="fu">computeDistance</span>(p1<span class="op">,</span> p2)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> x <span class="op">=</span> tmp <span class="op">*</span> factorA<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> y <span class="op">=</span> tmp <span class="op">*</span> factorB<span class="op">;</span></span></code></pre></div>
+<h4 id="3-dead-code-elimination-dce">3. Dead Code Elimination (DCE)</h4>
+<p>Compilers and ahead-of-time (AOT) minifiers (like Terser, Rollup, or
+esbuild) routinely scan for unused code.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> unusedResult <span class="op">=</span> <span class="fu">calculateTax</span>(income<span class="op">,</span> rate)<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">// unusedResult is never referenced again</span></span></code></pre></div>
+<p>If <code>calculateTax</code> is referentially transparent, the entire
+assignment can be safely removed from the bundle or execution sequence.
+If the engine cannot verify purity, it must keep the function invocation
+alive because removing it might erase an essential side effect.</p>
+<h4 id="4-loop-invariant-code-motion">4. Loop-Invariant Code Motion</h4>
+<p>When a computation inside a loop depends only on values that do not
+change across iterations, the compiler can lift the computation outside
+the loop:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Source code</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> items<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  items[i]<span class="op">.</span><span class="at">total</span> <span class="op">=</span> items[i]<span class="op">.</span><span class="at">price</span> <span class="op">*</span> <span class="fu">getTaxRate</span>(countryCode)<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Optimized equivalent</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rate <span class="op">=</span> <span class="fu">getTaxRate</span>(countryCode)<span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> items<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  items[i]<span class="op">.</span><span class="at">total</span> <span class="op">=</span> items[i]<span class="op">.</span><span class="at">price</span> <span class="op">*</span> rate<span class="op">;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This transformation is safe only when <code>getTaxRate</code> is
+referentially transparent; otherwise, hoisting it changes how many times
+its side effects occur.</p>
+<h3 id="conclusion">Conclusion</h3>
+<p>Referential transparency strips away hidden state and unpredictable
+timing from code execution. By keeping functions pure and deterministic,
+developers allow JavaScript engines to make concrete assumptions about
+code safety, unlocking automatic performance gains through compile-time
+evaluation, redundant code removal, and efficient execution
+pipelines.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

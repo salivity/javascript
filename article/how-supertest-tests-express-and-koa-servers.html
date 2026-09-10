@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Supertest Tests Express and Koa Servers - javascript</title>
+    <meta name="description" content="Supertest streamlines integration testing for Node.js web applications by simulating real HTTP interactions against frameworks like Express and Koa. Rather than mocking request and response objects, Supertest leverages an underlying HTTP client to dynami">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-supertest-tests-express-and-koa-servers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Supertest Tests Express and Koa Servers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-supertest-tests-express-and-koa-servers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Supertest streamlines integration testing for Node.js web applications by simulating real HTTP interactions against frameworks like Express and Koa. Rather than mocking request and response objects, Supertest leverages an underlying HTTP client to dynami" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-supertest-tests-express-and-koa-servers">How Supertest Tests
+Express and Koa Servers</h1>
+<p>Supertest streamlines integration testing for Node.js web
+applications by simulating real HTTP interactions against frameworks
+like Express and Koa. Rather than mocking request and response objects,
+Supertest leverages an underlying HTTP client to dynamically spin up
+ephemeral local servers, dispatch actual loopback network requests,
+evaluate the server's responses against assertions, and automatically
+close the connection to ensure clean, isolated test runs.</p>
+<h2 id="the-core-mechanism-built-on-superagent">The Core Mechanism:
+Built on SuperAgent</h2>
+<p>Supertest is an abstraction layer built directly on top of
+SuperAgent, a robust HTTP client library for Node.js. While SuperAgent
+is designed to send requests across the internet to remote endpoints,
+Supertest adapts this client to target local Node.js application
+instances. It combines SuperAgent’s request-building API with fluent
+assertion methods (such as <code>.expect(200)</code> or
+<code>.expect('Content-Type', /json/)</code>), allowing developers to
+define requests and validate responses in a single chained call.</p>
+<h2 id="handling-express-and-koa-application-instances">Handling Express
+and Koa Application Instances</h2>
+<p>To test an application, you pass the application instance directly to
+the <code>supertest()</code> function:</p>
+<ul>
+<li><strong>Express:</strong> An Express application instance
+(<code>const app = express()</code>) is fundamentally a JavaScript
+callback function that conforms to the standard Node.js
+<code>(req, res)</code> signature.</li>
+<li><strong>Koa:</strong> A Koa instance is an object containing
+middleware pipelines. To convert it into the standard
+<code>(req, res)</code> callback format required by Node's HTTP layer,
+Koa provides the <code>app.callback()</code> method, which is passed
+directly to Supertest (<code>request(app.callback())</code>).</li>
+</ul>
+<p>When Supertest receives this callback function instead of a running
+URL string, it determines that it must manage the server lifecycle
+internally.</p>
+<h2 id="ephemeral-server-creation-with-port-0">Ephemeral Server Creation
+with Port 0</h2>
+<p>A common misconception is that Supertest completely mocks the network
+layer. In reality, Supertest creates an authentic HTTP server.</p>
+<p>When an application callback is passed:</p>
+<ol type="1">
+<li>Supertest wraps the callback using Node's built-in
+<code>http.createServer(app)</code>.</li>
+<li>It calls the <code>.listen()</code> method on that server without
+specifying a fixed port number, or by explicitly passing <code>0</code>
+(e.g., <code>.listen(0)</code>).</li>
+<li>In Node.js, passing port <code>0</code> instructs the operating
+system to automatically allocate any currently available, unused port
+from the ephemeral port range.</li>
+</ol>
+<p>This technique eliminates port collision issues during testing,
+allowing test suites to run concurrently across multiple threads without
+encountering <code>EADDRINUSE</code> errors.</p>
+<h2 id="request-execution-and-automatic-teardown">Request Execution and
+Automatic Teardown</h2>
+<p>Once the temporary server is bound to an ephemeral port, Supertest
+configures SuperAgent to dispatch standard HTTP requests to
+<code>127.0.0.1:[assigned_port]</code>.</p>
+<p>Because this request travels through the local TCP loopback
+interface, the application processes it exactly as it would in
+production:</p>
+<ul>
+<li>Middleware parses incoming headers, cookies, and bodies.</li>
+<li>Routing tables resolve paths and query parameters.</li>
+<li>Authentication layers, error handlers, and business logic execute
+naturally.</li>
+</ul>
+<p>After the HTTP request finishes and the assertions defined in
+<code>.expect()</code> are evaluated, Supertest automatically hooks into
+the connection's completion lifecycle. It invokes
+<code>server.close()</code> on the dynamically created HTTP server,
+tearing it down and freeing system resources. This automated lifecycle
+management is why integration tests written with Supertest can execute
+against full server pipelines without requiring manual startup scripts,
+port management, or teardown routines.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

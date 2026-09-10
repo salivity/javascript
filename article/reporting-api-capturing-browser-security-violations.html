@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporting API: Capturing Browser Security Violations - javascript</title>
+    <meta name="description" content="The Reporting API is a modern web standard that provides a centralized mechanism for browsers to capture and automatically send client-side errors, deprecations, and security violations directly to a backend server. By configuring standard HTTP headers,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/reporting-api-capturing-browser-security-violations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Reporting API: Capturing Browser Security Violations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/reporting-api-capturing-browser-security-violations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Reporting API is a modern web standard that provides a centralized mechanism for browsers to capture and automatically send client-side errors, deprecations, and security violations directly to a backend server. By configuring standard HTTP headers," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="reporting-api-capturing-browser-security-violations">Reporting
+API: Capturing Browser Security Violations</h1>
+<p>The Reporting API is a modern web standard that provides a
+centralized mechanism for browsers to capture and automatically send
+client-side errors, deprecations, and security violations directly to a
+backend server. By configuring standard HTTP headers, web applications
+can instruct user agents to deliver detailed JSON reports concerning
+Content Security Policy (CSP) breaches, cross-origin policy failures,
+network errors, and browser crashes. This article explores how the
+Reporting API functions and demonstrates how JavaScript backends can
+receive and process these security telemetry events to maintain robust
+application security.</p>
+<h2 id="what-is-the-reporting-api">What is the Reporting API?</h2>
+<p>The Reporting API standardizes how browsers collect and report
+client-side anomalies without requiring custom client-side JavaScript
+error-tracking libraries. Instead of relying on script execution—which
+might be blocked or fail during critical security incidents—the browser
+itself queues and dispatches reports asynchronously out-of-band.</p>
+<p>The API can capture a wide range of reports, including:</p>
+<ul>
+<li><strong>Content Security Policy (CSP) Violations:</strong>
+Unauthorized script executions, inline style injections, or prohibited
+resource fetching.</li>
+<li><strong>Cross-Origin Opener Policy (COOP) and Cross-Origin Embedder
+Policy (COEP) Violations:</strong> Failures in cross-origin isolation
+and resource sharing.</li>
+<li><strong>Permissions Policy Violations:</strong> Unauthorized usage
+of browser features such as the camera, microphone, or geolocation.</li>
+<li><strong>Deprecation and Crash Reports:</strong> Use of obsolete
+browser APIs or tab crashes.</li>
+</ul>
+<h2 id="configuring-the-reporting-endpoints">Configuring the Reporting
+Endpoints</h2>
+<p>To activate the Reporting API, the backend server must send the
+<code>Reporting-Endpoints</code> HTTP response header. This header maps
+a named endpoint identifier to a specific URL on your JavaScript
+backend.</p>
+<pre class="http"><code>Reporting-Endpoints: security-endpoint=&quot;https://api.example.com/reports/security&quot;, default=&quot;https://api.example.com/reports/general&quot;</code></pre>
+<p>Once defined, other security headers reference these named endpoints.
+For example, to monitor Content Security Policy violations without
+blocking resources (using report-only mode) or in standard enforcement
+mode, specify the <code>report-to</code> directive:</p>
+<pre class="http"><code>Content-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39;; report-to security-endpoint;</code></pre>
+<p>For cross-origin policies:</p>
+<pre class="http"><code>Cross-Origin-Opener-Policy: same-origin; report-to=&quot;security-endpoint&quot;
+Cross-Origin-Embedder-Policy: require-corp; report-to=&quot;security-endpoint&quot;</code></pre>
+<h2 id="how-the-browser-transmits-violation-reports">How the Browser
+Transmits Violation Reports</h2>
+<p>When a security violation occurs, the browser creates a report and
+places it in an internal queue. To optimize performance and conserve
+battery life, browsers batch multiple reports and send them via an
+asynchronous HTTP <code>POST</code> request to the configured
+endpoint.</p>
+<p>The request uses the <code>application/reports+json</code>
+Content-Type and delivers an array of JSON objects structured as
+follows:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">[</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;csp-violation&quot;</span><span class="fu">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;age&quot;</span><span class="fu">:</span> <span class="dv">42</span><span class="fu">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;url&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/dashboard&quot;</span><span class="fu">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;user_agent&quot;</span><span class="fu">:</span> <span class="st">&quot;Mozilla/5.0 ...&quot;</span><span class="fu">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;body&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;blockedURL&quot;</span><span class="fu">:</span> <span class="st">&quot;https://malicious-cdn.com/injected.js&quot;</span><span class="fu">,</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;disposition&quot;</span><span class="fu">:</span> <span class="st">&quot;enforce&quot;</span><span class="fu">,</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;documentURL&quot;</span><span class="fu">:</span> <span class="st">&quot;https://example.com/dashboard&quot;</span><span class="fu">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;effectiveDirective&quot;</span><span class="fu">:</span> <span class="st">&quot;script-src-elem&quot;</span><span class="fu">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;originalPolicy&quot;</span><span class="fu">:</span> <span class="st">&quot;default-src &#39;self&#39;; script-src &#39;self&#39;; report-to security-endpoint;&quot;</span><span class="fu">,</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;statusCode&quot;</span><span class="fu">:</span> <span class="dv">200</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="ot">]</span></span></code></pre></div>
+<h2 id="handling-reports-on-a-javascript-backend">Handling Reports on a
+JavaScript Backend</h2>
+<p>JavaScript backends, such as those built with Node.js and Express,
+must handle <code>POST</code> requests with the
+<code>application/reports+json</code> MIME type to properly ingest
+violation payloads.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> express <span class="im">from</span> <span class="st">&#39;express&#39;</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> app <span class="op">=</span> <span class="fu">express</span>()<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Parse standard JSON and application/reports+json payloads</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">use</span>(express<span class="op">.</span><span class="fu">json</span>({ <span class="dt">type</span><span class="op">:</span> [<span class="st">&#39;application/json&#39;</span><span class="op">,</span> <span class="st">&#39;application/reports+json&#39;</span>] }))<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">post</span>(<span class="st">&#39;/reports/security&#39;</span><span class="op">,</span> (req<span class="op">,</span> res) <span class="kw">=&gt;</span> {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> reports <span class="op">=</span> req<span class="op">.</span><span class="at">body</span><span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">Array</span><span class="op">.</span><span class="fu">isArray</span>(reports)) {</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> report <span class="kw">of</span> reports) {</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="vs">`[Security Violation] Type: </span><span class="sc">${</span>report<span class="op">.</span><span class="at">type</span><span class="sc">}</span><span class="vs">`</span><span class="op">,</span> {</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">url</span><span class="op">:</span> report<span class="op">.</span><span class="at">url</span><span class="op">,</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="dt">body</span><span class="op">:</span> report<span class="op">.</span><span class="at">body</span><span class="op">,</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="dt">receivedAt</span><span class="op">:</span> <span class="kw">new</span> <span class="bu">Date</span>()<span class="op">.</span><span class="fu">toISOString</span>()</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Route reports to logging pipelines, SIEMs, or alert systems</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Always respond with a 204 or 200 to acknowledge receipt</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  res<span class="op">.</span><span class="fu">status</span>(<span class="dv">204</span>)<span class="op">.</span><span class="fu">end</span>()<span class="op">;</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">listen</span>(<span class="dv">3000</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Reporting server listening on port 3000&#39;</span>)<span class="op">;</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="benefits-for-web-security-operations">Benefits for Web Security
+Operations</h2>
+<ol type="1">
+<li><strong>Zero Client Performance Overhead:</strong> Because the
+browser handles logging natively, report collection does not block the
+main execution thread or consume JavaScript execution time.</li>
+<li><strong>Resilience Against Tampering:</strong> Malicious scripts
+running on a compromised page cannot easily intercept or alter the
+browser's native reporting mechanism.</li>
+<li><strong>Actionable Real-Time Telemetry:</strong> Backend systems
+gain immediate visibility into Cross-Site Scripting (XSS) attempts,
+broken asset dependencies, and strict policy regressions before they
+impact the wider user base.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

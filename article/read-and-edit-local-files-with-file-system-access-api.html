@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Read and Edit Local Files with File System Access API - javascript</title>
+    <meta name="description" content="The File System Access API allows web applications to read, modify, and save files directly on a user's local device without relying on traditional upload and download workflows. By requesting user permission through native file dialogs, the browser gran">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/read-and-edit-local-files-with-file-system-access-api">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Read and Edit Local Files with File System Access API - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/read-and-edit-local-files-with-file-system-access-api" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The File System Access API allows web applications to read, modify, and save files directly on a user's local device without relying on traditional upload and download workflows. By requesting user permission through native file dialogs, the browser gran" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="read-and-edit-local-files-with-file-system-access-api">Read and
+Edit Local Files with File System Access API</h1>
+<p>The File System Access API allows web applications to read, modify,
+and save files directly on a user's local device without relying on
+traditional upload and download workflows. By requesting user permission
+through native file dialogs, the browser grants the web page a secure
+handle to a specific file or directory. This article explains how
+JavaScript obtains file handles, reads file data, writes modifications
+back to disk, and manages user permissions.</p>
+<h3 id="requesting-file-access">Requesting File Access</h3>
+<p>To access a local file, JavaScript uses the
+<code>window.showOpenFilePicker()</code> method. Calling this function
+prompts the user with the operating system's native file picker dialog.
+Because this action accesses local storage, it must be triggered by a
+direct user gesture, such as clicking a button.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> [fileHandle] <span class="op">=</span> <span class="cf">await</span> <span class="bu">window</span><span class="op">.</span><span class="fu">showOpenFilePicker</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">types</span><span class="op">:</span> [</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">description</span><span class="op">:</span> <span class="st">&#39;Text Files&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">accept</span><span class="op">:</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;text/plain&#39;</span><span class="op">:</span> [<span class="st">&#39;.txt&#39;</span>]<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">multiple</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>This method returns an array of <code>FileSystemFileHandle</code>
+objects representing the selected files. The handle acts as a reference
+to the file on disk without loading the entire file into memory
+immediately.</p>
+<h3 id="reading-file-contents">Reading File Contents</h3>
+<p>Once a <code>FileSystemFileHandle</code> is obtained, you can access
+the file's data by calling its <code>getFile()</code> method. This
+returns a standard <code>File</code> object containing the file's
+metadata and contents.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Get the File object</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> file <span class="op">=</span> <span class="cf">await</span> fileHandle<span class="op">.</span><span class="fu">getFile</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Read the text content</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> contents <span class="op">=</span> <span class="cf">await</span> file<span class="op">.</span><span class="fu">text</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(contents)<span class="op">;</span></span></code></pre></div>
+<p>You can read the file data using built-in methods on the
+<code>File</code> object, such as <code>.text()</code> for strings,
+<code>.arrayBuffer()</code> for binary data, or <code>.stream()</code>
+for streaming large files in chunks.</p>
+<h3 id="editing-and-writing-to-the-file">Editing and Writing to the
+File</h3>
+<p>To modify the file on disk, you must create a writable stream using
+<code>fileHandle.createWritable()</code>. This operation initiates a
+request for write permissions if they have not already been granted.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a FileSystemWritableFileStream</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> writable <span class="op">=</span> <span class="cf">await</span> fileHandle<span class="op">.</span><span class="fu">createWritable</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Write new content to the stream</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> writable<span class="op">.</span><span class="fu">write</span>(<span class="st">&#39;Updated file content.&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Close the stream to save changes to disk</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> writable<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span></code></pre></div>
+<p>When you write to the stream, the API creates a temporary swap file
+in the background. Calling <code>writable.close()</code> flushes the
+changes, verifies integrity, and atomically replaces the original file
+with the updated version.</p>
+<h3 id="saving-as-a-new-file">Saving as a New File</h3>
+<p>If you want to save data to a new file rather than modifying an
+existing one, use <code>window.showSaveFilePicker()</code>. This opens a
+native "Save As" dialog and returns a new
+<code>FileSystemFileHandle</code>.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> newHandle <span class="op">=</span> <span class="cf">await</span> <span class="bu">window</span><span class="op">.</span><span class="fu">showSaveFilePicker</span>({</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">suggestedName</span><span class="op">:</span> <span class="st">&#39;document.txt&#39;</span><span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> writable <span class="op">=</span> <span class="cf">await</span> newHandle<span class="op">.</span><span class="fu">createWritable</span>()<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> writable<span class="op">.</span><span class="fu">write</span>(<span class="st">&#39;New file contents.&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> writable<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span></code></pre></div>
+<h3 id="security-and-permission-handling">Security and Permission
+Handling</h3>
+<p>The File System Access API is designed with explicit security
+boundaries:</p>
+<ul>
+<li><strong>User Action Required:</strong> File pickers cannot be
+triggered programmatically without direct user interaction (e.g., a
+click event).</li>
+<li><strong>Explicit Permission Checks:</strong> Browsers prompt the
+user separately for read and write permissions. You can query or request
+permissions explicitly using
+<code>fileHandle.queryPermission({ mode: 'readwrite' })</code> and
+<code>fileHandle.requestPermission({ mode: 'readwrite' })</code>.</li>
+<li><strong>Restricted Directories:</strong> Browsers block access to
+sensitive system paths (like the Windows or System32 folders) to prevent
+unauthorized modifications to critical system files.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

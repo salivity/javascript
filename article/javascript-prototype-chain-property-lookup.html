@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Prototype Chain Property Lookup - javascript</title>
+    <meta name="description" content="JavaScript uses a prototypal inheritance model where objects inherit properties and methods directly from other objects. When code attempts to access a property on an object, the JavaScript engine executes an internal lookup algorithm that traverses the">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-prototype-chain-property-lookup">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Prototype Chain Property Lookup - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-prototype-chain-property-lookup" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript uses a prototypal inheritance model where objects inherit properties and methods directly from other objects. When code attempts to access a property on an object, the JavaScript engine executes an internal lookup algorithm that traverses the" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-prototype-chain-property-lookup">JavaScript Prototype
+Chain Property Lookup</h1>
+<p>JavaScript uses a prototypal inheritance model where objects inherit
+properties and methods directly from other objects. When code attempts
+to access a property on an object, the JavaScript engine executes an
+internal lookup algorithm that traverses the prototype chain
+step-by-step until the property is found or the end of the chain is
+reached. This article details the exact mechanics of this lookup
+process, how property shadowing occurs, and the role of the terminal
+<code>null</code> reference.</p>
+<h2 id="the-internal-get-operation">The Internal <code>[[Get]]</code>
+Operation</h2>
+<p>When you read a property on an object (for example,
+<code>user.name</code>), the JavaScript runtime invokes the internal
+<code>[[Get]]</code> method on that object. The lookup proceeds through
+the following sequential steps:</p>
+<ol type="1">
+<li><strong>Check Own Properties:</strong> The engine first checks
+whether the target object itself directly contains the property (known
+as an "own property"). If it exists, the search terminates immediately,
+and the value or the return value of its getter is returned.</li>
+<li><strong>Inspect the Prototype:</strong> If the property is not found
+directly on the object, the engine accesses the object's internal
+<code>[[Prototype]]</code> link (accessible programmatically via
+<code>Object.getPrototypeOf()</code> or <code>__proto__</code>).</li>
+<li><strong>Traverse Upward:</strong> The engine repeats the check on
+the prototype object. If the prototype contains the property, its value
+is returned. If not, the engine moves up to that prototype’s own
+<code>[[Prototype]]</code>.</li>
+<li><strong>Reach the Terminal Prototype:</strong> The base object for
+standard objects is <code>Object.prototype</code>. If the property is
+still not found, the engine checks <code>Object.prototype</code>.</li>
+<li><strong>Terminate at <code>null</code>:</strong> The prototype of
+<code>Object.prototype</code> is <code>null</code>. Reaching
+<code>null</code> marks the end of the chain. Because no further objects
+exist to inspect, the engine resolves the operation by returning
+<code>undefined</code>.</li>
+</ol>
+<h2 id="code-example-of-chain-traversal">Code Example of Chain
+Traversal</h2>
+<p>Consider the following hierarchy:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> grandParent <span class="op">=</span> { <span class="dt">origin</span><span class="op">:</span> <span class="st">&quot;Global&quot;</span> }<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> parent <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">create</span>(grandParent)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>parent<span class="op">.</span><span class="at">role</span> <span class="op">=</span> <span class="st">&quot;Admin&quot;</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> child <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">create</span>(parent)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>child<span class="op">.</span><span class="at">name</span> <span class="op">=</span> <span class="st">&quot;Alex&quot;</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(child<span class="op">.</span><span class="at">name</span>)<span class="op">;</span>   <span class="co">// Found on &#39;child&#39; -&gt; &quot;Alex&quot;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(child<span class="op">.</span><span class="at">role</span>)<span class="op">;</span>   <span class="co">// Not on &#39;child&#39;, found on &#39;parent&#39; -&gt; &quot;Admin&quot;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(child<span class="op">.</span><span class="at">origin</span>)<span class="op">;</span> <span class="co">// Not on &#39;child&#39; or &#39;parent&#39;, found on &#39;grandParent&#39; -&gt; &quot;Global&quot;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(child<span class="op">.</span><span class="at">age</span>)<span class="op">;</span>    <span class="co">// Traversed to null -&gt; undefined</span></span></code></pre></div>
+<p>When evaluating <code>child.origin</code>, the engine checks
+<code>child</code>, then <code>parent</code>, then
+<code>grandParent</code>, where it finds a match and stops further
+traversal.</p>
+<h2 id="property-shadowing">Property Shadowing</h2>
+<p>If an object contains a property with the exact same name as a
+property higher up on its prototype chain, the object's own property
+takes precedence. This behavior is called <strong>property
+shadowing</strong>. The engine satisfies the lookup at the earliest
+point in the chain, masking any identically named properties further
+up.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vehicle <span class="op">=</span> { <span class="dt">wheels</span><span class="op">:</span> <span class="dv">4</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> motorcycle <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">create</span>(vehicle)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>motorcycle<span class="op">.</span><span class="at">wheels</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Shadows vehicle.wheels</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(motorcycle<span class="op">.</span><span class="at">wheels</span>)<span class="op">;</span> <span class="co">// 2 (resolved on motorcycle directly)</span></span></code></pre></div>
+<h2 id="methods-and-the-this-context">Methods and the <code>this</code>
+Context</h2>
+<p>Methods are simply properties holding functions. When a method is
+inherited and resolved through the prototype chain, the execution
+context (<code>this</code>) always points to the object on which the
+method was originally invoked, not the prototype object where the
+function definition resides.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> proto <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">identify</span>() {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="vs">`ID: </span><span class="sc">${</span><span class="kw">this</span><span class="op">.</span><span class="at">id</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> item <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">create</span>(proto)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>item<span class="op">.</span><span class="at">id</span> <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(item<span class="op">.</span><span class="fu">identify</span>())<span class="op">;</span> <span class="co">// &quot;ID: 42&quot;</span></span></code></pre></div>
+<p>During <code>item.identify()</code>, JavaScript resolves
+<code>identify</code> via <code>proto</code>, but executes it with
+<code>this</code> referencing <code>item</code>.</p>
+<h2 id="lookup-vs-assignment">Lookup vs. Assignment</h2>
+<p>Property lookup rules apply strictly to reading values. When setting
+a property (<code>obj.prop = value</code>), the engine typically creates
+or updates the property directly on <code>obj</code> itself rather than
+modifying the prototype, preventing accidental mutations to shared
+prototype states.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

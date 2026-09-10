@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Rust Compiles to WebAssembly with wasm-bindgen - javascript</title>
+    <meta name="description" content="This article explores the technical pipeline of compiling Rust code into WebAssembly (Wasm) and bridging the communication barrier between Rust and JavaScript. It covers how the Rust compiler targets the Wasm runtime, the type limitations of raw WebAssem">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-rust-compiles-to-webassembly-with-wasm-bindgen">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Rust Compiles to WebAssembly with wasm-bindgen - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-rust-compiles-to-webassembly-with-wasm-bindgen" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the technical pipeline of compiling Rust code into WebAssembly (Wasm) and bridging the communication barrier between Rust and JavaScript. It covers how the Rust compiler targets the Wasm runtime, the type limitations of raw WebAssem" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-rust-compiles-to-webassembly-with-wasm-bindgen">How Rust
+Compiles to WebAssembly with wasm-bindgen</h1>
+<p>This article explores the technical pipeline of compiling Rust code
+into WebAssembly (Wasm) and bridging the communication barrier between
+Rust and JavaScript. It covers how the Rust compiler targets the Wasm
+runtime, the type limitations of raw WebAssembly, and how the
+<code>wasm-bindgen</code> tool facilitates seamless data transfer,
+function calls, and object sharing across the language boundary.</p>
+<h2 id="the-rust-to-webassembly-compilation-pipeline">The Rust to
+WebAssembly Compilation Pipeline</h2>
+<p>Rust is uniquely suited for WebAssembly because it does not require a
+garbage collector or a heavy runtime. The compilation process relies on
+the standard Rust compiler (<code>rustc</code>) and the LLVM
+backend:</p>
+<ol type="1">
+<li><strong>Source Parsing and Type Checking:</strong> Rust code is
+parsed, type-checked, and converted into Intermediate Representation
+(MIR/HIR).</li>
+<li><strong>LLVM Backend:</strong> <code>rustc</code> passes the
+intermediate representation to LLVM.</li>
+<li><strong>Targeting Wasm:</strong> By setting the compilation target
+to <code>wasm32-unknown-unknown</code>, LLVM compiles the code into
+WebAssembly bytecode instead of native machine code (such as x86 or
+ARM).</li>
+<li><strong>Binary Generation:</strong> The final output is a
+<code>.wasm</code> binary file containing structured modules, memory
+definitions, and instructions executable by any standard WebAssembly
+engine.</li>
+</ol>
+<h2 id="the-interoperability-challenge">The Interoperability
+Challenge</h2>
+<p>By default, WebAssembly has a very limited type system. It natively
+understands only basic numeric types: 32-bit and 64-bit integers
+(<code>i32</code>, <code>i64</code>) and 32-bit and 64-bit floats
+(<code>f32</code>, <code>f64</code>).</p>
+<p>Raw WebAssembly cannot natively receive or return complex JavaScript
+types such as strings, objects, arrays, DOM nodes, or arbitrary
+functions. Instead, WebAssembly programs operate on a single contiguous
+array of raw bytes known as <strong>linear memory</strong>. For
+JavaScript and Rust to exchange complex data, that data must be manually
+serialized into linear memory and read out by the other side.</p>
+<h2 id="how-wasm-bindgen-bridges-the-gap">How <code>wasm-bindgen</code>
+Bridges the Gap</h2>
+<p><code>wasm-bindgen</code> is both a Rust library and a CLI tool that
+automates two-way communication between WebAssembly and JavaScript. It
+generates a JavaScript wrapper module alongside the compiled
+<code>.wasm</code> binary to translate high-level types
+automatically.</p>
+<h3 id="1-data-marshalling-via-linear-memory">1. Data Marshalling via
+Linear Memory</h3>
+<p>When passing a high-level type like a <code>String</code> from Rust
+to JavaScript:</p>
+<ul>
+<li>The Rust side allocates space in Wasm linear memory, writes the
+UTF-8 encoded bytes into it, and returns the memory pointer and byte
+length (both <code>i32</code> values) to JavaScript.</li>
+<li>The generated JavaScript glue code receives the pointer and length,
+uses the browser's native <code>TextDecoder</code> API to read the slice
+from WebAssembly memory, and constructs a native JavaScript string.</li>
+</ul>
+<p>When JavaScript sends a string to Rust, the process runs in reverse:
+JavaScript uses <code>TextEncoder</code> to write bytes into memory
+allocated by the Wasm module, passing the memory address to the Rust
+function.</p>
+<h3 id="2-exporting-rust-to-javascript">2. Exporting Rust to
+JavaScript</h3>
+<p>Developers use the <code>#[wasm_bindgen]</code> attribute macro to
+mark Rust functions, structs, and methods that should be visible to
+JavaScript:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">wasm_bindgen::prelude::</span><span class="op">*;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>wasm_bindgen<span class="at">]</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">fn</span> greet(name<span class="op">:</span> <span class="op">&amp;</span><span class="dt">str</span>) <span class="op">-&gt;</span> <span class="dt">String</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="pp">format!</span>(<span class="st">&quot;Hello, {}!&quot;</span><span class="op">,</span> name)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The macro generates the necessary boilerplate inside the WebAssembly
+binary and emits metadata that the <code>wasm-bindgen-cli</code> uses to
+build the corresponding JavaScript interface.</p>
+<h3 id="3-importing-javascript-into-rust">3. Importing JavaScript into
+Rust</h3>
+<p><code>wasm-bindgen</code> also enables Rust to call JavaScript
+functions and access web APIs:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">wasm_bindgen::prelude::</span><span class="op">*;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>wasm_bindgen<span class="at">]</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">extern</span> <span class="st">&quot;C&quot;</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">#[</span>wasm_bindgen<span class="at">(</span>js_namespace <span class="op">=</span> console<span class="at">)]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">fn</span> log(s<span class="op">:</span> <span class="op">&amp;</span><span class="dt">str</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This allows Rust to invoke <code>console.log</code> directly.
+<code>wasm-bindgen</code> manages the function index tables and handle
+passing under the hood.</p>
+<h3 id="4-handling-complex-objects-with-jsvalue">4. Handling Complex
+Objects with <code>JsValue</code></h3>
+<p>To pass arbitrary JavaScript objects into Rust without converting
+them, <code>wasm-bindgen</code> uses a special wrapper type called
+<code>JsValue</code>. Instead of passing the entire object into Wasm
+memory, the JavaScript wrapper retains the object in an internal heap
+and passes an integer index (a handle) to Rust. When Rust wants to
+manipulate the object, it passes the index back to JavaScript,
+maintaining proper object references without violating memory
+safety.</p>
+<h2 id="the-build-and-packaging-process">The Build and Packaging
+Process</h2>
+<p>In practice, the entire workflow is typically orchestrated using
+<code>wasm-pack</code>:</p>
+<ol type="1">
+<li><code>wasm-pack</code> compiles the Rust code using
+<code>cargo build --target wasm32-unknown-unknown</code>.</li>
+<li>It runs the <code>wasm-bindgen</code> CLI tool on the resulting
+binary to generate the JavaScript wrapper files and TypeScript type
+definition files (<code>.d.ts</code>).</li>
+<li>It packages the output into a directory ready to be imported
+directly by bundlers (like Webpack, Vite, or Rollup) or published
+directly to npm.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Babel preset-env Determines Polyfills via Browserslist - javascript</title>
+    <meta name="description" content="This article explains the underlying mechanism that @babel/preset-env uses to determine and inject polyfills based on Browserslist configurations. It covers how target browser queries are parsed, how compatibility databases like core-js-compat are evalua">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-babel-preset-env-determines-polyfills-via-browserslist">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Babel preset-env Determines Polyfills via Browserslist - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-babel-preset-env-determines-polyfills-via-browserslist" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the underlying mechanism that @babel/preset-env uses to determine and inject polyfills based on Browserslist configurations. It covers how target browser queries are parsed, how compatibility databases like core-js-compat are evalua" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-babel-preset-env-determines-polyfills-via-browserslist">How
+Babel preset-env Determines Polyfills via Browserslist</h1>
+<p>This article explains the underlying mechanism that
+<code>@babel/preset-env</code> uses to determine and inject polyfills
+based on Browserslist configurations. It covers how target browser
+queries are parsed, how compatibility databases like
+<code>core-js-compat</code> are evaluated against target environments,
+and how configuration options such as <code>useBuiltIns</code> dictate
+the exact polyfills injected into your final JavaScript bundle.</p>
+<h2 id="1-resolving-the-target-browsers">1. Resolving the Target
+Browsers</h2>
+<p>The process begins by identifying the target environments. When Babel
+runs, <code>@babel/preset-env</code> checks for an environment
+configuration. If explicit targets are not defined directly within the
+Babel configuration, it automatically queries Browserslist by inspecting
+your project's <code>.browserslistrc</code> file,
+<code>browserslist</code> key in <code>package.json</code>, or standard
+environment variables.</p>
+<p>Browserslist translates human-readable queries—such as
+<code>&gt; 0.5%, last 2 versions, not dead</code>—into an explicit array
+of specific browser versions (e.g., <code>chrome 108</code>,
+<code>safari 15.4</code>, <code>firefox 102</code>). This normalized
+list acts as the baseline criteria for modern and legacy support
+throughout the compilation process.</p>
+<h2 id="2-cross-referencing-compatibility-data">2. Cross-Referencing
+Compatibility Data</h2>
+<p>Once the target list is established, Babel must determine which
+ECMAScript features these browsers lack. It relies on mapping
+databases:</p>
+<ul>
+<li><strong>Babel Compat Data
+(<code>@babel/compat-data</code>):</strong> Used primarily for syntax
+transforms, mapping syntax features to browser support tables sourced
+from MDN and the Kangax compatibility table.</li>
+<li><strong>Core-JS Compat (<code>core-js-compat</code>):</strong> Used
+specifically for polyfills. Since Babel delegates polyfills to
+<code>core-js</code>, it uses <code>core-js-compat</code> to
+cross-reference every individual <code>core-js</code> module (such as
+<code>es.promise</code> or <code>es.array.flat-map</code>) against the
+engine versions that natively support them.</li>
+</ul>
+<p>Babel evaluates the target list against these databases using a
+"lowest common denominator" approach. If even a single browser in your
+resolved Browserslist output lacks native, bug-free support for a
+feature, that feature is marked as requiring a polyfill.</p>
+<h2 id="3-polyfill-detection-via-usebuiltins">3. Polyfill Detection via
+<code>useBuiltIns</code></h2>
+<p>Knowing which polyfills are needed across the environment list is
+only half the equation; Babel must also know how to apply them to your
+code. This behavior is controlled by the <code>useBuiltIns</code> option
+in <code>@babel/preset-env</code>:</p>
+<h3 id="usebuiltins-false"><code>useBuiltIns: false</code></h3>
+<p>This is the default setting. Babel does not manage polyfills
+automatically. Syntax transforms occur, but no polyfill modules are
+added regardless of your Browserslist targets.</p>
+<h3 id="usebuiltins-entry"><code>useBuiltIns: 'entry'</code></h3>
+<p>When set to <code>'entry'</code>, Babel requires you to include an
+entry-level import such as <code>import "core-js";</code> at the root of
+your application. Babel inspects your target browsers, looks up all
+features that any target browser lacks, and replaces the single root
+import with an explicit list of only the required <code>core-js</code>
+sub-modules. It does not inspect your application code for usage; it
+polyfills everything the targets lack.</p>
+<h3 id="usebuiltins-usage"><code>useBuiltIns: 'usage'</code></h3>
+<p>When set to <code>'usage'</code>, Babel scans every file using
+Abstract Syntax Tree (AST) analysis. As it parses the code, it
+identifies modern global objects, instance methods, and static methods
+(for example, <code>Promise.allSettled</code> or
+<code>[].includes</code>).</p>
+<p>For every matched feature, Babel performs a check:</p>
+<ol type="1">
+<li>Is this feature absent or broken in any browser in the resolved
+target list?</li>
+<li>Has the polyfill already been imported in the current module?</li>
+</ol>
+<p>If the target browsers lack support and the code uses the feature,
+Babel injects an import for that specific <code>core-js</code> module
+(e.g., <code>import "core-js/modules/es.array.includes.js";</code>) at
+the top of the file.</p>
+<h2 id="4-execution-summary">4. Execution Summary</h2>
+<p>To summarize the pipeline:</p>
+<ol type="1">
+<li><strong>Query Resolution:</strong> <code>@babel/preset-env</code>
+uses Browserslist to resolve queries into a concrete list of browser
+versions.</li>
+<li><strong>Feature Mapping:</strong> The preset checks
+<code>core-js-compat</code> to generate a master set of required
+polyfill modules missing in those browsers.</li>
+<li><strong>AST Inspection &amp; Injection:</strong> If configured with
+<code>useBuiltIns: 'usage'</code>, Babel parses source files for
+matching ECMAScript features, cross-references them against the missing
+set, and automatically injects targeted polyfill imports.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Proxies Intercept Object Operations - javascript</title>
+    <meta name="description" content="JavaScript Proxies provide a powerful mechanism to wrap target objects and customize their default behavior. Introduced in ECMAScript 6 (ES2015), a Proxy intercepts fundamental internal operations—such as property lookup, assignment, enumeration, and f">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-proxies-intercept-object-operations">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Proxies Intercept Object Operations - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-proxies-intercept-object-operations" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript Proxies provide a powerful mechanism to wrap target objects and customize their default behavior. Introduced in ECMAScript 6 (ES2015), a Proxy intercepts fundamental internal operations—such as property lookup, assignment, enumeration, and f" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-proxies-intercept-object-operations">How
+JavaScript Proxies Intercept Object Operations</h1>
+<p>JavaScript Proxies provide a powerful mechanism to wrap target
+objects and customize their default behavior. Introduced in ECMAScript 6
+(ES2015), a Proxy intercepts fundamental internal operations—such as
+property lookup, assignment, enumeration, and function
+invocation—allowing developers to redefine how these operations execute.
+This article explains the mechanics of JavaScript Proxies, how handlers
+and traps work, the role of the <code>Reflect</code> API, and practical
+implementation patterns for intercepting object interactions.</p>
+<h2
+id="understanding-the-core-components-target-handler-and-traps">Understanding
+the Core Components: Target, Handler, and Traps</h2>
+<p>A Proxy is instantiated using the <code>Proxy</code> constructor,
+which requires two parameters:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> proxy <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(target<span class="op">,</span> handler)<span class="op">;</span></span></code></pre></div>
+<ol type="1">
+<li><strong>Target</strong>: The original object (an object, array,
+function, or another proxy) that the Proxy virtualizes.</li>
+<li><strong>Handler</strong>: An object containing methods (called
+<strong>traps</strong>) that define the custom behavior when an
+operation is performed on the proxy.</li>
+<li><strong>Traps</strong>: Methods within the handler that correspond
+to internal ECMAScript engine operations. If a trap is defined, the
+proxy executes that trap instead of the standard operation. If no trap
+is defined, the operation falls back to the default behavior on the
+target.</li>
+</ol>
+<h2 id="how-interception-works-mapping-traps-to-internal-methods">How
+Interception Works: Mapping Traps to Internal Methods</h2>
+<p>JavaScript engines interact with objects via low-level internal
+methods (e.g., <code>[[Get]]</code>, <code>[[Set]]</code>,
+<code>[[Delete]]</code>, <code>[[Call]]</code>). A Proxy provides public
+trap functions that directly intercept these internal methods.</p>
+<p>Here are the most common internal methods and their corresponding
+Proxy traps:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Internal Method</th>
+<th style="text-align: left;">Proxy Trap</th>
+<th style="text-align: left;">Triggering Operation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>[[Get]]</code></td>
+<td
+style="text-align: left;"><code>get(target, prop, receiver)</code></td>
+<td style="text-align: left;">Reading a property (<code>obj.prop</code>
+or <code>obj['prop']</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>[[Set]]</code></td>
+<td
+style="text-align: left;"><code>set(target, prop, value, receiver)</code></td>
+<td style="text-align: left;">Writing a property
+(<code>obj.prop = value</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>[[HasProperty]]</code></td>
+<td style="text-align: left;"><code>has(target, prop)</code></td>
+<td style="text-align: left;">The <code>in</code> operator
+(<code>'prop' in obj</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>[[Delete]]</code></td>
+<td
+style="text-align: left;"><code>deleteProperty(target, prop)</code></td>
+<td style="text-align: left;">The <code>delete</code> operator
+(<code>delete obj.prop</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>[[Call]]</code></td>
+<td
+style="text-align: left;"><code>apply(target, thisArg, argumentsList)</code></td>
+<td style="text-align: left;">Function call
+(<code>fn(...args)</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>[[Construct]]</code></td>
+<td
+style="text-align: left;"><code>construct(target, argumentsList, newTarget)</code></td>
+<td style="text-align: left;">The <code>new</code> operator
+(<code>new Cls()</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-role-of-the-reflect-api">The Role of the
+<code>Reflect</code> API</h2>
+<p>When redefining operations within a trap, you often still need to
+perform the default action. The global <code>Reflect</code> object
+provides methods that match the exact signatures and behaviors of the
+Proxy traps.</p>
+<p>Using <code>Reflect</code> ensures that default operations maintain
+their original semantics, correctly forward the <code>receiver</code>
+(preserving the expected <code>this</code> context), and return
+appropriate boolean values for success or failure.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alex&quot;</span> }<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> handler <span class="op">=</span> {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span>(target<span class="op">,</span> prop<span class="op">,</span> receiver) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Accessing property: </span><span class="sc">${</span><span class="bu">String</span>(prop)<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">Reflect</span><span class="op">.</span><span class="fu">get</span>(target<span class="op">,</span> prop<span class="op">,</span> receiver)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> proxyUser <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(user<span class="op">,</span> handler)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(proxyUser<span class="op">.</span><span class="at">name</span>)<span class="op">;</span> </span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Logs: &quot;Accessing property: name&quot;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: &quot;Alex&quot;</span></span></code></pre></div>
+<h2 id="common-interception-patterns">Common Interception Patterns</h2>
+<h3 id="1-data-validation-with-the-set-trap">1. Data Validation with the
+<code>set</code> Trap</h3>
+<p>The <code>set</code> trap intercepts property writes, allowing you to
+enforce type safety or value constraints before modifying the target
+object.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> validator <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">set</span>(target<span class="op">,</span> prop<span class="op">,</span> value<span class="op">,</span> receiver) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (prop <span class="op">===</span> <span class="st">&quot;age&quot;</span>) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="kw">typeof</span> value <span class="op">!==</span> <span class="st">&quot;number&quot;</span> <span class="op">||</span> value <span class="op">&lt;=</span> <span class="dv">0</span>) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">TypeError</span>(<span class="st">&quot;Age must be a positive number.&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">Reflect</span><span class="op">.</span><span class="fu">set</span>(target<span class="op">,</span> prop<span class="op">,</span> value<span class="op">,</span> receiver)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> profile <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>({}<span class="op">,</span> validator)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>profile<span class="op">.</span><span class="at">age</span> <span class="op">=</span> <span class="dv">25</span><span class="op">;</span> <span class="co">// Succeeds</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">// profile.age = -5; // Throws TypeError: Age must be a positive number.</span></span></code></pre></div>
+<h3 id="2-providing-default-values-with-the-get-trap">2. Providing
+Default Values with the <code>get</code> Trap</h3>
+<p>The <code>get</code> trap can redefine how missing properties are
+handled, avoiding <code>undefined</code> errors.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dictionary <span class="op">=</span> { <span class="dt">hello</span><span class="op">:</span> <span class="st">&quot;bonjour&quot;</span> }<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> safeDictionary <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(dictionary<span class="op">,</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span>(target<span class="op">,</span> prop<span class="op">,</span> receiver) {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (prop <span class="kw">in</span> target) {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="bu">Reflect</span><span class="op">.</span><span class="fu">get</span>(target<span class="op">,</span> prop<span class="op">,</span> receiver)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="vs">`Translation for &#39;</span><span class="sc">${</span><span class="bu">String</span>(prop)<span class="sc">}</span><span class="vs">&#39; not found.`</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(safeDictionary<span class="op">.</span><span class="at">hello</span>)<span class="op">;</span>   <span class="co">// &quot;bonjour&quot;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(safeDictionary<span class="op">.</span><span class="at">goodbye</span>)<span class="op">;</span> <span class="co">// &quot;Translation for &#39;goodbye&#39; not found.&quot;</span></span></code></pre></div>
+<h3 id="3-intercepting-function-calls-with-the-apply-trap">3.
+Intercepting Function Calls with the <code>apply</code> Trap</h3>
+<p>When wrapping functions, the <code>apply</code> trap intercepts
+execution, enabling logging, performance profiling, or argument
+transformation.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sum</span>(a<span class="op">,</span> b) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tracedSum <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(sum<span class="op">,</span> {</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">apply</span>(target<span class="op">,</span> thisArg<span class="op">,</span> argumentsList) {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Called with arguments: </span><span class="sc">${</span>argumentsList<span class="op">.</span><span class="fu">join</span>(<span class="st">&quot;, &quot;</span>)<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">Reflect</span><span class="op">.</span><span class="fu">apply</span>(target<span class="op">,</span> thisArg<span class="op">,</span> argumentsList)<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">tracedSum</span>(<span class="dv">5</span><span class="op">,</span> <span class="dv">10</span>))<span class="op">;</span> </span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Logs: &quot;Called with arguments: 5, 10&quot;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: 15</span></span></code></pre></div>
+<h2 id="practical-applications">Practical Applications</h2>
+<ul>
+<li><strong>Reactivity Systems</strong>: Modern frameworks (such as Vue
+3) use proxies to track property reads and writes, triggering UI updates
+when data changes.</li>
+<li><strong>Access Control &amp; Security</strong>: Properties prefixed
+with an underscore or symbol can be hidden or made read-only by throwing
+errors in <code>set</code> or <code>deleteProperty</code> traps.</li>
+<li><strong>Negative Array Indexing</strong>: Proxies can intercept
+numeric properties on arrays to support negative indices (e.g.,
+<code>arr[-1]</code> returning the last element).</li>
+<li><strong>API Mocking and Dynamic Objects</strong>: A proxy can
+dynamically construct nested API paths or SQL queries using chained
+property lookups.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

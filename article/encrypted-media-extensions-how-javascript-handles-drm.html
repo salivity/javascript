@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encrypted Media Extensions: How JavaScript Handles DRM - javascript</title>
+    <meta name="description" content="Encrypted Media Extensions (EME) is a W3C standard JavaScript API that allows web browsers to play DRM-protected audio and video content without third-party plugins like Flash or Silverlight. This article breaks down what EME is, its core architectural c">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/encrypted-media-extensions-how-javascript-handles-drm">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Encrypted Media Extensions: How JavaScript Handles DRM - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/encrypted-media-extensions-how-javascript-handles-drm" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Encrypted Media Extensions (EME) is a W3C standard JavaScript API that allows web browsers to play DRM-protected audio and video content without third-party plugins like Flash or Silverlight. This article breaks down what EME is, its core architectural c" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="encrypted-media-extensions-how-javascript-handles-drm">Encrypted
+Media Extensions: How JavaScript Handles DRM</h1>
+<p>Encrypted Media Extensions (EME) is a W3C standard JavaScript API
+that allows web browsers to play DRM-protected audio and video content
+without third-party plugins like Flash or Silverlight. This article
+breaks down what EME is, its core architectural components, and the
+step-by-step workflow JavaScript uses to facilitate Digital Rights
+Management (DRM) authentication and content decryption.</p>
+<h2 id="what-is-encrypted-media-extensions-eme">What is Encrypted Media
+Extensions (EME)?</h2>
+<p>Encrypted Media Extensions is an extension to the HTML5
+<code>HTMLMediaElement</code> specification. It provides a standardized
+interface for web applications to interact with underlying DRM
+systems.</p>
+<p>Crucially, EME does not define the DRM implementation itself, nor
+does it perform decryption or license parsing. Instead, EME acts as a
+communication bridge between the JavaScript runtime in the web page and
+the proprietary Content Decryption Module (CDM) built into the browser
+or operating system.</p>
+<h2 id="the-core-components-of-drm-on-the-web">The Core Components of
+DRM on the Web</h2>
+<p>Handling protected content in a browser requires four main
+components:</p>
+<ol type="1">
+<li><strong>HTMLMediaElement:</strong> The standard
+<code>&lt;video&gt;</code> or <code>&lt;audio&gt;</code> element
+displaying the media.</li>
+<li><strong>JavaScript Application:</strong> The client-side code that
+uses EME to coordinate license acquisition and session management.</li>
+<li><strong>Content Decryption Module (CDM):</strong> A secure, isolated
+software or hardware module within the browser/OS that manages
+encryption keys and decrypts media frames (e.g., Google Widevine, Apple
+FairPlay, Microsoft PlayReady).</li>
+<li><strong>License Server:</strong> A backend server that authenticates
+users, verifies subscription rights, and issues decryption keys to the
+CDM.</li>
+</ol>
+<h2 id="how-javascript-handles-drm-with-eme">How JavaScript Handles DRM
+with EME</h2>
+<p>The JavaScript DRM workflow via EME follows a defined sequence of
+operations to unlock and play protected media streams.</p>
+<h3 id="1-discovering-drm-support">1. Discovering DRM Support</h3>
+<p>JavaScript checks if the browser supports a specific key system (such
+as Widevine or FairPlay) using the
+<code>navigator.requestMediaKeySystemAccess()</code> method:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> config <span class="op">=</span> [{</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">initDataTypes</span><span class="op">:</span> [<span class="st">&#39;cenc&#39;</span>]<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">videoCapabilities</span><span class="op">:</span> [{ <span class="dt">contentType</span><span class="op">:</span> <span class="st">&#39;video/mp4; codecs=&quot;avc1.42E01E&quot;&#39;</span> }]</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}]<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> keySystemAccess <span class="op">=</span> <span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="fu">requestMediaKeySystemAccess</span>(<span class="st">&#39;com.widevine.alpha&#39;</span><span class="op">,</span> config)<span class="op">;</span></span></code></pre></div>
+<h3 id="2-initializing-mediakeys">2. Initializing MediaKeys</h3>
+<p>Once access is granted, the application creates a
+<code>MediaKeys</code> object and attaches it to the media element:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mediaKeys <span class="op">=</span> <span class="cf">await</span> keySystemAccess<span class="op">.</span><span class="fu">createMediaKeys</span>()<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> videoElement <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;video&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> videoElement<span class="op">.</span><span class="fu">setMediaKeys</span>(mediaKeys)<span class="op">;</span></span></code></pre></div>
+<h3 id="3-detecting-encrypted-content">3. Detecting Encrypted
+Content</h3>
+<p>When the video element encounters encrypted media during playback
+initialization, it fires an <code>encrypted</code> event. This event
+contains initialization data (<code>initData</code>), which includes the
+Key ID necessary for the license server:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>videoElement<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;encrypted&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">handleEncryptedContent</span>(<span class="bu">event</span><span class="op">.</span><span class="at">initData</span><span class="op">,</span> <span class="bu">event</span><span class="op">.</span><span class="at">initDataType</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="4-creating-a-key-session-and-requesting-a-license">4. Creating a
+Key Session and Requesting a License</h3>
+<p>JavaScript creates a <code>MediaKeySession</code> to manage the
+lifecycle of the key. The CDM uses the <code>initData</code> to generate
+a license challenge:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> session <span class="op">=</span> mediaKeys<span class="op">.</span><span class="fu">createSession</span>()<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>session<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;message&#39;</span><span class="op">,</span> <span class="kw">async</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// event.message contains the license challenge payload generated by the CDM</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> license <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetchLicenseFromServer</span>(<span class="bu">event</span><span class="op">.</span><span class="at">message</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> session<span class="op">.</span><span class="fu">update</span>(license)<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> session<span class="op">.</span><span class="fu">generateRequest</span>(initDataType<span class="op">,</span> initData)<span class="op">;</span></span></code></pre></div>
+<h3 id="5-license-exchange-and-decryption">5. License Exchange and
+Decryption</h3>
+<p>The application sends the license challenge to the DRM license server
+via a standard <code>fetch</code> request. After the server verifies
+authentication and permissions, it responds with an encrypted license
+containing the decryption keys.</p>
+<p>JavaScript passes this license back to the CDM using
+<code>session.update()</code>. The CDM extracts the keys securely,
+decrypts the incoming media stream within its isolated environment, and
+renders the clear video frames directly to the screen.</p>
+<h2 id="advantages-of-the-eme-architecture">Advantages of the EME
+Architecture</h2>
+<ul>
+<li><strong>Cross-Browser Compatibility:</strong> Provides a single,
+unified JavaScript API regardless of the underlying DRM vendor.</li>
+<li><strong>Security:</strong> JavaScript never has access to the raw
+decryption keys or the unencrypted video frames, preventing unauthorized
+interception.</li>
+<li><strong>Plugin-Free:</strong> Integrates directly with native
+browser audio and video pipelines for better performance and resource
+management.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

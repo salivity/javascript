@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Module Federation and How It Works - javascript</title>
+    <meta name="description" content="Module Federation is an architectural paradigm and build-tool feature—most notably introduced in Webpack 5—that allows multiple independent JavaScript builds to dynamically load code and share dependencies at runtime. This article explains what Modul">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/what-is-module-federation-and-how-it-works">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Module Federation and How It Works - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/what-is-module-federation-and-how-it-works" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Module Federation is an architectural paradigm and build-tool feature—most notably introduced in Webpack 5—that allows multiple independent JavaScript builds to dynamically load code and share dependencies at runtime. This article explains what Modul" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="what-is-module-federation-and-how-it-works">What Is Module
+Federation and How It Works</h1>
+<p>Module Federation is an architectural paradigm and build-tool
+feature—most notably introduced in Webpack 5—that allows multiple
+independent JavaScript builds to dynamically load code and share
+dependencies at runtime. This article explains what Module Federation
+is, the challenges it solves in distributed web applications like
+micro-frontends, and the exact runtime mechanisms it uses to prevent
+redundant dependency downloads across separate host and remote
+applications.</p>
+<hr />
+<h3 id="what-is-module-federation">What Is Module Federation?</h3>
+<p>Traditionally, sharing code across multiple frontend applications
+required publishing shared libraries to a registry (like npm) and
+bundling them at build time into each host application. This approach
+tightly couples release cycles and often causes duplicate dependencies
+to be loaded by the browser.</p>
+<p>Module Federation changes this by shifting code integration from
+build time to runtime. Under this model:</p>
+<ul>
+<li><strong>Host (Consumer):</strong> An application that initializes
+the page and dynamically imports code from other builds.</li>
+<li><strong>Remote (Producer):</strong> An independently built and
+deployed application that exposes specific components, utilities, or
+state to outside consumers.</li>
+<li><strong>Bidirectional Hosts:</strong> Applications that both consume
+remotes and expose modules to other applications.</li>
+</ul>
+<h3 id="how-module-federation-shares-dependencies">How Module Federation
+Shares Dependencies</h3>
+<p>When multiple distributed micro-frontends run in a single browser
+window, loading identical third-party libraries (such as React, Vue, or
+Lodash) for each application wastes bandwidth and can cause runtime
+conflicts. Module Federation solves this via its runtime
+dependency-sharing mechanism.</p>
+<h4 id="1-the-shared-configuration">1. The <code>shared</code>
+Configuration</h4>
+<p>In the configuration file (e.g., <code>webpack.config.js</code>),
+developers define shared dependencies inside the
+<code>ModuleFederationPlugin</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">new</span> <span class="fu">ModuleFederationPlugin</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;app_host&#39;</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">remotes</span><span class="op">:</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">app_remote</span><span class="op">:</span> <span class="st">&#39;app_remote@https://example.com/remoteEntry.js&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">shared</span><span class="op">:</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">react</span><span class="op">:</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">singleton</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">requiredVersion</span><span class="op">:</span> <span class="st">&#39;^18.2.0&#39;</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;react-dom&#39;</span><span class="op">:</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">singleton</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">requiredVersion</span><span class="op">:</span> <span class="st">&#39;^18.2.0&#39;</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">lodash</span><span class="op">:</span> {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">singleton</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h4 id="2-the-shared-scope">2. The Shared Scope</h4>
+<p>When an application boots up, it initializes a global object called
+the <strong>Shared Scope</strong>. This acts as an in-memory registry of
+all dependencies that any loaded module can provide or consume.</p>
+<p>Before executing application code, the initialization phase:</p>
+<ol type="1">
+<li>Registers the host's dependencies and their semantic versions
+(SemVer) into the shared scope.</li>
+<li>Fetches the remote entry manifest (<code>remoteEntry.js</code>) of
+any declared remotes.</li>
+<li>Registers the remote's declared dependencies and versions into the
+same shared scope.</li>
+</ol>
+<h4 id="3-semantic-version-negotiation">3. Semantic Version
+Negotiation</h4>
+<p>When a component inside a host or remote requests a shared package,
+Module Federation resolves the dependency dynamically:</p>
+<ul>
+<li><strong>Version Matching:</strong> The runtime compares available
+versions in the shared scope against the <code>requiredVersion</code>
+range defined by the requesting module.</li>
+<li><strong>Highest Compatible Version:</strong> If multiple compatible
+versions exist, the runtime provides the highest compatible version
+available, downloading it only once.</li>
+<li><strong>Fallback Loading:</strong> If a remote requires a version
+incompatible with what the host initialized, and <code>singleton</code>
+is not set to <code>true</code>, the remote will automatically download
+its own compatible version in isolation.</li>
+</ul>
+<h4 id="4-singleton-enforcement">4. Singleton Enforcement</h4>
+<p>Certain libraries (like React, React DOM, or state management stores)
+must only have a single instance instantiated in memory to avoid broken
+context and hook errors.</p>
+<p>Setting <code>singleton: true</code> guarantees that only one
+instance of the library is ever loaded. If version mismatches occur
+under singleton mode, the runtime logs a console warning and uses the
+highest compatible version rather than instantiating a duplicate
+copy.</p>
+<h3 id="key-benefits-of-shared-dependencies">Key Benefits of Shared
+Dependencies</h3>
+<ul>
+<li><strong>Reduced Bundle Size:</strong> Eliminates duplicate copies of
+shared libraries, lowering total network payload and parse time.</li>
+<li><strong>Independent Deployments:</strong> Teams can deploy updates
+to remotes without forcing the host application to rebuild or
+redeploy.</li>
+<li><strong>Unified State and Contexts:</strong> Singleton enforcement
+enables seamless sharing of UI libraries and global contexts across
+distributed codebases.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

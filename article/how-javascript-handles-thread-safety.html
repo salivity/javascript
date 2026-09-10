@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript Handles Thread Safety - javascript</title>
+    <meta name="description" content="JavaScript manages thread safety primarily by running on a single-threaded execution model, which inherently prevents traditional multi-threaded concurrency issues such as deadlocks and race conditions over shared memory. Instead of managing multiple thr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-handles-thread-safety">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript Handles Thread Safety - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-handles-thread-safety" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JavaScript manages thread safety primarily by running on a single-threaded execution model, which inherently prevents traditional multi-threaded concurrency issues such as deadlocks and race conditions over shared memory. Instead of managing multiple thr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-handles-thread-safety">How JavaScript Handles
+Thread Safety</h1>
+<p>JavaScript manages thread safety primarily by running on a
+single-threaded execution model, which inherently prevents traditional
+multi-threaded concurrency issues such as deadlocks and race conditions
+over shared memory. Instead of managing multiple threads accessing the
+same memory space directly, JavaScript employs a single call stack
+combined with an asynchronous, non-blocking Event Loop. This
+architecture ensures that code execution is deterministic and
+synchronized at the task level, while still allowing the environment to
+handle heavy I/O and background operations efficiently.</p>
+<h2 id="the-run-to-completion-principle">The Run-to-Completion
+Principle</h2>
+<p>At the core of JavaScript's thread safety is the "run-to-completion"
+rule. When a function starts executing on the main thread's call stack,
+it cannot be interrupted or pre-empted by any other JavaScript code.</p>
+<p>Because only one piece of code executes at any given moment:</p>
+<ul>
+<li>No two functions can mutate the same variable simultaneously.</li>
+<li>State remains consistent throughout the synchronous execution of a
+function block.</li>
+<li>Developers do not need to implement low-level synchronization
+primitives, such as mutexes or semaphores, for standard synchronous
+operations.</li>
+</ul>
+<h2 id="the-event-loop-and-asynchronous-concurrency">The Event Loop and
+Asynchronous Concurrency</h2>
+<p>To perform time-consuming operations—such as network requests, file
+access, or timers—without blocking the main thread, JavaScript delegates
+these tasks to the underlying runtime environment (the browser's Web
+APIs or Node.js C++ subsystems).</p>
+<p>When an asynchronous operation finishes:</p>
+<ol type="1">
+<li>The runtime places its callback into a queue (the Task Queue or
+Microtask Queue).</li>
+<li>The Event Loop monitors the call stack and the queues.</li>
+<li>Once the call stack is completely empty, the Event Loop pushes the
+queued callback onto the stack.</li>
+</ol>
+<p>Because callbacks run sequentially one after another, memory safety
+is preserved without true multi-threaded memory access on the JavaScript
+layer.</p>
+<h2 id="memory-race-conditions-vs-logical-race-conditions">Memory Race
+Conditions vs. Logical Race Conditions</h2>
+<p>While JavaScript eliminates low-level <strong>memory race
+conditions</strong> (where two threads read and write to the same memory
+address at the same physical clock cycle), it is still susceptible to
+<strong>logical race conditions</strong>.</p>
+<p>A logical race condition occurs when asynchronous operations resolve
+in an unpredictable order. For example, if two asynchronous network
+requests are fired to update the same user profile, the final state
+depends on which request finishes last, not which one was sent first.
+These issues must be handled logically through mechanisms like:</p>
+<ul>
+<li>Sequential execution using
+<code>async</code>/<code>await</code>.</li>
+<li>Abort controllers to cancel outdated requests.</li>
+<li>Transaction identifiers or state management libraries.</li>
+</ul>
+<h2 id="multi-threading-with-web-workers-and-atomics">Multi-Threading
+with Web Workers and Atomics</h2>
+<p>Modern JavaScript can utilize multiple threads via Web Workers (in
+browsers) or Worker Threads (in Node.js). However, thread safety is
+maintained by default through isolation:</p>
+<ul>
+<li><strong>Isolated Memory:</strong> Each worker runs in its own thread
+with its own event loop, call stack, and memory space.</li>
+<li><strong>Message Passing:</strong> Workers communicate with the main
+thread strictly by passing serialized messages via
+<code>postMessage()</code>, preventing shared access to mutable
+state.</li>
+</ul>
+<h3 id="sharedarraybuffer-and-the-atomics-api">SharedArrayBuffer and the
+Atomics API</h3>
+<p>When true shared memory is required across workers, JavaScript
+provides <code>SharedArrayBuffer</code>. Because this introduces real
+multi-threading over the same memory block, JavaScript provides the
+<code>Atomics</code> object.</p>
+<p>The <code>Atomics</code> API provides static methods (such as
+<code>Atomics.add</code>, <code>Atomics.load</code>, and
+<code>Atomics.wait</code>) that guarantee operations on shared memory
+are atomic and predictable, bringing explicit thread safety tools to
+high-performance JavaScript applications.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

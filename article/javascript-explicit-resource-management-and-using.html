@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Explicit Resource Management and Using - javascript</title>
+    <meta name="description" content="The Explicit Resource Management proposal introduces a deterministic, scope-based mechanism for managing the lifecycle of resources in JavaScript. By introducing the using and await using declarations, alongside built-in symbols like Symbol.dispose and S">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-explicit-resource-management-and-using">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Explicit Resource Management and Using - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-explicit-resource-management-and-using" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Explicit Resource Management proposal introduces a deterministic, scope-based mechanism for managing the lifecycle of resources in JavaScript. By introducing the using and await using declarations, alongside built-in symbols like Symbol.dispose and S" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-explicit-resource-management-and-using">JavaScript
+Explicit Resource Management and Using</h1>
+<p>The Explicit Resource Management proposal introduces a deterministic,
+scope-based mechanism for managing the lifecycle of resources in
+JavaScript. By introducing the <code>using</code> and
+<code>await using</code> declarations, alongside built-in symbols like
+<code>Symbol.dispose</code> and <code>Symbol.asyncDispose</code>,
+JavaScript now provides a native way to clean up resources like file
+handles, database connections, and memory allocations without relying on
+verbose and error-prone <code>try...finally</code> blocks.</p>
+<h3 id="the-problem-with-manual-cleanup">The Problem with Manual
+Cleanup</h3>
+<p>Before this proposal, managing resources required manual
+intervention. Developers had to ensure that opened resources were closed
+explicitly, typically wrapping operations in <code>try...finally</code>
+statements:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> resource <span class="op">=</span> <span class="fu">openResource</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  resource<span class="op">.</span><span class="fu">doSomething</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>} <span class="cf">finally</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  resource<span class="op">.</span><span class="fu">close</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This pattern becomes cumbersome and prone to leaks when managing
+multiple resources or handling complex branching logic and asynchronous
+operations.</p>
+<h3 id="the-using-keyword">The <code>using</code> Keyword</h3>
+<p>The <code>using</code> declaration operates similarly to
+<code>const</code>, but it automatically binds the lifecycle of a
+resource to the block scope in which it is declared. When execution
+exits the scope—whether by reaching the end of the block, returning, or
+throwing an error—the resource's disposal method is automatically
+invoked.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  using resource <span class="op">=</span> <span class="fu">openResource</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  resource<span class="op">.</span><span class="fu">doSomething</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>} <span class="co">// resource[Symbol.dispose]() is automatically called here</span></span></code></pre></div>
+<h3 id="implementing-symboldispose">Implementing
+<code>Symbol.dispose</code></h3>
+<p>An object becomes a "disposable" by implementing a method keyed with
+the well-known symbol <code>Symbol.dispose</code>.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TempFile {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  #path<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(path) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span>#<span class="at">path</span> <span class="op">=</span> path<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  [<span class="bu">Symbol</span><span class="op">.</span><span class="at">dispose</span>]() {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">deleteFile</span>(<span class="kw">this</span><span class="op">.</span>#<span class="at">path</span>)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;File cleaned up.&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  using file <span class="op">=</span> <span class="kw">new</span> <span class="fu">TempFile</span>(<span class="st">&quot;/tmp/data.txt&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Perform file operations</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>} <span class="co">// Logs: &quot;File cleaned up.&quot;</span></span></code></pre></div>
+<h3 id="asynchronous-disposables-with-await-using">Asynchronous
+Disposables with <code>await using</code></h3>
+<p>For resources that require asynchronous cleanup—such as closing
+network streams or committing database transactions—the proposal
+introduces <code>await using</code> paired with
+<code>Symbol.asyncDispose</code>.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DatabaseConnection {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">async</span> [<span class="bu">Symbol</span><span class="op">.</span><span class="at">asyncDispose</span>]() {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> <span class="kw">this</span><span class="op">.</span><span class="fu">disconnect</span>()<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Database disconnected.&quot;</span>)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">async</span> <span class="fu">disconnect</span>() {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Teardown logic</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">runQuery</span>() {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> using db <span class="op">=</span> <span class="kw">new</span> <span class="fu">DatabaseConnection</span>()<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Perform database queries</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>} <span class="co">// Automatically awaits db[Symbol.asyncDispose]() upon exit</span></span></code></pre></div>
+<p>If an object only implements <code>Symbol.dispose</code>,
+<code>await using</code> will fall back to calling the synchronous
+method.</p>
+<h3 id="disposal-order-and-error-handling">Disposal Order and Error
+Handling</h3>
+<p>Resources declared with <code>using</code> are disposed of in reverse
+order of their declaration (Last-In, First-Out). This ensures that
+dependent resources are cleaned up safely before the resources they rely
+on are closed.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  using resA <span class="op">=</span> <span class="fu">getResourceA</span>()<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  using resB <span class="op">=</span> <span class="fu">getResourceB</span>()<span class="op">;</span> <span class="co">// Depends on resA</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>} </span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">// resB is disposed first, followed by resA</span></span></code></pre></div>
+<p>If an error occurs both inside the block and during the disposal
+process, JavaScript handles the conflict by throwing a
+<code>SuppressedError</code>. The <code>SuppressedError</code> contains
+references to both the primary exception and the suppressed error that
+occurred during cleanup.</p>
+<h3
+id="disposablestack-and-asyncdisposablestack"><code>DisposableStack</code>
+and <code>AsyncDisposableStack</code></h3>
+<p>For dynamic resource management outside fixed block scopes, the
+proposal provides the <code>DisposableStack</code> and
+<code>AsyncDisposableStack</code> classes. These container objects allow
+developers to push disposables or arbitrary cleanup callbacks onto a
+stack programmatically and dispose of them all at once via
+<code>.dispose()</code> or <code>.disposeAsync()</code>.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

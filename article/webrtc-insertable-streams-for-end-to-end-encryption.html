@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Insertable Streams for End-to-End Encryption - javascript</title>
+    <meta name="description" content="This article explains how the WebRTC Insertable Streams API (also known as WebRTC Encoded Transform) enables true end-to-end encryption (E2EE) in JavaScript applications. It breaks down the limitation of standard WebRTC encryption in multi-party conferen">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/webrtc-insertable-streams-for-end-to-end-encryption">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebRTC Insertable Streams for End-to-End Encryption - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/webrtc-insertable-streams-for-end-to-end-encryption" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the WebRTC Insertable Streams API (also known as WebRTC Encoded Transform) enables true end-to-end encryption (E2EE) in JavaScript applications. It breaks down the limitation of standard WebRTC encryption in multi-party conferen" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="webrtc-insertable-streams-for-end-to-end-encryption">WebRTC
+Insertable Streams for End-to-End Encryption</h1>
+<p>This article explains how the WebRTC Insertable Streams API (also
+known as WebRTC Encoded Transform) enables true end-to-end encryption
+(E2EE) in JavaScript applications. It breaks down the limitation of
+standard WebRTC encryption in multi-party conferences, describes how
+insertable streams intercept encoded media frames before transmission,
+and demonstrates how custom cryptographic layers can be implemented in a
+browser environment to secure media from intermediate routing
+servers.</p>
+<h2 id="the-webrtc-encryption-challenge-in-multi-party-calls">The WebRTC
+Encryption Challenge in Multi-Party Calls</h2>
+<p>Standard WebRTC natively uses DTLS (Datagram Transport Layer
+Security) and SRTP (Secure Real-time Transport Protocol) to encrypt
+voice and video traffic. While this provides secure peer-to-peer
+communication, multi-party video conferencing typically relies on a
+central Selective Forwarding Unit (SFU) to scale efficiently.</p>
+<p>In a traditional SFU architecture, DTLS-SRTP terminates at the media
+server. The SFU decrypts incoming media packets to inspect metadata
+(like spatial or temporal layers) and re-encrypts them before forwarding
+to other participants. As a result, the server operator has access to
+the unencrypted audio and video, preventing true end-to-end
+encryption.</p>
+<h2 id="how-insertable-streams-solve-the-problem">How Insertable Streams
+Solve the Problem</h2>
+<p>The Insertable Streams specification introduces a mechanism to
+intercept raw, encoded media frames within the browser pipeline. Instead
+of allowing the browser to immediately packetize and transmit the output
+of a video or audio codec, the API exposes the encoded frames as a
+<code>ReadableStream</code> and <code>WritableStream</code> via a
+<code>TransformStream</code>.</p>
+<p>This architecture places a processing hook directly between:</p>
+<ol type="1">
+<li><strong>The Encoder and Packetizer</strong> on the sender's
+side.</li>
+<li><strong>The Depacketizer and Decoder</strong> on the receiver's
+side.</li>
+</ol>
+<p>By exposing these streams in JavaScript or Web Workers, developers
+can insert custom cryptographic operations directly on the encoded frame
+data before the browser applies standard transport-layer encryption.</p>
+<h2 id="the-end-to-end-encryption-workflow">The End-to-End Encryption
+Workflow</h2>
+<p>Implementing E2EE with Insertable Streams follows a four-step
+pipeline:</p>
+<pre><code>Sender:    [Media Stream] -&gt; [Encoder] -&gt; [Custom Encryption] -&gt; [SRTP/DTLS] -&gt; (Network)
+                                                                                  |
+Receiver:  [Media Stream] &lt;- [Decoder] &lt;- [Custom Decryption] &lt;- [SRTP/DTLS] &lt;-- (Network)</code></pre>
+<h3 id="1-frame-interception-sender">1. Frame Interception (Sender)</h3>
+<p>When a sender captures audio or video, the browser encodes the raw
+media into encoded frames (such as VP8, VP9, AV1, or Opus). Using the
+<code>RTCRtpSender.createEncodedStreams()</code> method (or
+<code>RTCRtpScriptTransform</code>), the application intercepts the
+stream of encoded chunks (<code>RTCEncodedAudioFrame</code> or
+<code>RTCEncodedVideoFrame</code>).</p>
+<h3 id="2-custom-payload-encryption">2. Custom Payload Encryption</h3>
+<p>Inside a dedicated <code>TransformStream</code> (typically running
+inside a Web Worker to avoid blocking the main UI thread), the
+application encrypts the frame's payload using standard symmetric
+ciphers, such as AES-GCM or AES-CTR:</p>
+<ul>
+<li><strong>Payload Encryption:</strong> The actual compressed
+audio/video bytes are encrypted using a shared conference key or
+double-ratchet session keys.</li>
+<li><strong>Metadata Preservation:</strong> Certain metadata fields
+(such as frame type, keyframe indicators, and temporal layer indices)
+are left unencrypted or authenticated via Additional Authenticated Data
+(AAD). This allows the SFU to route packets correctly without knowing
+the contents of the media.</li>
+</ul>
+<h3 id="3-transport-and-routing">3. Transport and Routing</h3>
+<p>The custom-encrypted frame is passed back to the WebRTC pipeline,
+which applies standard DTLS-SRTP encryption before transmission over the
+network. When the SFU receives the stream, it terminates the DTLS-SRTP
+layer, inspects the unencrypted routing metadata, and forwards the
+packet. Because the underlying payload remains protected by the
+application-layer encryption, the SFU cannot access the raw media.</p>
+<h3 id="4-frame-interception-and-decryption-receiver">4. Frame
+Interception and Decryption (Receiver)</h3>
+<p>On the receiving client, the incoming packet passes through the
+standard DTLS-SRTP decryption layer. Before the frame reaches the
+browser's hardware or software decoder:</p>
+<ul>
+<li>The receiver intercepts the stream using
+<code>RTCRtpReceiver.createEncodedStreams()</code> or
+<code>RTCRtpScriptTransform</code>.</li>
+<li>The custom decryption transform uses the matching key to decrypt the
+payload.</li>
+<li>The decrypted <code>RTCEncodedFrame</code> is forwarded to the
+native decoder, which renders the media onto a
+<code>&lt;video&gt;</code> or <code>&lt;audio&gt;</code> element.</li>
+</ul>
+<h2 id="key-advantages-of-insertable-streams">Key Advantages of
+Insertable Streams</h2>
+<ul>
+<li><strong>Zero Infrastructure Changes:</strong> SFUs do not need to
+support custom encryption protocols; they continue routing packets based
+on standard RTP headers and exposed frame metadata.</li>
+<li><strong>Worker-Based Performance:</strong> Using WebRTC Encoded
+Transform with Web Workers ensures cryptographic operations run off the
+main thread, maintaining low latency and high frame rates.</li>
+<li><strong>Flexible Key Management:</strong> Applications can implement
+custom key exchange protocols, such as MLS (Messaging Layer Security) or
+Signal's Double Ratchet, independent of WebRTC transport protocols.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

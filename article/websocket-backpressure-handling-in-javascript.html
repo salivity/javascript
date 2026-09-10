@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Backpressure Handling in JavaScript - javascript</title>
+    <meta name="description" content="WebSocket backpressure handling is the process of regulating high-volume data streams between a client and a server to prevent memory exhaustion, network congestion, and application crashes. While the underlying TCP layer natively supports flow control v">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/websocket-backpressure-handling-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebSocket Backpressure Handling in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/websocket-backpressure-handling-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="WebSocket backpressure handling is the process of regulating high-volume data streams between a client and a server to prevent memory exhaustion, network congestion, and application crashes. While the underlying TCP layer natively supports flow control v" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="websocket-backpressure-handling-in-javascript">WebSocket
+Backpressure Handling in JavaScript</h1>
+<p>WebSocket backpressure handling is the process of regulating
+high-volume data streams between a client and a server to prevent memory
+exhaustion, network congestion, and application crashes. While the
+underlying TCP layer natively supports flow control via sliding windows,
+the browser and Node.js WebSocket APIs do not automatically expose this
+mechanism to application code. Managing backpressure requires monitoring
+internal write buffers, implementing application-level acknowledgment
+protocols, and integrating native stream primitives to throttle
+throughput effectively.</p>
+<h2 id="the-core-backpressure-problem">The Core Backpressure
+Problem</h2>
+<p>When a sender transmits data faster than the network can transport it
+or faster than the receiver can process it, unsent or unhandled messages
+queue up in memory. In JavaScript, continuously calling
+<code>WebSocket.send()</code> without checking transmission state will
+cause the underlying buffer to grow indefinitely, resulting in high
+latency, degraded performance, and eventual out-of-memory (OOM)
+errors.</p>
+<p>Unlike standard Node.js streams or the Fetch API, the standard W3C
+WebSocket API does not provide a native <code>pause()</code> or
+<code>resume()</code> method for incoming or outgoing traffic.
+Developers must manage flow control in two directions: outbound
+(sending) and inbound (receiving).</p>
+<h2 id="managing-outbound-backpressure">Managing Outbound
+Backpressure</h2>
+<p>For outbound data, the WebSocket interface provides a read-only
+property called <code>bufferedAmount</code>. This value represents the
+number of bytes of data that have been queued using <code>send()</code>
+but not yet transmitted to the network.</p>
+<h3 id="using-bufferedamount-for-throttling">Using
+<code>bufferedAmount</code> for Throttling</h3>
+<p>To prevent write queues from expanding uncontrollably, check
+<code>bufferedAmount</code> against a predefined threshold (the
+"high-water mark") before sending additional chunks of data:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sendLargeDataset</span>(socket<span class="op">,</span> chunks) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> HIGH_WATER_MARK <span class="op">=</span> <span class="dv">1024</span> <span class="op">*</span> <span class="dv">1024</span><span class="op">;</span> <span class="co">// 1 MB buffer limit</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> index <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">function</span> <span class="fu">push</span>() {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fill the buffer only up to the threshold</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (index <span class="op">&lt;</span> chunks<span class="op">.</span><span class="at">length</span> <span class="op">&amp;&amp;</span> socket<span class="op">.</span><span class="at">bufferedAmount</span> <span class="op">&lt;</span> HIGH_WATER_MARK) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      socket<span class="op">.</span><span class="fu">send</span>(chunks[index])<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      index<span class="op">++;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If there is remaining data, wait and retry</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (index <span class="op">&lt;</span> chunks<span class="op">.</span><span class="at">length</span>) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="pp">setTimeout</span>(push<span class="op">,</span> <span class="dv">50</span>)<span class="op">;</span> <span class="co">// Poll until the buffer clears</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">push</span>()<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>While polling with <code>setTimeout</code> works in simple scenarios,
+it is inefficient for sustained, high-throughput systems.</p>
+<h2 id="inbound-backpressure-application-level-flow-control">Inbound
+Backpressure: Application-Level Flow Control</h2>
+<p>Handling incoming messages at high volumes is more complex. When a
+WebSocket receives a frame, it immediately fires the
+<code>onmessage</code> event handler regardless of whether the
+processing pipeline is ready for new data. If the message handler
+performs heavy asynchronous operations, unprocessed tasks will
+accumulate in the JavaScript microtask queue or memory.</p>
+<p>Because the client cannot tell the browser's network stack to stop
+reading from the TCP socket directly, you must implement
+application-level flow control.</p>
+<h3 id="1-the-credit-based-window-protocol">1. The Credit-Based (Window)
+Protocol</h3>
+<p>In a credit-based model, the receiver explicitly tells the sender how
+many messages it is allowed to send.</p>
+<ol type="1">
+<li>The client establishes a connection and requests an initial batch of
+items (e.g., <code>CREDIT 100</code>).</li>
+<li>The server sends up to 100 messages and stops.</li>
+<li>As the client processes messages, it periodically sends top-up
+credits (e.g., granting 50 more credits once 50 are processed).</li>
+<li>If the client falls behind, it stops granting credits, causing the
+server to pause sending and naturally engage server-side TCP
+backpressure.</li>
+</ol>
+<h3 id="2-the-stop-and-wait-ack-pattern">2. The Stop-and-Wait (ACK)
+Pattern</h3>
+<p>For sequential processing, the sender dispatches a batch and pauses
+until the receiver explicitly returns an acknowledgment payload
+(<code>ACK</code>). While this introduces latency overhead due to
+round-trip times, it guarantees that memory usage remains strictly
+bounded.</p>
+<h2 id="integrating-the-web-streams-api">Integrating the Web Streams
+API</h2>
+<p>The modern Web Streams API provides robust, built-in backpressure
+primitives (<code>ReadableStream</code>, <code>WritableStream</code>,
+and <code>TransformStream</code>) using internal queuing strategies.
+Wrapping a WebSocket inside a custom stream ensures seamless integration
+with modern streaming pipelines.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createWebSocketWritableStream</span>(socket<span class="op">,</span> highWaterMark <span class="op">=</span> <span class="dv">1024</span> <span class="op">*</span> <span class="dv">1024</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">new</span> <span class="fu">WritableStream</span>({</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">write</span>(chunk<span class="op">,</span> controller) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      socket<span class="op">.</span><span class="fu">send</span>(chunk)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      <span class="co">// If buffer exceeds highWaterMark, pause the stream pipeline</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (socket<span class="op">.</span><span class="at">bufferedAmount</span> <span class="op">&gt;=</span> highWaterMark) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>          <span class="kw">const</span> interval <span class="op">=</span> <span class="pp">setInterval</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (socket<span class="op">.</span><span class="at">bufferedAmount</span> <span class="op">&lt;</span> highWaterMark <span class="op">/</span> <span class="dv">2</span>) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>              <span class="pp">clearInterval</span>(interval)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>              <span class="fu">resolve</span>()<span class="op">;</span> <span class="co">// Resume upstream consumption</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>          }<span class="op">,</span> <span class="dv">10</span>)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        })<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>In this pattern, returning a Promise inside the stream's
+<code>write()</code> method signals to the upstream producer that it
+must pause generating data until the WebSocket's buffer drains below the
+lower threshold.</p>
+<h2 id="server-side-backpressure-in-nodejs">Server-Side Backpressure in
+Node.js</h2>
+<p>On the server side (for instance, using the <code>ws</code> library
+in Node.js), <code>ws.send()</code> accepts a callback that executes
+once the frame has been written to the operating system kernel.
+Additionally, the underlying TCP socket instance
+(<code>ws._socket</code>) emits <code>'drain'</code> events.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> <span class="bu">WebSocket</span> <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;ws&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sendWithBackpressure</span>(ws<span class="op">,</span> data) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ws.send evaluates whether the payload was flushed to the kernel</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> flushed <span class="op">=</span> ws<span class="op">.</span><span class="fu">send</span>(data<span class="op">,</span> (error) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (error) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Handle transport error</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (flushed <span class="op">||</span> ws<span class="op">.</span><span class="at">bufferedAmount</span> <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">resolve</span>()<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Wait for the underlying socket buffer to drain</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>      ws<span class="op">.</span><span class="at">_socket</span><span class="op">.</span><span class="fu">once</span>(<span class="st">&#39;drain&#39;</span><span class="op">,</span> resolve)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By awaiting this operation, the server avoids queuing unmanaged
+memory buffers when streaming large files, database exports, or
+real-time event feeds to slower clients.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

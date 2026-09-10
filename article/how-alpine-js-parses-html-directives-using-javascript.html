@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Alpine.js Parses HTML Directives Using JavaScript - javascript</title>
+    <meta name="description" content="Alpine.js operates as a lightweight, declarative framework that transforms standard HTML into reactive components by scanning the Document Object Model (DOM), reading custom attributes, and binding them to reactive JavaScript state. This article explains">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-alpine-js-parses-html-directives-using-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Alpine.js Parses HTML Directives Using JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-alpine-js-parses-html-directives-using-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Alpine.js operates as a lightweight, declarative framework that transforms standard HTML into reactive components by scanning the Document Object Model (DOM), reading custom attributes, and binding them to reactive JavaScript state. This article explains" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-alpinejs-parses-html-directives-using-javascript">How
+Alpine.js Parses HTML Directives Using JavaScript</h1>
+<p>Alpine.js operates as a lightweight, declarative framework that
+transforms standard HTML into reactive components by scanning the
+Document Object Model (DOM), reading custom attributes, and binding them
+to reactive JavaScript state. This article explains the internal
+mechanism Alpine.js uses to extract inline directives such as
+<code>x-data</code>, <code>x-on</code>, and <code>x-bind</code>, process
+their arguments and modifiers, and evaluate their expression strings
+within an isolated reactive scope.</p>
+<h3 id="1-dom-discovery-and-traversal">1. DOM Discovery and
+Traversal</h3>
+<p>When Alpine initializes, it starts by walking the DOM tree using a
+custom traversal algorithm (conceptually similar to
+<code>TreeWalker</code>). It scans the document starting from root
+elements defined with <code>x-data</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">walk</span>(el<span class="op">,</span> callback) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">callback</span>(el)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> node <span class="op">=</span> el<span class="op">.</span><span class="at">firstElementChild</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (node) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">walk</span>(node<span class="op">,</span> callback)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        node <span class="op">=</span> node<span class="op">.</span><span class="at">nextElementSibling</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>To support dynamically inserted DOM nodes, Alpine simultaneously sets
+up a <code>MutationObserver</code> listening to <code>childList</code>
+and <code>attributes</code> changes, passing new elements through the
+same discovery pipeline.</p>
+<h3 id="2-extracting-attribute-nodes">2. Extracting Attribute Nodes</h3>
+<p>For every traversed element, Alpine inspects its attributes using the
+standard DOM property <code>el.attributes</code>. It filters these
+attributes to locate Alpine-specific directives:</p>
+<ul>
+<li>Explicit prefixes: <code>x-</code></li>
+<li>Shorthand bindings: <code>@</code> (equivalent to
+<code>x-on:</code>) and <code>:</code> (equivalent to
+<code>x-bind:</code>)</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> attributes <span class="op">=</span> <span class="bu">Array</span><span class="op">.</span><span class="fu">from</span>(el<span class="op">.</span><span class="at">attributes</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> directiveAttributes <span class="op">=</span> attributes<span class="op">.</span><span class="fu">filter</span>(attr <span class="kw">=&gt;</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    attr<span class="op">.</span><span class="at">name</span><span class="op">.</span><span class="fu">startsWith</span>(<span class="st">&#39;x-&#39;</span>) <span class="op">||</span> </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    attr<span class="op">.</span><span class="at">name</span><span class="op">.</span><span class="fu">startsWith</span>(<span class="st">&#39;@&#39;</span>) <span class="op">||</span> </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    attr<span class="op">.</span><span class="at">name</span><span class="op">.</span><span class="fu">startsWith</span>(<span class="st">&#39;:&#39;</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span></code></pre></div>
+<h3 id="3-parsing-directive-anatomy">3. Parsing Directive Anatomy</h3>
+<p>An Alpine directive attribute contains multiple pieces of metadata
+encoded directly into its name: the directive type, an optional
+argument, and optional modifiers.</p>
+<p>For example, consider the attribute:
+<code>x-on:click.prevent.stop="handleSubmit"</code></p>
+<p>Alpine normalizes shorthands (e.g., converting <code>@click</code> to
+<code>x-on:click</code>) and then parses the string using regular
+expressions. The directive is split into:</p>
+<ol type="1">
+<li><strong>Directive Name:</strong> <code>on</code> (or
+<code>bind</code>, <code>model</code>, <code>text</code>, etc.)</li>
+<li><strong>Argument:</strong> <code>click</code> (the value following
+the colon <code>:</code>)</li>
+<li><strong>Modifiers:</strong> <code>['prevent', 'stop']</code> (values
+separated by periods <code>.</code>)</li>
+<li><strong>Expression:</strong> <code>handleSubmit</code> (the
+attribute value via <code>attr.value</code>)</li>
+</ol>
+<p>Internally, this creates a structured directive object:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;on&#39;</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">value</span><span class="op">:</span> <span class="st">&#39;click&#39;</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">modifiers</span><span class="op">:</span> [<span class="st">&#39;prevent&#39;</span><span class="op">,</span> <span class="st">&#39;stop&#39;</span>]<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">expression</span><span class="op">:</span> <span class="st">&#39;handleSubmit&#39;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-expression-evaluation-and-scoping">4. Expression Evaluation
+and Scoping</h3>
+<p>The attribute value retrieved from the DOM is simply a raw string.
+Alpine converts this string into executable JavaScript while ensuring it
+accesses the component's reactive data context rather than the global
+<code>window</code> scope.</p>
+<p>To achieve this, Alpine compiles expressions using the
+<code>Function</code> constructor:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">generateEvaluator</span>(el<span class="op">,</span> expression) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">function</span>(scope<span class="op">,</span> extraScope <span class="op">=</span> {}) {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> fullScope <span class="op">=</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">assign</span>({}<span class="op">,</span> scope<span class="op">,</span> extraScope)<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> func <span class="op">=</span> <span class="kw">new</span> <span class="bu">Function</span>(</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>            <span class="op">...</span><span class="bu">Object</span><span class="op">.</span><span class="fu">keys</span>(fullScope)<span class="op">,</span> </span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>            <span class="vs">`return (</span><span class="sc">${</span>expression<span class="sc">}</span><span class="vs">)`</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="fu">func</span>(<span class="op">...</span><span class="bu">Object</span><span class="op">.</span><span class="fu">values</span>(fullScope))<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>In production, Alpine pairs this with a reactive <code>Proxy</code>
+(from its reactivity engine, adapted from <code>@vue/reactivity</code>).
+When an expression references a variable like <code>count</code>, the
+<code>Proxy</code> intercepts the property read, resolving it to the
+closest component data context provided by <code>x-data</code>.</p>
+<h3 id="5-execution-and-reactivity-attachment">5. Execution and
+Reactivity Attachment</h3>
+<p>Once parsed, Alpine dispatches the directive object to its registered
+handler:</p>
+<ul>
+<li><strong>Event Directives (<code>x-on</code>):</strong> Adds a native
+event listener via <code>el.addEventListener(value, handler)</code>. The
+parsed modifiers are handled programmatically (e.g., if
+<code>prevent</code> is present, Alpine injects
+<code>e.preventDefault()</code>).</li>
+<li><strong>DOM Directives (<code>x-text</code>, <code>x-show</code>,
+<code>x-bind</code>):</strong> Wraps the compiled evaluator in an
+<code>effect()</code> tracking function. When any reactive dependency
+referenced inside the expression changes, the effect re-runs
+automatically, updating the DOM property or attribute without a virtual
+DOM overhead.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

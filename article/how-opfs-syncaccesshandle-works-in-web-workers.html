@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How OPFS SyncAccessHandle Works in Web Workers - javascript</title>
+    <meta name="description" content="The Origin Private File System (OPFS) provides a private, highly optimized storage endpoint for web applications, highlighted by the FileSystemSyncAccessHandle. This article explores how SyncAccessHandle enables fast, synchronous file reading and writing">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-opfs-syncaccesshandle-works-in-web-workers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How OPFS SyncAccessHandle Works in Web Workers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-opfs-syncaccesshandle-works-in-web-workers" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Origin Private File System (OPFS) provides a private, highly optimized storage endpoint for web applications, highlighted by the FileSystemSyncAccessHandle. This article explores how SyncAccessHandle enables fast, synchronous file reading and writing" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-opfs-syncaccesshandle-works-in-web-workers">How OPFS
+SyncAccessHandle Works in Web Workers</h1>
+<p>The Origin Private File System (OPFS) provides a private, highly
+optimized storage endpoint for web applications, highlighted by the
+<code>FileSystemSyncAccessHandle</code>. This article explores how
+<code>SyncAccessHandle</code> enables fast, synchronous file reading and
+writing within Web Workers. You will learn the mechanics behind its
+performance, how it bypasses typical web asynchronous overhead, its
+locking mechanisms, and why it is an essential component for demanding
+workloads like SQLite compiled to WebAssembly.</p>
+<h2 id="what-is-the-opfs-syncaccesshandle">What Is the OPFS
+SyncAccessHandle?</h2>
+<p>The Origin Private File System is part of the File System Access API,
+offering an origin-isolated storage area that users cannot directly view
+or access through the host OS file explorer. While standard OPFS
+operations rely on asynchronous Promises (like <code>getFile()</code>
+and <code>createWritable()</code>), the
+<code>FileSystemSyncAccessHandle</code> provides synchronous read and
+write primitives.</p>
+<p>Because synchronous I/O operations block execution until completion,
+the browser strictly restricts the creation and use of
+<code>SyncAccessHandle</code> to dedicated Web Workers. This prevents
+the main execution thread from freezing, keeping the user interface
+responsive.</p>
+<h2 id="how-synchronous-io-is-achieved">How Synchronous I/O Is
+Achieved</h2>
+<p>To read and write synchronously, a Web Worker must request an access
+handle from a standard OPFS file handle using
+<code>await fileHandle.createSyncAccessHandle()</code>. Once opened, all
+subsequent file operations on that handle execute synchronously.</p>
+<h3 id="1-direct-in-place-modification">1. Direct In-Place
+Modification</h3>
+<p>Traditional web file writing often requires generating an entire
+<code>Blob</code> or stream and replacing the file via a temporary copy.
+In contrast, <code>SyncAccessHandle</code> maps directly to OS-level
+file primitives (such as <code>read</code> and <code>pwrite</code> in
+POSIX environments). It operates on raw memory via typed arrays like
+<code>ArrayBuffer</code> or <code>Uint8Array</code>, allowing developers
+to overwrite specific byte offsets in-place without loading the entire
+file into memory.</p>
+<h3 id="2-exclusive-locking-mechanism">2. Exclusive Locking
+Mechanism</h3>
+<p>To ensure data integrity and avoid concurrency issues, calling
+<code>createSyncAccessHandle()</code> places an exclusive lock on the
+associated file. As long as the handle remains open:</p>
+<ul>
+<li>No other execution context (neither the main thread nor other
+workers) can open another <code>SyncAccessHandle</code> or a standard
+asynchronous writable stream on that file.</li>
+<li>Any attempt to do so throws a
+<code>NoModificationAllowedError</code>.</li>
+</ul>
+<p>Once the worker finishes file operations and calls
+<code>accessHandle.close()</code>, the lock is released.</p>
+<h3 id="3-native-file-system-performance">3. Native File System
+Performance</h3>
+<p>Because JavaScript execution in the worker halts sequentially during
+a synchronous call, the browser can bypass the overhead of creating
+Promises, microtask queue scheduling, and inter-process communication
+(IPC) for every individual chunk of data. This brings read and write
+throughput close to native file system speeds.</p>
+<h2 id="core-synchronous-methods">Core Synchronous Methods</h2>
+<p>The <code>FileSystemSyncAccessHandle</code> interface exposes a
+concise set of synchronous methods:</p>
+<ul>
+<li><strong><code>read(buffer, options)</code></strong>: Reads bytes
+from the file at a specified offset into a given
+<code>ArrayBufferView</code> and returns the number of bytes read.</li>
+<li><strong><code>write(buffer, options)</code></strong>: Writes bytes
+from an <code>ArrayBufferView</code> into the file at a specified offset
+and returns the number of bytes written.</li>
+<li><strong><code>truncate(newSize)</code></strong>: Resizes the file to
+the specified byte length.</li>
+<li><strong><code>getSize()</code></strong>: Returns the current size of
+the file in bytes.</li>
+<li><strong><code>flush()</code></strong>: Flushes any modified cached
+data to the underlying persistent storage device.</li>
+<li><strong><code>close()</code></strong>: Closes the handle and
+releases the exclusive lock on the file.</li>
+</ul>
+<h2 id="primary-use-cases">Primary Use Cases</h2>
+<p>The synchronous nature of <code>SyncAccessHandle</code> makes it
+ideal for ports of C, C++, and Rust applications via WebAssembly (Wasm).
+Applications such as SQLite's official Wasm build, video editors, and
+game engines rely heavily on synchronous POSIX-like system calls to
+maintain internal data structures (such as B-trees) and achieve
+low-latency persistence on the web.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

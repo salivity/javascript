@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How npm Resolves Dependency Trees in JavaScript - javascript</title>
+    <meta name="description" content="This article provides a comprehensive breakdown of how npm constructs and resolves dependency trees in modern JavaScript projects. It covers the end-to-end resolution pipeline, including Semantic Versioning (SemVer) evaluation, dependency graph generatio">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-npm-resolves-dependency-trees-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How npm Resolves Dependency Trees in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-npm-resolves-dependency-trees-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive breakdown of how npm constructs and resolves dependency trees in modern JavaScript projects. It covers the end-to-end resolution pipeline, including Semantic Versioning (SemVer) evaluation, dependency graph generatio" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-npm-resolves-dependency-trees-in-javascript">How npm
+Resolves Dependency Trees in JavaScript</h1>
+<p>This article provides a comprehensive breakdown of how npm constructs
+and resolves dependency trees in modern JavaScript projects. It covers
+the end-to-end resolution pipeline, including Semantic Versioning
+(SemVer) evaluation, dependency graph generation, tree flattening and
+hoisting mechanisms, conflict mitigation, and the role of the lockfile
+in ensuring deterministic installations.</p>
+<h2 id="1-reading-manifests-and-evaluating-semver">1. Reading Manifests
+and Evaluating SemVer</h2>
+<p>The resolution process begins when you run <code>npm install</code>.
+npm inspects the root <code>package.json</code> file to identify the
+direct dependencies declared under <code>dependencies</code>,
+<code>devDependencies</code>, <code>peerDependencies</code>, and
+<code>optionalDependencies</code>.</p>
+<p>For each declared package, npm evaluates the Semantic Versioning
+(SemVer) range (e.g., <code>^1.2.0</code>, <code>~2.0.1</code>, or
+<code>&gt;=3.0.0</code>). It queries the npm registry to fetch package
+metadata (packument), identifying all available versions that satisfy
+the defined range. By default, npm selects the highest available version
+within the matching range.</p>
+<h2 id="2-graph-construction-with-arborist">2. Graph Construction with
+Arborist</h2>
+<p>Starting with npm v7, npm utilizes an internal library called
+<strong>Arborist</strong> to construct the dependency graph. Arborist
+traverses the dependencies recursively:</p>
+<ol type="1">
+<li><strong>Root Analysis:</strong> It loads the current project state
+and any existing <code>node_modules</code> and
+<code>package-lock.json</code>.</li>
+<li><strong>Breadth-First Traversal:</strong> Arborist traverses
+dependencies breadth-first, fetching manifests for sub-dependencies
+(transitive dependencies) until the full dependency graph is mapped in
+memory.</li>
+<li><strong>Peer Dependency Resolution:</strong> Modern npm
+automatically resolves and installs <code>peerDependencies</code>.
+Arborist ensures that peer requirements placed by child dependencies are
+compatible with versions supplied by sibling or ancestor packages.</li>
+</ol>
+<h2 id="3-hoisting-and-flattening-the-tree">3. Hoisting and Flattening
+the Tree</h2>
+<p>Historically (npm v2), dependencies were installed strictly nested,
+which caused deeply nested directory paths and massive duplication.
+Modern npm uses a <strong>flat dependency structure</strong> achieved
+through hoisting:</p>
+<ul>
+<li><strong>Hoisting to Root:</strong> npm attempts to install every
+package at the top level of the <code>node_modules</code> folder
+(<code>./node_modules/&lt;package&gt;</code>).</li>
+<li><strong>Deduplication:</strong> If multiple packages require the
+same dependency with compatible SemVer ranges, npm resolves it to a
+single version and hoists it to the root, allowing all dependent modules
+to share it.</li>
+</ul>
+<h2 id="4-conflict-resolution-and-nesting">4. Conflict Resolution and
+Nesting</h2>
+<p>When two or more packages require incompatible versions of the same
+dependency, npm cannot place both at the root <code>node_modules</code>
+directory because path names would collide. To resolve this:</p>
+<ol type="1">
+<li>The first resolved version is hoisted to the root
+<code>/node_modules/</code> directory.</li>
+<li>The conflicting, incompatible version is nested directly inside the
+specific dependency's own <code>node_modules</code> folder (e.g.,
+<code>/node_modules/package-a/node_modules/conflicting-package/</code>).</li>
+<li>When Node.js resolves modules at runtime, its module resolution
+algorithm searches the nearest <code>node_modules</code> directory
+first, ensuring each package loads its compatible dependency
+version.</li>
+</ol>
+<h2 id="5-determinism-via-package-lockjson">5. Determinism via
+<code>package-lock.json</code></h2>
+<p>To prevent discrepancies across different environments or future
+installations, npm relies on <code>package-lock.json</code>:</p>
+<ul>
+<li><strong>Exact Snapshot:</strong> The lockfile records the exact
+resolved version, the integrity hash (SHA checksum), and the physical
+tree structure for every direct and transitive dependency.</li>
+<li><strong>Bypassing Range Queries:</strong> When a valid
+<code>package-lock.json</code> exists, npm skips version range
+negotiation and reconstructs the exact tree recorded in the
+lockfile.</li>
+<li><strong><code>npm ci</code> vs <code>npm install</code>:</strong>
+The <code>npm ci</code> command enforces strict adherence to
+<code>package-lock.json</code> by wiping <code>node_modules</code> and
+reinstalling the locked tree without modifying the lockfile.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

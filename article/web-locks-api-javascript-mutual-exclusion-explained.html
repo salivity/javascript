@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Locks API: JavaScript Mutual Exclusion Explained - javascript</title>
+    <meta name="description" content="The Web Locks API is a native browser interface that enables asynchronous JavaScript code across multiple browser contexts—such as tabs, windows, iframes, and Web Workers—to coordinate resource access using mutual exclusion. By allowing scripts to ac">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-locks-api-javascript-mutual-exclusion-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Web Locks API: JavaScript Mutual Exclusion Explained - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-locks-api-javascript-mutual-exclusion-explained" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Web Locks API is a native browser interface that enables asynchronous JavaScript code across multiple browser contexts—such as tabs, windows, iframes, and Web Workers—to coordinate resource access using mutual exclusion. By allowing scripts to ac" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="web-locks-api-javascript-mutual-exclusion-explained">Web Locks
+API: JavaScript Mutual Exclusion Explained</h1>
+<p>The Web Locks API is a native browser interface that enables
+asynchronous JavaScript code across multiple browser contexts—such as
+tabs, windows, iframes, and Web Workers—to coordinate resource access
+using mutual exclusion. By allowing scripts to acquire, hold, and
+release named locks, the API prevents race conditions and data
+corruption when multiple execution threads or tabs interact with shared
+resources like IndexedDB, Cache API, or BroadcastChannel.</p>
+<h3 id="the-need-for-mutual-exclusion-in-browsers">The Need for Mutual
+Exclusion in Browsers</h3>
+<p>JavaScript in the browser runs on a single-threaded event loop per
+execution context, but modern web applications often run across multiple
+contexts simultaneously. When a user opens multiple tabs of the same web
+application, each tab executes its own JavaScript thread while sharing
+the same underlying origin storage (such as IndexedDB or
+LocalStorage).</p>
+<p>Without proper synchronization, concurrent writes or
+read-modify-write sequences from separate tabs can lead to severe race
+conditions. Traditionally, developers attempted to manage this with
+workarounds like <code>localStorage</code> polling or
+<code>SharedWorker</code> coordination, which were inefficient, fragile,
+and prone to deadlocks when tabs crashed. The Web Locks API provides a
+built-in, browser-level solution designed specifically for this
+problem.</p>
+<h3 id="how-the-web-locks-api-operates">How the Web Locks API
+Operates</h3>
+<p>The API is accessed via the <code>navigator.locks</code> interface.
+Its primary method is <code>navigator.locks.request()</code>, which
+queues a request for a lock identified by a unique string name.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">request</span>(<span class="st">&#39;user_profile_sync&#39;</span><span class="op">,</span> <span class="kw">async</span> (lock) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Critical section: only one context runs this code at a time</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> data <span class="op">=</span> <span class="cf">await</span> <span class="fu">readProfileData</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> updatedData <span class="op">=</span> <span class="fu">processUpdates</span>(data)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">await</span> <span class="fu">saveProfileData</span>(updatedData)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// The lock is automatically released when the returned Promise settles</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>The lifecycle of a Web Lock consists of three main phases:</p>
+<ol type="1">
+<li><strong>Request:</strong> The script requests a lock with a specific
+name. If no conflicting lock is held, it is granted immediately. If a
+conflicting lock exists, the request waits in a FIFO queue.</li>
+<li><strong>Execution:</strong> Once acquired, the browser invokes the
+provided callback function, passing the lock object. The callback
+represents the "critical section" of the code.</li>
+<li><strong>Release:</strong> The lock is automatically released as soon
+as the callback's returned Promise resolves or rejects. If the tab or
+worker crashes, the browser immediately releases the lock, avoiding
+permanent deadlocks.</li>
+</ol>
+<h3 id="lock-modes-exclusive-vs-shared">Lock Modes: Exclusive vs.
+Shared</h3>
+<p>The Web Locks API supports two modes of operation:</p>
+<ul>
+<li><strong>Exclusive Locks (Default):</strong> Only one context can
+hold the lock at any given time. Any other request for an exclusive or
+shared lock with the same name must wait. This mode is used for write
+operations.</li>
+<li><strong>Shared Locks:</strong> Multiple contexts can hold a shared
+lock simultaneously under the same name, provided no exclusive lock is
+held or requested ahead in the queue. This is ideal for read-only
+operations where concurrent access is safe, but writes must be
+blocked.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Requesting a shared lock for reading</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> <span class="bu">navigator</span><span class="op">.</span><span class="at">locks</span><span class="op">.</span><span class="fu">request</span>(<span class="st">&#39;user_profile_sync&#39;</span><span class="op">,</span> { <span class="dt">mode</span><span class="op">:</span> <span class="st">&#39;shared&#39;</span> }<span class="op">,</span> <span class="kw">async</span> (lock) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> data <span class="op">=</span> <span class="cf">await</span> <span class="fu">readProfileData</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Read profile safely:&#39;</span><span class="op">,</span> data)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="advanced-options-and-capabilities">Advanced Options and
+Capabilities</h3>
+<p>The Web Locks API includes features to handle edge cases and optimize
+performance:</p>
+<ul>
+<li><strong>Non-blocking Requests (<code>ifAvailable</code>):</strong>
+By setting <code>{ ifAvailable: true }</code>, the request will
+immediately invoke the callback with <code>null</code> if the lock
+cannot be granted without waiting, allowing for fallback logic.</li>
+<li><strong>Lock Cancellation (<code>signal</code>):</strong> An
+<code>AbortSignal</code> can be passed via
+<code>{ signal: abortController.signal }</code> to cancel a waiting
+request if a timeout is reached.</li>
+<li><strong>Lock Stealing (<code>steal</code>):</strong> An exclusive
+lock request can pass <code>{ steal: true }</code> to release existing
+locks and grant access immediately, primarily intended for cleanup and
+leader-election routines during failover.</li>
+<li><strong>State Inspection (<code>query</code>):</strong> The
+<code>navigator.locks.query()</code> method returns a snapshot of all
+currently held locks and queued requests across all contexts within the
+origin, providing visibility for monitoring and debugging.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passive vs Non-Passive Event Listeners in JavaScript - javascript</title>
+    <meta name="description" content="Passive and non-passive event listeners determine how a browser handles user input events—such as scrolling, touch, and wheel interactions—relative to page rendering. While non-passive event listeners can block the main thread and delay scrolling whi">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/passive-vs-non-passive-event-listeners-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Passive vs Non-Passive Event Listeners in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/passive-vs-non-passive-event-listeners-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Passive and non-passive event listeners determine how a browser handles user input events—such as scrolling, touch, and wheel interactions—relative to page rendering. While non-passive event listeners can block the main thread and delay scrolling whi" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="passive-vs-non-passive-event-listeners-in-javascript">Passive vs
+Non-Passive Event Listeners in JavaScript</h1>
+<p>Passive and non-passive event listeners determine how a browser
+handles user input events—such as scrolling, touch, and wheel
+interactions—relative to page rendering. While non-passive event
+listeners can block the main thread and delay scrolling while the
+browser waits to check if the action will be canceled, passive event
+listeners inform the browser upfront that the event will not be
+canceled, allowing the browser to perform smooth scrolling immediately
+on a separate background thread.</p>
+<h2 id="the-mechanism-behind-non-passive-event-listeners">The Mechanism
+Behind Non-Passive Event Listeners</h2>
+<p>By default, standard event listeners are non-passive
+(<code>{ passive: false }</code>). When a user scrolls via a touch
+gesture (<code>touchstart</code>, <code>touchmove</code>) or a mouse
+wheel (<code>wheel</code>), the browser generates an event. Because
+JavaScript allows developers to cancel the default scrolling behavior
+using <code>event.preventDefault()</code>, the browser must pause
+scrolling and wait for the JavaScript event listener to finish executing
+on the main thread.</p>
+<p>If the main thread is occupied with heavy computations, layout
+recalculations, or complex DOM updates, this waiting period causes a
+noticeable delay between the user's gesture and the actual movement of
+the screen. This delay is known as "scroll jank."</p>
+<h2 id="how-passive-event-listeners-improve-performance">How Passive
+Event Listeners Improve Performance</h2>
+<p>Passive event listeners (<code>{ passive: true }</code>) solve scroll
+jank by indicating to the browser that the handler will never invoke
+<code>event.preventDefault()</code>.</p>
+<p>Because the browser is guaranteed that the scroll action cannot be
+canceled, it does not need to wait for the JavaScript thread to finish
+executing the callback function. Instead, the browser's compositor
+thread handles the scroll animation immediately and asynchronously. The
+JavaScript event listener still executes, but it runs concurrently
+without blocking the user's visual feedback.</p>
+<p>If <code>event.preventDefault()</code> is accidentally called inside
+a passive listener, the browser simply ignores the call and generates a
+warning in the developer console.</p>
+<h2 id="implementation-comparison">Implementation Comparison</h2>
+<p>You can specify whether an event listener is passive by passing an
+options object as the third argument to
+<code>addEventListener</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Non-passive listener: May cause scroll lag</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;touchmove&#39;</span><span class="op">,</span> handleScroll<span class="op">,</span> { <span class="dt">passive</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Passive listener: Enables smooth, non-blocking scrolling</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;touchmove&#39;</span><span class="op">,</span> handleScroll<span class="op">,</span> { <span class="dt">passive</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span></code></pre></div>
+<h2 id="key-differences">Key Differences</h2>
+<ul>
+<li><strong>Main Thread Blocking:</strong> Non-passive listeners force
+the browser to wait for the main thread before scrolling; passive
+listeners allow the compositor thread to scroll instantly.</li>
+<li><strong>Use of <code>preventDefault()</code>:</strong> Non-passive
+listeners allow canceling the default scroll behavior; passive listeners
+disallow it to ensure uninterrupted rendering.</li>
+<li><strong>User Experience:</strong> Passive listeners eliminate scroll
+stutter and latency, creating a significantly smoother experience on
+mobile devices and trackpads.</li>
+<li><strong>Modern Defaults:</strong> To improve performance, modern web
+browsers treat touch and wheel events attached to <code>window</code>,
+<code>document</code>, and <code>body</code> as passive by default
+unless explicitly specified otherwise.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Injection Risks in Raw JavaScript Queries - javascript</title>
+    <meta name="description" content="Building raw SQL queries dynamically using string concatenation or template literals in JavaScript database applications directly exposes systems to SQL injection (SQLi) vulnerabilities. When untrusted input is interpolated straight into database command">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/sql-injection-risks-in-raw-javascript-queries">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="SQL Injection Risks in Raw JavaScript Queries - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/sql-injection-risks-in-raw-javascript-queries" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Building raw SQL queries dynamically using string concatenation or template literals in JavaScript database applications directly exposes systems to SQL injection (SQLi) vulnerabilities. When untrusted input is interpolated straight into database command" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="sql-injection-risks-in-raw-javascript-queries">SQL Injection
+Risks in Raw JavaScript Queries</h1>
+<p>Building raw SQL queries dynamically using string concatenation or
+template literals in JavaScript database applications directly exposes
+systems to SQL injection (SQLi) vulnerabilities. When untrusted input is
+interpolated straight into database commands, malicious actors can
+manipulate the query's structure, potentially leading to catastrophic
+data breaches, complete database destruction, and unauthorized access to
+backend infrastructure.</p>
+<h3 id="the-mechanics-of-the-vulnerability">The Mechanics of the
+Vulnerability</h3>
+<p>In Node.js and other JavaScript runtimes, developers frequently
+construct queries using template literals:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable implementation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> query <span class="op">=</span> <span class="vs">`SELECT * FROM users WHERE email = &#39;</span><span class="sc">${</span>req<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">email</span><span class="sc">}</span><span class="vs">&#39; AND password = &#39;</span><span class="sc">${</span>req<span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">password</span><span class="sc">}</span><span class="vs">&#39;`</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> db<span class="op">.</span><span class="fu">query</span>(query)<span class="op">;</span></span></code></pre></div>
+<p>Because the database engine cannot distinguish between the query
+commands written by the developer and the data supplied by the user, an
+attacker can supply input containing SQL syntax (such as
+<code>' OR '1'='1</code>) to fundamentally alter the statement's
+execution path.</p>
+<h3 id="key-risks-of-sql-injection">Key Risks of SQL Injection</h3>
+<h4 id="1-authentication-and-authorization-bypass">1. Authentication and
+Authorization Bypass</h4>
+<p>Attackers can craft inputs that force condition checks to always
+evaluate to true. In login forms or role-verification checks, this
+allows unauthorized users to sign in as administrators or access
+restricted assets without valid credentials.</p>
+<h4 id="2-unauthorized-data-exfiltration">2. Unauthorized Data
+Exfiltration</h4>
+<p>By appending <code>UNION SELECT</code> statements to raw queries, an
+attacker can extract data from unrelated tables. This enables the theft
+of personally identifiable information (PII), password hashes, financial
+records, and proprietary business data. In scenarios without direct
+visual output, attackers use blind or time-based techniques to
+systematically dump database contents bit by bit.</p>
+<h4 id="3-data-tampering-and-loss">3. Data Tampering and Loss</h4>
+<p>Vulnerabilities allowing stacked queries or multi-statement execution
+allow attackers to run destructive commands such as <code>UPDATE</code>,
+<code>INSERT</code>, or <code>DROP TABLE</code>. Attackers can alter
+account balances, corrupt application states, or wipe out entire
+databases, leading to service downtime and permanent data loss.</p>
+<h4 id="4-remote-code-execution-and-server-compromise">4. Remote Code
+Execution and Server Compromise</h4>
+<p>In environments where database users hold elevated privileges,
+attackers can leverage built-in database functions to interact with the
+host operating system. Databases like PostgreSQL (via
+<code>COPY ... PROGRAM</code>) or Microsoft SQL Server (via
+<code>xp_cmdshell</code>) can be coerced into executing arbitrary shell
+commands, allowing attackers to pivot from a simple database injection
+to a full infrastructure takeover.</p>
+<h3 id="preventing-sql-injection-in-javascript">Preventing SQL Injection
+in JavaScript</h3>
+<p>To eliminate these risks, applications must never interpolate
+unsanitized user input into raw SQL strings. Standard preventive
+measures include:</p>
+<ul>
+<li><strong>Parameterized Queries:</strong> Always use placeholders
+provided by drivers like <code>pg</code>, <code>mysql2</code>, or
+<code>sqlite3</code>. Parameterized values are treated strictly as
+literals, not executable code.</li>
+<li><strong>Prepared Statements:</strong> Separate query compilation
+from data execution.</li>
+<li><strong>Principle of Least Privilege:</strong> Restrict the database
+user used by the JavaScript application to only the permissions
+necessary for its intended tasks, disabling file system operations and
+administrative capabilities.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

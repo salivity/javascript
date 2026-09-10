@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bugs from Freezing Object.prototype in JavaScript - javascript</title>
+    <meta name="description" content="Defensively freezing Object.prototype using Object.freeze(Object.prototype) is a common security hardening technique designed to mitigate Prototype Pollution attacks. However, because nearly every value in JavaScript inherits from this root prototype, ma">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/bugs-from-freezing-object-prototype-in-javascript">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Bugs from Freezing Object.prototype in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/bugs-from-freezing-object-prototype-in-javascript" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Defensively freezing Object.prototype using Object.freeze(Object.prototype) is a common security hardening technique designed to mitigate Prototype Pollution attacks. However, because nearly every value in JavaScript inherits from this root prototype, ma" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="bugs-from-freezing-objectprototype-in-javascript">Bugs from
+Freezing Object.prototype in JavaScript</h1>
+<p>Defensively freezing <code>Object.prototype</code> using
+<code>Object.freeze(Object.prototype)</code> is a common security
+hardening technique designed to mitigate Prototype Pollution attacks.
+However, because nearly every value in JavaScript inherits from this
+root prototype, making it immutable introduces severe architectural side
+effects. This article outlines the unexpected runtime errors, broken
+libraries, and silent execution bugs that routinely surface when
+applying this defense in real-world applications.</p>
+<h3 id="blocked-property-shadowing-via-standard-assignment">Blocked
+Property Shadowing via Standard Assignment</h3>
+<p>The most widespread bug caused by freezing
+<code>Object.prototype</code> involves standard property assignment
+syntax (<code>obj.prop = value</code>). Under ECMAScript specifications,
+when assigning a property to an object, the runtime checks the prototype
+chain for an existing property with the same name. If an inherited
+property exists and is marked as non-writable
+(<code>writable: false</code>), the engine blocks the creation of that
+property on the child object.</p>
+<p>Because <code>Object.freeze</code> sets all existing properties on
+<code>Object.prototype</code>—such as <code>toString</code>,
+<code>valueOf</code>, and <code>constructor</code>—to
+<code>writable: false</code>, assigning values to these keys on plain
+objects will fail:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">Object</span><span class="op">.</span><span class="fu">freeze</span>(<span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>user<span class="op">.</span><span class="at">toString</span> <span class="op">=</span> <span class="st">&quot;Custom User&quot;</span><span class="op">;</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// In strict mode: TypeError: Cannot assign to read-only property &#39;toString&#39; of object &#39;#&lt;Object&gt;&#39;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// In non-strict mode: Fails silently; user.toString remains Object.prototype.toString</span></span></code></pre></div>
+<p>To define these properties on child objects without triggering an
+error, developers must bypass assignment and use
+<code>Object.defineProperty</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">Object</span><span class="op">.</span><span class="fu">defineProperty</span>(user<span class="op">,</span> <span class="st">&#39;toString&#39;</span><span class="op">,</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">value</span><span class="op">:</span> <span class="st">&quot;Custom User&quot;</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">writable</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">configurable</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">enumerable</span><span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Because most third-party packages rely on simple <code>=</code>
+assignment for property initialization, this behavior routinely triggers
+unhandled exceptions.</p>
+<h3 id="failure-of-polyfills-and-environment-shims">Failure of Polyfills
+and Environment Shims</h3>
+<p>Many runtime environments, testing frameworks, and transpilation
+shims (such as <code>core-js</code> or older browser polyfills)
+normalize features by conditionally augmenting
+<code>Object.prototype</code>.</p>
+<p>When a script checks whether a standard method exists or requires a
+fix, it often executes assignments like:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="op">!</span><span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">hasOwn</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">Object</span><span class="op">.</span><span class="at">prototype</span><span class="op">.</span><span class="at">hasOwn</span> <span class="op">=</span> <span class="kw">function</span>(<span class="op">...</span>) { <span class="op">...</span> }<span class="op">;</span> <span class="co">// Throws TypeError</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If <code>Object.prototype</code> is frozen, these assignment
+operations fail immediately during the initial script execution phase,
+preventing applications from even bootstrapping.</p>
+<h3 id="broken-third-party-libraries-and-state-mutation">Broken
+Third-Party Libraries and State Mutation</h3>
+<p>Popular utility libraries like Lodash, Underscore, or legacy state
+management libraries often mutate or configure plain objects by walking
+property descriptors. When <code>Object.prototype</code> is frozen:</p>
+<ol type="1">
+<li><strong>Cloning and Merging Operations Fail:</strong> Functions like
+<code>deepClone</code> or <code>merge</code> that attempt to preserve
+prototype relationships or copy symbols onto prototypes throw
+<code>TypeError</code> exceptions.</li>
+<li><strong>Metadata Attachment:</strong> Some libraries cache internal
+metadata by attaching non-enumerable symbols or properties directly to
+the base prototype. These routines crash under defensive freezing.</li>
+</ol>
+<h3 id="silent-failures-in-legacy-or-non-strict-code">Silent Failures in
+Legacy or Non-Strict Code</h3>
+<p>Modern JavaScript files executed as ES modules
+(<code>import</code>/<code>export</code>) are in strict mode by default,
+causing forbidden writes to throw explicit <code>TypeError</code>
+exceptions. However, older bundles or third-party dependencies running
+in non-strict mode fail silently.</p>
+<p>In these environments:</p>
+<ul>
+<li>The engine ignores the write attempt without throwing an error.</li>
+<li>Code paths that rely on the updated value proceed using the default,
+unmodified inherited method.</li>
+<li>State checks produce false positives or negatives, resulting in
+subtle, difficult-to-trace application bugs that bypass automated crash
+reporters.</li>
+</ul>
+<h3
+id="incompatibility-with-nodejs-and-browser-internals">Incompatibility
+with Node.js and Browser Internals</h3>
+<p>Both Node.js and browser runtimes rely internally on JavaScript
+object manipulation within their core modules.</p>
+<ul>
+<li><strong>Node.js Core Internals:</strong> Specific Node.js internal
+modules (such as stream implementations, event emitters, or domain
+handlers) have historically assumed that <code>Object.prototype</code>
+remains configurable. Freezing the prototype can cause core Node.js APIs
+to fail when handling HTTP requests, file system streams, or
+cryptographic operations.</li>
+<li><strong>DOM APIs:</strong> Certain browser APIs that expose dynamic
+dictionary objects or rely on Web IDL bindings expect to shadow
+prototype properties natively. Freezing the base prototype can
+destabilize host object interop.</li>
+</ul>
+<h3 id="safer-alternatives">Safer Alternatives</h3>
+<p>Rather than freezing <code>Object.prototype</code> directly, modern
+JavaScript architectures typically mitigate prototype pollution using
+safer alternatives:</p>
+<ul>
+<li>Initializing data dictionaries using
+<code>Object.create(null)</code>, ensuring objects do not inherit from
+<code>Object.prototype</code> at all.</li>
+<li>Utilizing <code>Map</code> and <code>Set</code> collections for
+dynamic key-value storage instead of plain objects.</li>
+<li>Implementing input validation schemas (such as Zod, Yup, or JSON
+Schema) to reject <code>__proto__</code>, <code>constructor</code>, and
+<code>prototype</code> payloads at network boundaries.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

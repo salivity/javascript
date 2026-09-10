@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Lockfile Poisoning Compromises JS CI Pipelines - javascript</title>
+    <meta name="description" content="Lockfile poisoning is a supply chain attack where malicious actors modify package manager lockfiles to inject malicious code into software projects without altering visible dependency manifests. In JavaScript continuous integration (CI) environments, aut">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-lockfile-poisoning-compromises-js-ci-pipelines">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Lockfile Poisoning Compromises JS CI Pipelines - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-lockfile-poisoning-compromises-js-ci-pipelines" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Lockfile poisoning is a supply chain attack where malicious actors modify package manager lockfiles to inject malicious code into software projects without altering visible dependency manifests. In JavaScript continuous integration (CI) environments, aut" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-lockfile-poisoning-compromises-js-ci-pipelines">How Lockfile
+Poisoning Compromises JS CI Pipelines</h1>
+<p>Lockfile poisoning is a supply chain attack where malicious actors
+modify package manager lockfiles to inject malicious code into software
+projects without altering visible dependency manifests. In JavaScript
+continuous integration (CI) environments, automated build pipelines rely
+heavily on lockfiles to fetch exact dependency trees, making them
+susceptible to silent code execution, credential exfiltration, and
+artifact tampering when poisoned files bypass review.</p>
+<h2 id="understanding-lockfiles-in-javascript-ecosystems">Understanding
+Lockfiles in JavaScript Ecosystems</h2>
+<p>JavaScript package managers—including npm
+(<code>package-lock.json</code>), Yarn (<code>yarn.lock</code>), and
+pnpm (<code>pnpm-lock.yaml</code>)—use lockfiles to ensure deterministic
+and reproducible installations across different environments.</p>
+<p>While the primary manifest (<code>package.json</code>) defines
+general version constraints (such as <code>^1.2.0</code>), the lockfile
+resolves the entire dependency graph down to:</p>
+<ul>
+<li>The exact version of every top-level and transitive dependency.</li>
+<li>The resolved download URL (typically pointing to public registries
+like npmjs.com or private endpoints).</li>
+<li>Cryptographic integrity hashes (<code>integrity</code> or
+<code>shasum</code>) used to verify package contents.</li>
+</ul>
+<h2 id="the-mechanism-of-lockfile-poisoning">The Mechanism of Lockfile
+Poisoning</h2>
+<p>Lockfile poisoning occurs when an attacker manipulates the resolution
+fields within the lockfile while leaving the <code>package.json</code>
+intact or making seemingly benign changes. This can happen through
+compromised contributor accounts, malicious pull requests from external
+forks, or automated bot manipulation.</p>
+<p>An attacker can execute this technique by:</p>
+<ol type="1">
+<li><strong>Targeting Transitive Dependencies:</strong> Modifying a
+deep, rarely scrutinized sub-dependency rather than a top-level
+package.</li>
+<li><strong>Replacing the Resolved Source:</strong> Changing the
+<code>resolved</code> URL field from the official npm registry to a
+malicious, attacker-controlled repository hosting a modified package
+version.</li>
+<li><strong>Updating Integrity Hashes:</strong> Updating the integrity
+hash in the lockfile to match the malicious payload so that integrity
+verification checks pass during installation.</li>
+</ol>
+<p>Because lockfiles are massive, machine-generated, and generate
+extensive diffs during regular updates, code reviewers frequently
+overlook granular changes to individual lines within these files.</p>
+<h2 id="how-ci-pipelines-execute-the-attack">How CI Pipelines Execute
+the Attack</h2>
+<p>Continuous integration pipelines are specifically optimized for
+determinism. Standard CI workflows use commands designed to strictly
+follow the lockfile:</p>
+<ul>
+<li><code>npm ci</code></li>
+<li><code>yarn install --frozen-lockfile</code></li>
+<li><code>pnpm install --frozen-lockfile</code></li>
+</ul>
+<p>These commands bypass dependency resolution logic and install the
+exact artifacts mapped in the lockfile. When a poisoned lockfile is
+committed:</p>
+<ol type="1">
+<li><strong>Automated Trigger:</strong> A pull request or commit
+triggers the CI workflow.</li>
+<li><strong>Deterministic Fetching:</strong> The CI runner executes the
+frozen install command and downloads the attacker's payload directly
+from the specified malicious URL.</li>
+<li><strong>Lifecycle Script Execution:</strong> Many npm packages
+contain lifecycle hooks, such as <code>preinstall</code>,
+<code>install</code>, or <code>postinstall</code>. Once downloaded, the
+package manager runs these scripts automatically inside the CI
+container.</li>
+<li><strong>Environment Compromise:</strong> The malicious script runs
+with the full permissions of the CI runner, enabling it to access
+environment variables, read repository files, and interact with the
+local build network.</li>
+</ol>
+<h2 id="consequences-of-pipeline-compromise">Consequences of Pipeline
+Compromise</h2>
+<p>A compromised CI runner poses severe operational and security
+risks:</p>
+<ul>
+<li><strong>Secret Exfiltration:</strong> CI runners frequently store
+sensitive environment variables, including production API tokens,
+private registry keys, code signing certificates, and cloud provider
+credentials. A poisoned script can immediately exfiltrate these secrets
+to a remote server.</li>
+<li><strong>Artifact Tampering:</strong> If the CI pipeline builds
+production binaries, Docker images, or published npm packages, the
+attacker can modify the output to embed persistent backdoors before
+deployment.</li>
+<li><strong>Lateral Movement:</strong> Attackers can leverage the
+compromised CI environment as an entry point into internal networks or
+cloud infrastructure connected to the runner.</li>
+</ul>
+<h2 id="mitigation-strategies">Mitigation Strategies</h2>
+<p>Securing CI pipelines against lockfile poisoning requires layered
+controls focused on validation and isolation:</p>
+<ul>
+<li><strong>Lockfile Integrity Linting:</strong> Implement automated
+pre-commit and CI verification tools that cross-reference lockfiles
+against <code>package.json</code> to ensure resolved URLs strictly match
+trusted registries.</li>
+<li><strong>Disable Lifecycle Scripts:</strong> Use the
+<code>--ignore-scripts</code> flag during CI installations
+(<code>npm ci --ignore-scripts</code>) whenever possible to prevent
+untrusted code execution during dependency resolution.</li>
+<li><strong>Isolate Secrets:</strong> Scope CI environment variables
+strictly to deployment stages, ensuring that untrusted pull request
+builds do not have access to production credentials or deployment
+keys.</li>
+<li><strong>Audit External Pull Requests:</strong> Restrict CI workflows
+from automatically executing on pull requests submitted from public
+forks until the lockfile changes are reviewed and verified.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

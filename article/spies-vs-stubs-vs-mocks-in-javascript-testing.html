@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spies vs Stubs vs Mocks in JavaScript Testing - javascript</title>
+    <meta name="description" content="In JavaScript test-driven development, test doubles are essential tools used to isolate units of code by replacing dependencies. While the terms "spy," "stub," and "mock" are often used interchangeably, they serve distinct architectural roles and manipul">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/spies-vs-stubs-vs-mocks-in-javascript-testing">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spies vs Stubs vs Mocks in JavaScript Testing - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/spies-vs-stubs-vs-mocks-in-javascript-testing" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript test-driven development, test doubles are essential tools used to isolate units of code by replacing dependencies. While the terms "spy," "stub," and "mock" are often used interchangeably, they serve distinct architectural roles and manipul" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="spies-vs-stubs-vs-mocks-in-javascript-testing">Spies vs Stubs vs
+Mocks in JavaScript Testing</h1>
+<p>In JavaScript test-driven development, test doubles are essential
+tools used to isolate units of code by replacing dependencies. While the
+terms "spy," "stub," and "mock" are often used interchangeably, they
+serve distinct architectural roles and manipulate the execution flow of
+a test suite differently. This article outlines the structural
+differences between these three test doubles, analyzing how they handle
+implementation execution, state recording, and assertion logic.</p>
+<h3 id="the-taxonomy-of-test-doubles">The Taxonomy of Test Doubles</h3>
+<p>Test doubles act as stand-ins for production dependencies—such as
+APIs, databases, or third-party libraries—to keep unit tests
+deterministic and fast. The distinction between spies, stubs, and mocks
+lies in how much control they take over the underlying code and how they
+verify test outcomes.</p>
+<hr />
+<h3 id="1-spies-execution-observation">1. Spies: Execution
+Observation</h3>
+<p>A <strong>spy</strong> is a wrapper around an existing function that
+records metadata about its execution without changing its underlying
+behavior.</p>
+<ul>
+<li><strong>Structural Role:</strong> Non-invasive monitoring.</li>
+<li><strong>Implementation:</strong> The original function runs as
+normal. The spy sits between the caller and the target function,
+tracking invocations, passed arguments, return values, and thrown
+exceptions.</li>
+<li><strong>Verification Style:</strong> <em>Post-execution
+assertion.</em> You run the code under test, then assert that the spy
+recorded the expected interactions.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example using Jest</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> paymentService <span class="op">=</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">process</span><span class="op">:</span> (amount) <span class="kw">=&gt;</span> amount <span class="op">&gt;</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Structural wrap: original code still executes</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> spy <span class="op">=</span> jest<span class="op">.</span><span class="fu">spyOn</span>(paymentService<span class="op">,</span> <span class="st">&#39;process&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>paymentService<span class="op">.</span><span class="fu">process</span>(<span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Assertion happens after execution</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">expect</span>(spy)<span class="op">.</span><span class="fu">toHaveBeenCalledWith</span>(<span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">expect</span>(spy)<span class="op">.</span><span class="fu">toHaveReturnedWith</span>(<span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>spy<span class="op">.</span><span class="fu">mockRestore</span>()<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="2-stubs-canned-behavior-replacement">2. Stubs: Canned Behavior
+Replacement</h3>
+<p>A <strong>stub</strong> completely replaces a function’s
+implementation to provide predetermined (canned) responses, effectively
+preventing the execution of real side effects like network requests or
+database writes.</p>
+<ul>
+<li><strong>Structural Role:</strong> State substitution and flow
+control.</li>
+<li><strong>Implementation:</strong> The original code is bypassed
+entirely. The stub returns fixed values, resolves specific promises, or
+deliberately throws errors based on test setup.</li>
+<li><strong>Verification Style:</strong> <em>Indirect state
+verification.</em> Stubs are generally used to drive the system under
+test through specific conditional branches rather than to verify that
+the stub itself was called.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example using Sinon.js</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> database <span class="op">=</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">getUser</span><span class="op">:</span> (id) <span class="kw">=&gt;</span> { <span class="co">/* real DB query */</span> }<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Structural replacement: original implementation is severed</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>sinon<span class="op">.</span><span class="fu">stub</span>(database<span class="op">,</span> <span class="st">&#39;getUser&#39;</span>)<span class="op">.</span><span class="fu">resolves</span>({ <span class="dt">id</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;Alice&#39;</span> })<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> <span class="cf">await</span> database<span class="op">.</span><span class="fu">getUser</span>(<span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Verifying the outcome based on the stub&#39;s canned state</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>assert<span class="op">.</span><span class="fu">strictEqual</span>(user<span class="op">.</span><span class="at">name</span><span class="op">,</span> <span class="st">&#39;Alice&#39;</span>)<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="3-mocks-contract-and-expectation-enforcement">3. Mocks: Contract
+and Expectation Enforcement</h3>
+<p>A <strong>mock</strong> is a pre-programmed double that combines
+implementation replacement with built-in behavioral verification. Unlike
+stubs, which passively respond, mocks are defined with strict
+expectations regarding how they <em>must</em> be called.</p>
+<ul>
+<li><strong>Structural Role:</strong> Interaction contract
+verification.</li>
+<li><strong>Implementation:</strong> The mock replaces the real object
+and specifies both the canned response and the expected interaction
+criteria (call counts, argument matches, order of execution) before the
+code runs.</li>
+<li><strong>Verification Style:</strong> <em>Pre-execution specification
+with lifecycle verification.</em> The test runner verifies the mock’s
+expectations automatically, failing if the interaction contract was
+violated during execution.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Conceptual representation (Sinon.js mock style)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mailer <span class="op">=</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">sendWelcomeEmail</span><span class="op">:</span> (email) <span class="kw">=&gt;</span> { <span class="co">/* real mail server */</span> }<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mockMailer <span class="op">=</span> sinon<span class="op">.</span><span class="fu">mock</span>(mailer)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Define structural expectation before running the test</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>mockMailer</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">expects</span>(<span class="st">&#39;sendWelcomeEmail&#39;</span>)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">once</span>()</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">withExactArgs</span>(<span class="st">&#39;user@example.com&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Code under test runs</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>mailer<span class="op">.</span><span class="fu">sendWelcomeEmail</span>(<span class="st">&#39;user@example.com&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Verification checks that the contract was strictly fulfilled</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>mockMailer<span class="op">.</span><span class="fu">verify</span>()<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="structural-comparison-summary">Structural Comparison
+Summary</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Attribute</th>
+<th style="text-align: left;">Spy</th>
+<th style="text-align: left;">Stub</th>
+<th style="text-align: left;">Mock</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Original Code
+Executes</strong></td>
+<td style="text-align: left;">Yes (by default)</td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Purpose</strong></td>
+<td style="text-align: left;">Observe and record calls</td>
+<td style="text-align: left;">Provide canned answers</td>
+<td style="text-align: left;">Enforce interaction contracts</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Assertion Location</strong></td>
+<td style="text-align: left;">After the action executes</td>
+<td style="text-align: left;">Tested on the consumer's state</td>
+<td style="text-align: left;">Configured before execution</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Failure Mode</strong></td>
+<td style="text-align: left;">Assertion fails at test end</td>
+<td style="text-align: left;">Logic error in consumer</td>
+<td style="text-align: left;">Expectation fails during verification</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Test Target</strong></td>
+<td style="text-align: left;">Behavior / Usage tracking</td>
+<td style="text-align: left;">State / Conditional branches</td>
+<td style="text-align: left;">Structural protocol between objects</td>
+</tr>
+</tbody>
+</table>
+<p>Understanding these structural boundaries prevents brittle tests. Use
+spies when you need to confirm that a real subsystem was triggered,
+stubs when you need to bypass slow or non-deterministic code, and mocks
+when the precise communication protocol between objects is the primary
+requirement of the test.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

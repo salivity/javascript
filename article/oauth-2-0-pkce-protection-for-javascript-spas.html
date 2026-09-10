@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth 2.0 PKCE Protection for JavaScript SPAs - javascript</title>
+    <meta name="description" content="OAuth 2.0 Authorization Code Flow with Proof Key for Code Exchange (PKCE) protects JavaScript Single-Page Applications (SPAs) by dynamically binding authorization requests to token exchanges using cryptography. Because browser-based applications run enti">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/oauth-2-0-pkce-protection-for-javascript-spas">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="OAuth 2.0 PKCE Protection for JavaScript SPAs - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/oauth-2-0-pkce-protection-for-javascript-spas" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="OAuth 2.0 Authorization Code Flow with Proof Key for Code Exchange (PKCE) protects JavaScript Single-Page Applications (SPAs) by dynamically binding authorization requests to token exchanges using cryptography. Because browser-based applications run enti" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="oauth-20-pkce-protection-for-javascript-spas">OAuth 2.0 PKCE
+Protection for JavaScript SPAs</h1>
+<p>OAuth 2.0 Authorization Code Flow with Proof Key for Code Exchange
+(PKCE) protects JavaScript Single-Page Applications (SPAs) by
+dynamically binding authorization requests to token exchanges using
+cryptography. Because browser-based applications run entirely on the
+client side, they cannot securely store a static client secret. PKCE
+solves this vulnerability by replacing static secrets with a dynamically
+generated, one-time cryptographic proof, preventing malicious actors
+from intercepting authorization codes and exchanging them for access
+tokens.</p>
+<h3 id="the-security-problem-with-spas">The Security Problem with
+SPAs</h3>
+<p>JavaScript single-page applications are classified as "public
+clients." Any code, configuration file, or secret embedded within the
+application is entirely exposed to the user and can be inspected via
+browser developer tools.</p>
+<p>Historically, SPAs utilized the OAuth 2.0 Implicit Flow, which
+returned access tokens directly in the URL hash fragment. This approach
+exposed tokens to browser history logs, referrer headers, and malicious
+browser extensions. While the standard Authorization Code Flow keeps
+tokens out of URLs, it traditionally requires a
+<code>client_secret</code> during the token exchange—something an SPA
+cannot safely protect.</p>
+<h3 id="how-pkce-works-in-an-spa">How PKCE Works in an SPA</h3>
+<p>PKCE (defined in RFC 7636) modifies the standard Authorization Code
+Flow by introducing a dynamically generated secret for each
+authorization request. The process follows these steps:</p>
+<ol type="1">
+<li><strong>Generation of the Code Verifier:</strong> When a user
+initiates a login, the SPA generates a cryptographically random string
+called the <code>code_verifier</code>. This value is stored temporarily
+in secure browser memory or session storage.</li>
+<li><strong>Creation of the Code Challenge:</strong> The SPA transforms
+the <code>code_verifier</code> using a SHA-256 cryptographic hash
+function and encodes it with Base64URL to create the
+<code>code_challenge</code>.</li>
+<li><strong>Authorization Request:</strong> The SPA redirects the
+browser to the authorization server, appending the
+<code>code_challenge</code> and the method used
+(<code>code_challenge_method=S256</code>) to the query parameters.</li>
+<li><strong>Code Issuance:</strong> The user authenticates with the
+authorization server. Upon approval, the server stores the
+<code>code_challenge</code> and redirects the user back to the SPA with
+an <code>authorization_code</code>.</li>
+<li><strong>Token Exchange:</strong> The SPA sends a <code>POST</code>
+request directly to the authorization server's token endpoint containing
+the received <code>authorization_code</code> and the original, unhashed
+<code>code_verifier</code>.</li>
+<li><strong>Verification and Token Issuance:</strong> The authorization
+server hashes the received <code>code_verifier</code> using SHA-256 and
+compares it against the <code>code_challenge</code> stored in step 4. If
+the values match, the server verifies that the client requesting the
+tokens is the exact same client that initiated the login, and issues the
+access and refresh tokens.</li>
+</ol>
+<h3 id="key-security-benefits-of-pkce-for-spas">Key Security Benefits of
+PKCE for SPAs</h3>
+<ul>
+<li><strong>Mitigates Code Interception Attacks:</strong> If an attacker
+intercepts the authorization code via redirect manipulation or network
+sniffing, the code is useless to them because they do not possess the
+unique, unhashed <code>code_verifier</code> stored in the legitimate
+client's memory.</li>
+<li><strong>Eliminates Static Secrets:</strong> PKCE removes the need
+for client secrets in client-side code entirely, reducing the risk of
+credential leakage via public source code repositories or decompiled
+assets.</li>
+<li><strong>Keeps Tokens Out of the URL:</strong> Tokens are returned
+directly through an encrypted HTTP <code>POST</code> response payload
+rather than URL redirect fragments, safeguarding tokens from browser
+histories, proxy logs, and unauthorized scripts.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JavaScript bind Creates Bound Function Exotic Objects - javascript</title>
+    <meta name="description" content="In JavaScript, invoking Function.prototype.bind does not return a typical standard function; instead, it generates a specialized entity defined by the ECMAScript specification as a "Bound Function Exotic Object." This article breaks down the internal mec">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-javascript-bind-creates-bound-function-exotic-objects">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JavaScript bind Creates Bound Function Exotic Objects - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-javascript-bind-creates-bound-function-exotic-objects" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript, invoking Function.prototype.bind does not return a typical standard function; instead, it generates a specialized entity defined by the ECMAScript specification as a "Bound Function Exotic Object." This article breaks down the internal mec" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-javascript-bind-creates-bound-function-exotic-objects">How
+JavaScript bind Creates Bound Function Exotic Objects</h1>
+<p>In JavaScript, invoking <code>Function.prototype.bind</code> does not
+return a typical standard function; instead, it generates a specialized
+entity defined by the ECMAScript specification as a "Bound Function
+Exotic Object." This article breaks down the internal mechanics of how
+the engine creates this exotic object, details the internal slots used
+to persist context and curried arguments, and explains how its custom
+<code>[[Call]]</code> and <code>[[Construct]]</code> internal methods
+manage execution at runtime.</p>
+<h3 id="understanding-exotic-objects-in-ecmascript">Understanding Exotic
+Objects in ECMAScript</h3>
+<p>In JavaScript, ordinary objects conform to standard default behaviors
+for essential internal methods like <code>[[Get]]</code>,
+<code>[[Set]]</code>, and <code>[[Call]]</code>. An "exotic object" is
+any object whose essential internal methods deviate from these default
+behaviors.</p>
+<p>A bound function is designated as an exotic object because its
+internal <code>[[Call]]</code> and <code>[[Construct]]</code> methods do
+not immediately execute bytecode from a function body. Instead, they
+intercept the execution to alter arguments and redirect the target and
+context before delegating execution to the underlying function.</p>
+<h3 id="the-creation-mechanism-boundfunctioncreate">The Creation
+Mechanism: BoundFunctionCreate</h3>
+<p>When <code>Function.prototype.bind(thisArg, ...args)</code> is
+called, the JavaScript engine executes the abstract operation
+<code>BoundFunctionCreate(targetFunction, boundThis, boundArgs)</code>.
+The process follows these precise steps:</p>
+<ol type="1">
+<li><strong>Callable Verification:</strong> The engine validates that
+the target function has an internal <code>[[Call]]</code> method. If
+<code>IsCallable(targetFunction)</code> evaluates to <code>false</code>,
+a <code>TypeError</code> is thrown.</li>
+<li><strong>Object Allocation:</strong> An uninitialized exotic object
+is allocated in memory.</li>
+<li><strong>Overriding Internal Methods:</strong> The engine assigns
+custom definitions for <code>[[Call]]</code> and, if the target is a
+constructor, <code>[[Construct]]</code>.</li>
+<li><strong>Internal Slot Initialization:</strong> The engine populates
+dedicated internal slots to store the state:
+<ul>
+<li><strong><code>[[BoundTargetFunction]]</code></strong>: A reference
+to the original function being bound.</li>
+<li><strong><code>[[BoundThis]]</code></strong>: The explicit
+<code>thisArg</code> supplied by the caller, which will serve as the
+execution context.</li>
+<li><strong><code>[[BoundArguments]]</code></strong>: A list containing
+any arguments passed to <code>.bind()</code> after the
+<code>thisArg</code>, preserved for partial application (currying).</li>
+</ul></li>
+<li><strong>Prototype Resolution:</strong> The internal
+<code>[[Prototype]]</code> of the new bound function is set to match the
+prototype of <code>[[BoundTargetFunction]]</code>.</li>
+<li><strong>Property Configuration:</strong> Properties such as
+<code>length</code> (calculated as the target's length minus the number
+of bound arguments, down to a minimum of 0) and <code>name</code>
+(prefixed with <code>"bound "</code>) are configured as non-enumerable,
+configurable properties.</li>
+</ol>
+<h3 id="execution-via-the-call-internal-method">Execution via the
+[[Call]] Internal Method</h3>
+<p>When a bound function exotic object is invoked directly, its
+specialized <code>[[Call]]</code> method is triggered rather than the
+standard function invocation pipeline:</p>
+<ol type="1">
+<li>It retrieves <code>[[BoundTargetFunction]]</code>,
+<code>[[BoundThis]]</code>, and <code>[[BoundArguments]]</code>.</li>
+<li>It concatenates the arguments stored in
+<code>[[BoundArguments]]</code> with the arguments provided at the
+actual call site.</li>
+<li>It calls the target's internal <code>[[Call]]</code> method,
+explicitly passing <code>[[BoundThis]]</code> as the <code>this</code>
+context alongside the concatenated argument list.</li>
+</ol>
+<p>Because <code>[[BoundThis]]</code> is hard-coded into the internal
+slot and passed directly into the target's <code>[[Call]]</code>, any
+subsequent attempts to modify the <code>this</code> binding using
+<code>.call()</code>, <code>.apply()</code>, or further chaining with
+<code>.bind()</code> are completely ignored.</p>
+<h3 id="instantiation-via-the-construct-internal-method">Instantiation
+via the [[Construct]] Internal Method</h3>
+<p>If the target function is a constructor, the bound exotic object also
+implements a custom <code>[[Construct]]</code> method to handle
+invocations using the <code>new</code> operator:</p>
+<ol type="1">
+<li>The arguments provided at the invocation site are concatenated onto
+<code>[[BoundArguments]]</code>.</li>
+<li>The engine invokes the target's <code>[[Construct]]</code> method
+with the full argument list.</li>
+<li>Critically, the <code>[[BoundThis]]</code> value is discarded. When
+invoked with <code>new</code>, the newly created instance (or the
+subclass constructor's instance) overrides the bound context entirely,
+while still preserving the bound arguments.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

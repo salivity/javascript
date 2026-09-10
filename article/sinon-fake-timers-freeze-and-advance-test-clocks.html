@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinon Fake Timers: Freeze and Advance Test Clocks - javascript</title>
+    <meta name="description" content="Sinon.js fake timers provide a synchronous, deterministic way to control time in JavaScript unit tests by replacing native global timing functions with simulated counterparts. This article explains how Sinon intercepts functions like setTimeout, setInter">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/sinon-fake-timers-freeze-and-advance-test-clocks">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sinon Fake Timers: Freeze and Advance Test Clocks - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/sinon-fake-timers-freeze-and-advance-test-clocks" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Sinon.js fake timers provide a synchronous, deterministic way to control time in JavaScript unit tests by replacing native global timing functions with simulated counterparts. This article explains how Sinon intercepts functions like setTimeout, setInter" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="sinon-fake-timers-freeze-and-advance-test-clocks">Sinon Fake
+Timers: Freeze and Advance Test Clocks</h1>
+<p>Sinon.js fake timers provide a synchronous, deterministic way to
+control time in JavaScript unit tests by replacing native global timing
+functions with simulated counterparts. This article explains how Sinon
+intercepts functions like <code>setTimeout</code>,
+<code>setInterval</code>, and <code>Date</code>, how to freeze execution
+at a fixed point in time, how to advance intervals sequentially using
+<code>clock.tick()</code>, and how to properly clean up timers to
+prevent test pollution.</p>
+<h2 id="how-fake-timers-work">How Fake Timers Work</h2>
+<p>In standard JavaScript environments, asynchronous operations relying
+on <code>setTimeout</code> or <code>setInterval</code> depend on the
+event loop and real system time, making tests slow and prone to race
+conditions.</p>
+<p>Sinon's fake timers solve this via monkey-patching. When initialized,
+Sinon replaces native time-related globals—including <code>Date</code>,
+<code>setTimeout</code>, <code>clearTimeout</code>,
+<code>setInterval</code>, <code>clearInterval</code>,
+<code>setImmediate</code>, and <code>requestAnimationFrame</code>—with
+its own mocked implementations. Instead of scheduling tasks on the
+system event loop, Sinon places callbacks onto an internal, sorted
+priority queue ordered by their scheduled execution timestamp.</p>
+<h2 id="freezing-the-clock">Freezing the Clock</h2>
+<p>To freeze time, you call <code>sinon.useFakeTimers()</code>. Once
+invoked, real-world time progression stops within your test context.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sinon <span class="op">=</span> <span class="pp">require</span>(<span class="st">&#39;sinon&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Freeze time at current system time, or pass an epoch timestamp</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> clock <span class="op">=</span> sinon<span class="op">.</span><span class="fu">useFakeTimers</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> startTime <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Any standard delay won&#39;t execute automatically</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&#39;Executed&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> <span class="dv">1000</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Date.now() remains unchanged until you manually advance the clock</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>() <span class="op">===</span> startTime)<span class="op">;</span> <span class="co">// true</span></span></code></pre></div>
+<p>You can also initialize the clock to an explicit timestamp by passing
+options, such as
+<code>sinon.useFakeTimers(new Date('2024-01-01').getTime())</code>,
+ensuring identical baseline states across test runs.</p>
+<h2 id="advancing-time-with-clocktick">Advancing Time with
+<code>clock.tick()</code></h2>
+<p>Because the clock is frozen, time only moves forward when explicitly
+instructed. The <code>clock.tick(milliseconds)</code> method advances
+the fake clock synchronously by the specified number of
+milliseconds.</p>
+<p>When <code>clock.tick()</code> runs, Sinon:</p>
+<ol type="1">
+<li>Increments its internal clock value.</li>
+<li>Iterates through the internal queue of registered timer
+callbacks.</li>
+<li>Synchronously executes all callbacks whose scheduled execution times
+are less than or equal to the new current time.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> count <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">setInterval</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  count<span class="op">++;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> <span class="dv">500</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Advance 1000ms: the interval callback fires exactly twice</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>clock<span class="op">.</span><span class="fu">tick</span>(<span class="dv">1000</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(count)<span class="op">;</span> <span class="co">// 2</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Advance another 500ms: fires once more</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>clock<span class="op">.</span><span class="fu">tick</span>(<span class="dv">500</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(count)<span class="op">;</span> <span class="co">// 3</span></span></code></pre></div>
+<p>Because execution occurs synchronously during the <code>tick</code>
+call, there is no need for asynchronous constructs like
+<code>async/await</code> or <code>done()</code> callbacks when testing
+delayed logic.</p>
+<h2 id="controlling-granular-execution">Controlling Granular
+Execution</h2>
+<p>Beyond <code>clock.tick()</code>, Sinon provides additional methods
+for finer control over repeating intervals and asynchronous queues:</p>
+<ul>
+<li><strong><code>clock.next()</code></strong>: Advances the clock just
+enough to trigger the very next scheduled timer callback, executing only
+that single task.</li>
+<li><strong><code>clock.runAll()</code></strong>: Runs all scheduled
+tasks until the queue is empty. Use this cautiously with recurring
+intervals, as unbounded intervals can cause an infinite loop.</li>
+<li><strong><code>clock.runToLast()</code></strong>: Runs all timers
+that were scheduled at the moment the method was called, skipping any
+new timers registered by the callbacks themselves during execution.</li>
+</ul>
+<h2 id="restoring-native-timers">Restoring Native Timers</h2>
+<p>Failing to restore native timers can cause subsequent tests, test
+runners, or tooling to hang or behave unpredictably. Always restore
+native implementations in a cleanup block (such as
+<code>afterEach</code> in Mocha or Jest).</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">describe</span>(<span class="st">&#39;Interval Test Suite&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> clock<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">beforeEach</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    clock <span class="op">=</span> sinon<span class="op">.</span><span class="fu">useFakeTimers</span>()<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">afterEach</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    clock<span class="op">.</span><span class="fu">restore</span>()<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">it</span>(<span class="st">&#39;should trigger the interval twice&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> callback <span class="op">=</span> sinon<span class="op">.</span><span class="fu">spy</span>()<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="pp">setInterval</span>(callback<span class="op">,</span> <span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    clock<span class="op">.</span><span class="fu">tick</span>(<span class="dv">200</span>)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    sinon<span class="op">.</span><span class="at">assert</span><span class="op">.</span><span class="fu">calledTwice</span>(callback)<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>clock.restore()</code> completely removes the overrides
+and returns standard timing behavior back to the global environment.</p></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

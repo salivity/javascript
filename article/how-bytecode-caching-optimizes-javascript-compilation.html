@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Bytecode Caching Optimizes JavaScript Compilation - javascript</title>
+    <meta name="description" content="Bytecode caching is a browser optimization technique that dramatically accelerates web page load times by saving the compiled intermediate representation of JavaScript files to disk or memory. Instead of forcing the JavaScript engine to parse and compile">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-bytecode-caching-optimizes-javascript-compilation">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Bytecode Caching Optimizes JavaScript Compilation - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-bytecode-caching-optimizes-javascript-compilation" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Bytecode caching is a browser optimization technique that dramatically accelerates web page load times by saving the compiled intermediate representation of JavaScript files to disk or memory. Instead of forcing the JavaScript engine to parse and compile" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-bytecode-caching-optimizes-javascript-compilation">How
+Bytecode Caching Optimizes JavaScript Compilation</h1>
+<p>Bytecode caching is a browser optimization technique that
+dramatically accelerates web page load times by saving the compiled
+intermediate representation of JavaScript files to disk or memory.
+Instead of forcing the JavaScript engine to parse and compile the same
+scripts on every page visit, the browser generates bytecode once, caches
+it alongside the script's source code, and directly executes the cached
+bytecode during subsequent visits. This process bypasses the
+resource-intensive parsing and compilation phases, significantly
+reducing Time to Interactive (TTI) and CPU usage on recurring page
+loads.</p>
+<h2 id="the-standard-javascript-compilation-pipeline">The Standard
+JavaScript Compilation Pipeline</h2>
+<p>To understand bytecode caching, it is essential to look at the
+traditional path JavaScript follows before execution:</p>
+<ol type="1">
+<li><strong>Streaming and Tokenization:</strong> The engine (such as V8
+in Chrome or SpiderMonkey in Firefox) streams the raw source code and
+converts characters into meaningful tokens.</li>
+<li><strong>Parsing:</strong> The parser processes the tokens to
+generate an Abstract Syntax Tree (AST), ensuring the code follows
+correct syntactic rules.</li>
+<li><strong>Bytecode Generation:</strong> A baseline compiler (like V8's
+Ignition) translates the AST into bytecode—a low-level,
+platform-independent set of instructions.</li>
+<li><strong>Execution:</strong> An interpreter executes the bytecode,
+while optimizing compilers (like TurboFan) profile hot paths for further
+machine-code optimization.</li>
+</ol>
+<p>Steps 1 through 3 are computationally expensive, particularly for
+modern web applications that ship megabytes of JavaScript.</p>
+<h2 id="how-bytecode-caching-works">How Bytecode Caching Works</h2>
+<p>Bytecode caching intervenes in this pipeline across two distinct
+phases: the generation phase (cold run) and the consumption phase (warm
+run).</p>
+<h3 id="1-the-generation-phase-cold-run">1. The Generation Phase (Cold
+Run)</h3>
+<p>When a user visits a website for the first time, the browser
+downloads and processes the script using the standard compilation
+pipeline.</p>
+<p>Once the initial execution occurs:</p>
+<ul>
+<li>The engine serializes the generated bytecode, along with relevant
+metadata (such as source code length, engine version, and script
+hashes).</li>
+<li>The serialized data is stored in the browser's cache storage
+alongside the HTTP cache entry for that JavaScript file.</li>
+<li>Some engines defer bytecode serialization until a script has been
+executed more than once within a specific time window to avoid caching
+one-off scripts.</li>
+</ul>
+<h3 id="2-the-consumption-phase-warm-run">2. The Consumption Phase (Warm
+Run)</h3>
+<p>On subsequent visits to the same page or any page sharing the same
+script:</p>
+<ul>
+<li>The browser retrieves the source file from the HTTP cache and
+queries the bytecode cache simultaneously.</li>
+<li>The engine validates that the cached bytecode matches the current
+source code and runtime environment.</li>
+<li>If valid, the engine completely skips the tokenization, AST parsing,
+and initial bytecode compilation steps.</li>
+<li>The engine deserializes the cached bytecode directly into memory and
+passes it immediately to the execution engine.</li>
+</ul>
+<pre><code>Cold Run:  [Source Code] -&gt; [Parser/AST] -&gt; [Bytecode Generator] -&gt; [Execution]
+                                                     |
+                                            (Saved to Cache)
+                                                     v
+Warm Run:  [Cached Bytecode] ------------------------------------&gt; [Execution]</code></pre>
+<h2 id="validation-and-cache-invalidation">Validation and Cache
+Invalidation</h2>
+<p>Bytecode is an internal implementation detail of specific JavaScript
+engine versions, not a standardized web format. Because of this, engines
+implement strict validation checks before using cached bytecode:</p>
+<ul>
+<li><strong>Engine and Platform Matching:</strong> Bytecode formats
+change frequently between browser updates. If the browser updates its
+engine version, existing bytecode caches are discarded.</li>
+<li><strong>Source Code Integrity:</strong> Engines check the HTTP cache
+headers, script URLs, file sizes, and cryptographic hashes to guarantee
+the source code has not changed.</li>
+<li><strong>Environment Flags:</strong> If browser runtime flags or
+compilation settings change, the cache is invalidated.</li>
+</ul>
+<h2 id="performance-benefits">Performance Benefits</h2>
+<p>By eliminating the need to parse text into an AST and compile that
+AST into bytecode on repeated visits, bytecode caching provides several
+key advantages:</p>
+<ul>
+<li><strong>Faster Startup Times:</strong> Loading pre-compiled bytecode
+can be several times faster than parsing raw JavaScript source
+text.</li>
+<li><strong>Lower CPU and Battery Consumption:</strong> Offloading
+compilation work reduces CPU spikes during page initialization,
+benefiting mobile devices and low-power hardware.</li>
+<li><strong>Improved Responsiveness:</strong> With less main-thread time
+spent on compilation, the browser remains responsive to user
+interactions much earlier in the page lifecycle.</li>
+</ul></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

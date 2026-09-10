@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Proxy Pattern: Control Object Access - javascript</title>
+    <meta name="description" content="The Proxy pattern in JavaScript allows developers to place an intermediary layer between an application and a target object to intercept, redefine, and control fundamental operations. By wrapping an original object inside a Proxy instance configured with">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/javascript-proxy-pattern-control-object-access">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Proxy Pattern: Control Object Access - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/javascript-proxy-pattern-control-object-access" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Proxy pattern in JavaScript allows developers to place an intermediary layer between an application and a target object to intercept, redefine, and control fundamental operations. By wrapping an original object inside a Proxy instance configured with" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="javascript-proxy-pattern-control-object-access">JavaScript Proxy
+Pattern: Control Object Access</h1>
+<p>The Proxy pattern in JavaScript allows developers to place an
+intermediary layer between an application and a target object to
+intercept, redefine, and control fundamental operations. By wrapping an
+original object inside a <code>Proxy</code> instance configured with a
+<code>handler</code>, you can govern property access, block unauthorized
+mutations, validate incoming data, hide private attributes, and even
+revoke access dynamically. This article explains how the JavaScript
+<code>Proxy</code> object works, explores the essential traps used for
+access control, and demonstrates practical implementations for securing
+and managing data flow.</p>
+<h2
+id="understanding-the-core-components-target-and-handler">Understanding
+the Core Components: Target and Handler</h2>
+<p>A JavaScript Proxy consists of three main elements: the target
+object, the handler object, and the proxy instance itself. The syntax
+is:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> proxy <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(target<span class="op">,</span> handler)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong>Target:</strong> The original object, array, or function
+being wrapped.</li>
+<li><strong>Handler:</strong> An object containing methods (known as
+"traps") that intercept operations performed on the proxy.</li>
+<li><strong>Traps:</strong> Functions within the handler that execute in
+place of standard operations such as reading properties, assigning
+values, or deleting keys.</li>
+</ul>
+<p>When an operation is executed on the proxy, JavaScript checks the
+handler for a matching trap. If the trap is defined, it runs; otherwise,
+the operation falls back directly to the target object.</p>
+<h2 id="intercepting-operations-with-traps">Intercepting Operations with
+Traps</h2>
+<p>Access control relies on specific handler traps that intercept
+attempts to interact with the underlying data.</p>
+<h3 id="1-the-get-trap-regulating-read-access">1. The <code>get</code>
+Trap: Regulating Read Access</h3>
+<p>The <code>get</code> trap executes whenever a property is read. It
+receives the <code>target</code>, the <code>property</code> being
+accessed, and the <code>receiver</code> (the proxy instance).</p>
+<p>You can use the <code>get</code> trap to hide sensitive or private
+properties, redirect queries, or throw errors when unauthorized keys are
+requested:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">id</span><span class="op">:</span> <span class="dv">101</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">username</span><span class="op">:</span> <span class="st">&quot;johndoe&quot;</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">apiKey</span><span class="op">:</span> <span class="st">&quot;secret_live_98765&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> userProxy <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(user<span class="op">,</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span>(target<span class="op">,</span> prop) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (prop <span class="op">===</span> <span class="st">&quot;apiKey&quot;</span>) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&quot;Access denied: Property is private.&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> prop <span class="kw">in</span> target <span class="op">?</span> target[prop] <span class="op">:</span> <span class="kw">undefined</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(userProxy<span class="op">.</span><span class="at">username</span>)<span class="op">;</span> <span class="co">// &quot;johndoe&quot;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(userProxy<span class="op">.</span><span class="at">apiKey</span>)<span class="op">;</span>   <span class="co">// Throws Error: Access denied</span></span></code></pre></div>
+<h3 id="2-the-set-trap-validating-and-restricting-write-access">2. The
+<code>set</code> Trap: Validating and Restricting Write Access</h3>
+<p>The <code>set</code> trap intercepts attempts to modify an existing
+property or add a new one. It receives the <code>target</code>,
+<code>property</code>, <code>value</code>, and <code>receiver</code>.
+The trap must return <code>true</code> to indicate success or
+<code>false</code>/an error to reject the change.</p>
+<p>This trap is commonly used for data validation and creating read-only
+objects:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> account <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">balance</span><span class="op">:</span> <span class="dv">500</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> accountProxy <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(account<span class="op">,</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">set</span>(target<span class="op">,</span> prop<span class="op">,</span> value) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (prop <span class="op">===</span> <span class="st">&quot;balance&quot;</span>) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="kw">typeof</span> value <span class="op">!==</span> <span class="st">&quot;number&quot;</span> <span class="op">||</span> value <span class="op">&lt;</span> <span class="dv">0</span>) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">TypeError</span>(<span class="st">&quot;Balance must be a positive number.&quot;</span>)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    target[prop] <span class="op">=</span> value<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>accountProxy<span class="op">.</span><span class="at">balance</span> <span class="op">=</span> <span class="dv">750</span><span class="op">;</span> <span class="co">// Allowed</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>accountProxy<span class="op">.</span><span class="at">balance</span> <span class="op">=</span> <span class="op">-</span><span class="dv">50</span><span class="op">;</span> <span class="co">// Throws TypeError</span></span></code></pre></div>
+<h3 id="3-the-has-trap-masking-property-existence">3. The
+<code>has</code> Trap: Masking Property Existence</h3>
+<p>The <code>has</code> trap intercepts the <code>in</code> operator.
+This prevents external code from discovering whether a specific key
+exists on an object:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> profile <span class="op">=</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Alice&quot;</span><span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">_internalId</span><span class="op">:</span> <span class="st">&quot;A-992&quot;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> secureProfile <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(profile<span class="op">,</span> {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">has</span>(target<span class="op">,</span> prop) {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (prop<span class="op">.</span><span class="fu">startsWith</span>(<span class="st">&quot;_&quot;</span>)) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> prop <span class="kw">in</span> target<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;name&quot;</span> <span class="kw">in</span> secureProfile)<span class="op">;</span>        <span class="co">// true</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;_internalId&quot;</span> <span class="kw">in</span> secureProfile)<span class="op">;</span> <span class="co">// false</span></span></code></pre></div>
+<h3 id="4-the-deleteproperty-trap-preventing-key-deletion">4. The
+<code>deleteProperty</code> Trap: Preventing Key Deletion</h3>
+<p>The <code>deleteProperty</code> trap intercepts the
+<code>delete</code> operator, protecting critical keys from removal:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> config <span class="op">=</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">environment</span><span class="op">:</span> <span class="st">&quot;production&quot;</span><span class="op">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">port</span><span class="op">:</span> <span class="dv">8080</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> safeConfig <span class="op">=</span> <span class="kw">new</span> <span class="bu">Proxy</span>(config<span class="op">,</span> {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">deleteProperty</span>(target<span class="op">,</span> prop) {</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (prop <span class="op">===</span> <span class="st">&quot;environment&quot;</span>) {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`Cannot delete immutable property: </span><span class="sc">${</span>prop<span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">delete</span> target[prop]<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="kw">delete</span> safeConfig<span class="op">.</span><span class="at">port</span><span class="op">;</span>        <span class="co">// Allowed</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="kw">delete</span> safeConfig<span class="op">.</span><span class="at">environment</span><span class="op">;</span> <span class="co">// Throws Error</span></span></code></pre></div>
+<h2 id="using-proxyrevocable-for-temporary-access">Using
+<code>Proxy.revocable</code> for Temporary Access</h2>
+<p>JavaScript provides <code>Proxy.revocable(target, handler)</code>,
+which returns both the proxy instance and a <code>revoke</code>
+function. Once <code>revoke()</code> is called, all further operations
+on the proxy immediately throw a <code>TypeError</code>.</p>
+<p>This is useful for granting time-limited access or safely passing
+sensitive objects to third-party modules:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sensitiveData <span class="op">=</span> { <span class="dt">token</span><span class="op">:</span> <span class="st">&quot;abc-123&quot;</span> }<span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> { proxy<span class="op">,</span> revoke } <span class="op">=</span> <span class="bu">Proxy</span><span class="op">.</span><span class="fu">revocable</span>(sensitiveData<span class="op">,</span> {</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">get</span>(target<span class="op">,</span> prop) {</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> target[prop]<span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(proxy<span class="op">.</span><span class="at">token</span>)<span class="op">;</span> <span class="co">// &quot;abc-123&quot;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Revoke access</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="fu">revoke</span>()<span class="op">;</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(proxy<span class="op">.</span><span class="at">token</span>)<span class="op">;</span> <span class="co">// Throws TypeError: Cannot perform &#39;get&#39; on a proxy that has been revoked</span></span></code></pre></div>
+<h2 id="using-reflect-with-proxies">Using <code>Reflect</code> with
+Proxies</h2>
+<p>When implementing traps, standard access control patterns use the
+built-in <code>Reflect</code> API. <code>Reflect</code> methods mirror
+the proxy traps and handle the default object behavior cleanly while
+preserving correct <code>this</code> binding through the
+<code>receiver</code> argument:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> handler <span class="op">=</span> {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">set</span>(target<span class="op">,</span> prop<span class="op">,</span> value<span class="op">,</span> receiver) {</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">typeof</span> value <span class="op">===</span> <span class="st">&quot;string&quot;</span>) {</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>      value <span class="op">=</span> value<span class="op">.</span><span class="fu">trim</span>()<span class="op">;</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">Reflect</span><span class="op">.</span><span class="fu">set</span>(target<span class="op">,</span> prop<span class="op">,</span> value<span class="op">,</span> receiver)<span class="op">;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="summary-of-use-cases-for-access-control">Summary of Use Cases
+for Access Control</h2>
+<ol type="1">
+<li><strong>Data Validation:</strong> Enforce schemas and types before
+writing to properties.</li>
+<li><strong>Immutability:</strong> Block <code>set</code> and
+<code>deleteProperty</code> operations to build deeply frozen or
+read-only states.</li>
+<li><strong>Information Hiding:</strong> Use <code>get</code> and
+<code>has</code> traps to make private fields invisible and
+inaccessible.</li>
+<li><strong>Audit and Logging:</strong> Track read and write attempts to
+monitor security and usage across modules.</li>
+<li><strong>Temporary Permissions:</strong> Use
+<code>Proxy.revocable</code> to cleanly sever access to an object when a
+task completes.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

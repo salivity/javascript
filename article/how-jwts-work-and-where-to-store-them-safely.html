@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How JWTs Work and Where to Store Them Safely - javascript</title>
+    <meta name="description" content="JSON Web Tokens (JWTs) are a compact, URL-safe standard used to securely transmit data between clients and servers for authentication and authorization. This guide breaks down the internal structure and mechanics of JWTs, outlines the standard authentica">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-jwts-work-and-where-to-store-them-safely">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How JWTs Work and Where to Store Them Safely - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-jwts-work-and-where-to-store-them-safely" />
+    <meta property="og:image:url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="JSON Web Tokens (JWTs) are a compact, URL-safe standard used to securely transmit data between clients and servers for authentication and authorization. This guide breaks down the internal structure and mechanics of JWTs, outlines the standard authentica" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article><h1 id="how-jwts-work-and-where-to-store-them-safely">How JWTs Work and
+Where to Store Them Safely</h1>
+<p>JSON Web Tokens (JWTs) are a compact, URL-safe standard used to
+securely transmit data between clients and servers for authentication
+and authorization. This guide breaks down the internal structure and
+mechanics of JWTs, outlines the standard authentication workflow, and
+details the most secure storage patterns within JavaScript web
+applications to protect your users against common vulnerabilities like
+Cross-Site Scripting (XSS) and Cross-Site Request Forgery (CSRF).</p>
+<h2 id="understanding-the-structure-of-a-jwt">Understanding the
+Structure of a JWT</h2>
+<p>A JSON Web Token is a single string composed of three distinct parts
+separated by periods (<code>.</code>):</p>
+<ol type="1">
+<li><strong>Header:</strong> Contains metadata about the token,
+typically the type of token (<code>JWT</code>) and the signing algorithm
+used (such as <code>HS256</code> or <code>RS256</code>).</li>
+<li><strong>Payload:</strong> Contains the claims, which are statements
+about the user and additional context (e.g., <code>userId</code>,
+<code>role</code>, and token expiration timestamp <code>exp</code>).
+This data is Base64URL-encoded, meaning it is readable by anyone who
+inspects the token and must never contain sensitive secrets like plain
+passwords.</li>
+<li><strong>Signature:</strong> Created by taking the encoded header,
+the encoded payload, and hashing them with a secret key (or private key)
+using the algorithm specified in the header.</li>
+</ol>
+<p>Because the signature is verified against the payload, any tampering
+with the claims automatically invalidates the token.</p>
+<h2 id="the-jwt-authentication-workflow">The JWT Authentication
+Workflow</h2>
+<ol type="1">
+<li><strong>Authentication:</strong> The user submits their credentials
+(e.g., email and password) to the authentication server.</li>
+<li><strong>Generation:</strong> Upon successful validation, the server
+generates a JWT containing the user's identity claims, signs it with a
+private key or secret, and sends it back to the client.</li>
+<li><strong>Transmission:</strong> For subsequent protected API
+requests, the client sends this token to the server, typically inside
+the <code>Authorization</code> request header using the
+<code>Bearer &lt;token&gt;</code> schema.</li>
+<li><strong>Verification:</strong> The server verifies the token's
+cryptographic signature using its secret or public key. If the signature
+is valid and the token is not expired, the request is processed without
+requiring a database lookup for session data.</li>
+</ol>
+<h2 id="where-to-safely-store-jwts-in-javascript-web-apps">Where to
+Safely Store JWTs in JavaScript Web Apps</h2>
+<p>Choosing where to store tokens in the browser represents a critical
+security trade-off between XSS vulnerability and CSRF vulnerability.</p>
+<h3 id="1-browser-storage-localstorage--sessionstorage">1. Browser
+Storage (<code>localStorage</code> / <code>sessionStorage</code>)</h3>
+<ul>
+<li><strong>Vulnerability:</strong> Highly susceptible to XSS.</li>
+<li><strong>Why to avoid:</strong> Any JavaScript code executing on your
+domain—including third-party scripts, analytics tools, or compromised
+npm packages—can access <code>window.localStorage</code> and extract the
+token. Storing tokens here makes account takeover trivial once an XSS
+vulnerability exists.</li>
+</ul>
+<h3 id="2-in-memory-javascript-variable">2. In-Memory (JavaScript
+Variable)</h3>
+<ul>
+<li><strong>Vulnerability:</strong> Immune to CSRF and persistent XSS
+extraction, but lost on page refresh.</li>
+<li><strong>How it works:</strong> Storing the access token in memory
+(such as a plain variable, a Redux store, or React state) prevents
+malicious scripts from pulling it out of persistent storage. However,
+the token disappears whenever the user refreshes or navigates away.</li>
+</ul>
+<h3 id="3-httponly-secure-cookies-recommended">3. <code>HttpOnly</code>,
+<code>Secure</code> Cookies (Recommended)</h3>
+<ul>
+<li><strong>Vulnerability:</strong> Protected from XSS token theft;
+requires CSRF mitigation.</li>
+<li><strong>How it works:</strong> When the server issues the token, it
+sets it via the <code>Set-Cookie</code> response header with the
+following flags:
+<ul>
+<li><code>HttpOnly</code>: Blocks client-side JavaScript from accessing
+<code>document.cookie</code>, neutralizing token theft via XSS.</li>
+<li><code>Secure</code>: Ensures the cookie is only transmitted over
+encrypted HTTPS connections.</li>
+<li><code>SameSite=Strict</code> or <code>SameSite=Lax</code>: Restricts
+when cookies are sent with cross-site requests, mitigating CSRF
+attacks.</li>
+</ul></li>
+</ul>
+<h2 id="the-best-practice-architecture-dual-token-pattern">The
+Best-Practice Architecture: Dual-Token Pattern</h2>
+<p>The most secure approach for modern JavaScript single-page
+applications (SPAs) is the dual-token system:</p>
+<ol type="1">
+<li><strong>Short-Lived Access Token (Stored in Memory):</strong> Used
+to authenticate individual API requests. It has a short lifespan (e.g.,
+5 to 15 minutes) and lives entirely in JavaScript memory.</li>
+<li><strong>Long-Lived Refresh Token (Stored in an
+<code>HttpOnly</code>, <code>Secure</code>, <code>SameSite</code>
+Cookie):</strong> Has a longer lifespan (e.g., 7 days) and cannot be
+read by JavaScript.</li>
+<li><strong>Silent Refresh Cycle:</strong> When the in-memory access
+token expires, the client calls a dedicated <code>/refresh-token</code>
+endpoint. The browser automatically attaches the secure refresh token
+cookie. The server validates the cookie, issues a new short-lived access
+token, and returns it to the client memory, maintaining a seamless and
+secure session.</li>
+</ol></article>
+        <div id="comments-container"></div>
+
+        <script>
+            const utterancesScript = document.createElement('script');
+            
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/javascript'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
