@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Sample Rate Mismatches in JavaScript Games - javascript</title>
+    <meta name="description" content="Audio sample rate mismatches occur when game audio assets are encoded at a different frequency than the hardware or the browser&#39;s Web Audio API context. In JavaScript game development, this discrepancy forces the browser to perform real-time sample rate c">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/audio-sample-rate-mismatches-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Audio Sample Rate Mismatches in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/audio-sample-rate-mismatches-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Audio sample rate mismatches occur when game audio assets are encoded at a different frequency than the hardware or the browser&#39;s Web Audio API context. In JavaScript game development, this discrepancy forces the browser to perform real-time sample rate c" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="audio-sample-rate-mismatches-in-javascript-games">Audio Sample
+Rate Mismatches in JavaScript Games</h1>
+<p>Audio sample rate mismatches occur when game audio assets are encoded
+at a different frequency than the hardware or the browser's Web Audio
+API context. In JavaScript game development, this discrepancy forces the
+browser to perform real-time sample rate conversion (resampling). This
+overview explores how these mismatches lead to measurable CPU overhead,
+audio latency, frame rate drops (jank), and battery drain, alongside
+actionable methods to optimize audio pipelines for peak browser
+performance.</p>
+<h3 id="how-sample-rate-mismatch-happens">How Sample Rate Mismatch
+Happens</h3>
+<p>The Web Audio API initializes an <code>AudioContext</code> that
+typically defaults to the native sample rate of the user's primary
+output device—most commonly 48,000 Hz (48 kHz) on modern PCs, Macs, and
+mobile devices. However, legacy audio production and music libraries
+frequently standardize on 44,100 Hz (44.1 kHz).</p>
+<p>When a JavaScript game loads a 44.1 kHz audio file into an
+<code>AudioContext</code> operating at 48 kHz, the browser cannot feed
+the raw PCM samples directly to the output hardware. It must interpolate
+and resample the data dynamically to bridge the gap.</p>
+<h3 id="cpu-overhead-and-thread-performance">CPU Overhead and Thread
+Performance</h3>
+<p>Resampling requires continuous mathematical interpolation (such as
+linear, cubic, or sinc interpolation) to calculate intermediate audio
+samples.</p>
+<ul>
+<li><strong>Audio Worklet Contention:</strong> While the Web Audio
+rendering graph runs on a dedicated audio thread, heavy resampling
+calculations on multiple concurrent sound effects (polyphony) stress the
+audio thread.</li>
+<li><strong>Main Thread Blocking:</strong> Decoding audio on the fly
+using methods like <code>AudioContext.decodeAudioData()</code> can
+saturate the main thread if assets are decoded during gameplay rather
+than preloaded, directly stealing frame budget from the game loop.</li>
+<li><strong>Buffer Underruns:</strong> If the audio rendering thread
+cannot finish processing within the hardware-enforced buffer window
+(typically 128 samples in Web Audio), a buffer underrun occurs,
+resulting in audible clicks, pops, and stutter.</li>
+</ul>
+<h3 id="frame-rate-drops-and-garbage-collection">Frame Rate Drops and
+Garbage Collection</h3>
+<p>In intense game sequences featuring high volumes of sound
+effects—such as rapid-fire weapons, footsteps, and particle
+impacts—resampling overhead compounds quickly. The extra processing
+required for rate conversion spikes CPU utilization. On constrained
+devices, this causes the operating system to throttle game processes,
+translating audio processing friction directly into visual frame rate
+drops. Furthermore, dynamic conversion can lead to increased memory
+allocations, triggering JavaScript engine Garbage Collection (GC) pauses
+that cause momentary screen freezes.</p>
+<h3 id="increased-latency">Increased Latency</h3>
+<p>Real-time sample rate conversion requires buffering a small window of
+samples to compute the interpolated values. This filtering introduces
+algorithmic latency. In fast-paced action, rhythm, or fighting games, a
+delay of even 10 to 20 milliseconds between a visual action and its
+corresponding sound effect breaks player immersion and degrades game
+responsiveness.</p>
+<h3 id="mobile-impact-battery-and-thermal-throttling">Mobile Impact:
+Battery and Thermal Throttling</h3>
+<p>Mobile hardware is particularly sensitive to sample rate mismatches.
+Mobile chipsets utilize aggressive thermal and battery management
+profiles. Constantly running high-order interpolation algorithms across
+multiple audio channels prevents the CPU from downclocking to lower
+power states. This leads to rapid battery depletion, device overheating,
+and subsequent thermal throttling that degrades overall game
+performance.</p>
+<h3 id="how-to-prevent-sample-rate-performance-issues">How to Prevent
+Sample Rate Performance Issues</h3>
+<ol type="1">
+<li><p><strong>Standardize on 48 kHz:</strong> Export and encode all
+production sound effects and music tracks at 48 kHz, matching the
+dominant hardware standard for modern gaming displays, smartphones, and
+desktop audio interfaces.</p></li>
+<li><p><strong>Pre-decode Assets:</strong> Decode all audio assets into
+raw audio buffers using <code>decodeAudioData()</code> during game
+loading screens. Pre-decoding ensures resampling calculations happen
+ahead of time rather than in the heat of gameplay.</p></li>
+<li><p><strong>Explicit Context Configuration:</strong> When
+initializing the Web Audio context, developers can explicitly specify
+the sample rate via options:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> audioCtx <span class="op">=</span> <span class="kw">new</span> (<span class="bu">window</span><span class="op">.</span><span class="at">AudioContext</span> <span class="op">||</span> <span class="bu">window</span><span class="op">.</span><span class="at">webkitAudioContext</span>)({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">sampleRate</span><span class="op">:</span> <span class="dv">48000</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Note that if the hardware does not support the requested rate, the
+browser will still enforce a fallback, making asset standardization to
+48 kHz the most reliable solution.</p></li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/audio-sample-rate-mismatches-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Pooling for Overlapping Gunshots in JavaScript - javascript</title>
+    <meta name="description" content="Sound effect pooling is a game optimization technique that pre-allocates and reuses a fixed set of audio instances to handle rapid, overlapping sounds—such as automatic gunfire—without causing audio clipping, latency, or memory issues. In this article, yo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/sound-pooling-for-overlapping-gunshots-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sound Pooling for Overlapping Gunshots in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/sound-pooling-for-overlapping-gunshots-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Sound effect pooling is a game optimization technique that pre-allocates and reuses a fixed set of audio instances to handle rapid, overlapping sounds—such as automatic gunfire—without causing audio clipping, latency, or memory issues. In this article, yo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="sound-pooling-for-overlapping-gunshots-in-javascript">Sound
+Pooling for Overlapping Gunshots in JavaScript</h1>
+<p>Sound effect pooling is a game optimization technique that
+pre-allocates and reuses a fixed set of audio instances to handle rapid,
+overlapping sounds—such as automatic gunfire—without causing audio
+clipping, latency, or memory issues. In this article, you will learn why
+the standard approach to playing audio fails during high-frequency
+events in JavaScript games, how an audio pool solves this problem, and
+how to implement a basic sound pool using standard JavaScript.</p>
+<h3 id="the-problem-with-naive-audio-playback">The Problem with Naive
+Audio Playback</h3>
+<p>When developing a shooter in JavaScript, rapid-fire weapons present a
+unique challenge. If you use a single <code>HTML5 Audio</code> element
+and call <code>.play()</code> every time the player fires, the audio
+track resets to the beginning, cutting off the previous gunshot tail.
+This results in unnatural, stuttering audio.</p>
+<p>Conversely, instantiating a new <code>Audio</code> object on every
+trigger pull (<code>new Audio('gunshot.mp3').play()</code>) creates
+severe performance bottlenecks:</p>
+<ul>
+<li><strong>Garbage Collection Spikes:</strong> Constantly creating and
+discarding audio objects forces the browser's garbage collector to run
+frequently, causing frame rate drops (micro-stutters).</li>
+<li><strong>Audio Decoding Latency:</strong> Creating new elements on
+the fly introduces input lag between the trigger press and the sound
+actually playing.</li>
+<li><strong>Browser Limits:</strong> Browsers enforce limits on
+simultaneous media elements, which can lead to silent failures or
+crashes.</li>
+</ul>
+<h3 id="what-is-sound-effect-pooling">What is Sound Effect Pooling?</h3>
+<p>Sound effect pooling solves these issues by pre-loading a fixed
+number of audio instances—the "pool"—when the game initializes. When a
+gunshot occurs, the game borrows an available audio instance from the
+pool, plays it, and returns it to the pool once it finishes or when it
+is overwritten.</p>
+<p>By reusing existing instances, memory consumption remains constant,
+garbage collection is eliminated, and multiple gunshots can ring out
+simultaneously and overlap naturally.</p>
+<h3 id="how-to-implement-a-sound-pool">How to Implement a Sound
+Pool</h3>
+<p>A basic round-robin sound pool cycles through an array of
+pre-instantiated audio objects. For standard web games, you can
+implement this with the HTML5 <code>Audio</code> API or the Web Audio
+API.</p>
+<p>Here is a straightforward implementation using an array of
+<code>Audio</code> elements:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SoundPool {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(src<span class="op">,</span> size <span class="op">=</span> <span class="dv">10</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">pool</span> <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">size</span> <span class="op">=</span> size<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">currentIndex</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">size</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> audio <span class="op">=</span> <span class="kw">new</span> <span class="fu">Audio</span>(src)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      audio<span class="op">.</span><span class="fu">load</span>()<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">pool</span><span class="op">.</span><span class="fu">push</span>(audio)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">play</span>() {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> sound <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">pool</span>[<span class="kw">this</span><span class="op">.</span><span class="at">currentIndex</span>]<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Reset playback position if it&#39;s currently playing</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    sound<span class="op">.</span><span class="at">currentTime</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    sound<span class="op">.</span><span class="fu">play</span>()<span class="op">.</span><span class="fu">catch</span>((error) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Handles autoplay policies or loading interruptions</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&quot;Audio playback error:&quot;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Advance to the next sound in the pool (wrap around to 0)</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">currentIndex</span> <span class="op">=</span> (<span class="kw">this</span><span class="op">.</span><span class="at">currentIndex</span> <span class="op">+</span> <span class="dv">1</span>) <span class="op">%</span> <span class="kw">this</span><span class="op">.</span><span class="at">size</span><span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage:</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> gunshotPool <span class="op">=</span> <span class="kw">new</span> <span class="fu">SoundPool</span>(<span class="st">&#39;audio/gunshot.mp3&#39;</span><span class="op">,</span> <span class="dv">8</span>)<span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="co">// Call this every time the weapon fires</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>gunshotPool<span class="op">.</span><span class="fu">play</span>()<span class="op">;</span></span></code></pre></div>
+<h3 id="choosing-the-right-pool-size">Choosing the Right Pool Size</h3>
+<p>The size of the pool should match the maximum number of overlapping
+sounds expected at any given moment. To determine the ideal pool size,
+multiply the weapon's firing rate by the duration of the audio clip's
+decay tail:</p>
+<p><span class="math display">\[\text{Pool Size} = \text{Shots Per
+Second} \times \text{Sound Duration (seconds)}\]</span></p>
+<p>For example, a weapon firing 10 rounds per second with a 0.5-second
+gunshot sound requires a pool of at least 5 audio objects. If the player
+fires faster than the pool can accommodate, the round-robin system
+gracefully cuts off only the oldest gunshot sound in the cycle,
+preserving the initial attack transient of the newest shot.</p>
+<h3 id="web-audio-api-vs-html5-audio">Web Audio API vs. HTML5 Audio</h3>
+<p>While HTML5 <code>Audio</code> pools are simple to implement, larger
+games typically use the Web Audio API (<code>AudioContext</code>).</p>
+<p>With the Web Audio API, pooling takes a slightly different shape: you
+load and decode the audio file once into an <code>AudioBuffer</code>.
+When a gunshot occurs, you create a lightweight
+<code>AudioBufferSourceNode</code>, point it to the shared buffer, and
+connect it to your output. Because <code>AudioBufferSourceNode</code>
+objects are native C++ handles optimized for fire-and-forget execution,
+they handle overlapping polyphonic sounds with lower latency and higher
+performance than raw HTML5 media elements.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/sound-pooling-for-overlapping-gunshots-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

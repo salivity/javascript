@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Dialogue Tree State Management - javascript</title>
+    <meta name="description" content="Managing conversation states in branching dialogue systems is a fundamental challenge in narrative game development. In JavaScript, dialogue trees are typically modeled as directed graphs where nodes represent dialogue fragments and edges represent player">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-dialogue-tree-state-management">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Dialogue Tree State Management - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-dialogue-tree-state-management" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Managing conversation states in branching dialogue systems is a fundamental challenge in narrative game development. In JavaScript, dialogue trees are typically modeled as directed graphs where nodes represent dialogue fragments and edges represent player" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-dialogue-tree-state-management">JavaScript Dialogue
+Tree State Management</h1>
+<p>Managing conversation states in branching dialogue systems is a
+fundamental challenge in narrative game development. In JavaScript,
+dialogue trees are typically modeled as directed graphs where nodes
+represent dialogue fragments and edges represent player choices. This
+article covers how JavaScript handles these systems by structuring node
+data, tracking active conversation contexts, evaluating conditional
+requirements, and mutating global game state dynamically during player
+interactions.</p>
+<h3 id="dialogue-data-modeling-graph-based-json">Dialogue Data Modeling:
+Graph-Based JSON</h3>
+<p>Branching dialogue is best represented as a directed graph. In
+JavaScript, this is standardly expressed as an object map or JSON array
+where each entry is a discrete node identified by a unique key.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dialogueTree <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">start</span><span class="op">:</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;Greetings, traveler. Have you found my lost amulet?&quot;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> [</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>      { <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;Yes, here it is.&quot;</span><span class="op">,</span> <span class="dt">nextNode</span><span class="op">:</span> <span class="st">&quot;give_amulet&quot;</span><span class="op">,</span> <span class="dt">condition</span><span class="op">:</span> (state) <span class="kw">=&gt;</span> state<span class="op">.</span><span class="at">hasAmulet</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>      { <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;Not yet, where was it last seen?&quot;</span><span class="op">,</span> <span class="dt">nextNode</span><span class="op">:</span> <span class="st">&quot;ask_location&quot;</span> }<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      { <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;Leave.&quot;</span><span class="op">,</span> <span class="dt">nextNode</span><span class="op">:</span> <span class="kw">null</span> }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">give_amulet</span><span class="op">:</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;Thank you! Take this reward.&quot;</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">action</span><span class="op">:</span> (state) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      state<span class="op">.</span><span class="at">hasAmulet</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      state<span class="op">.</span><span class="at">gold</span> <span class="op">+=</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      state<span class="op">.</span><span class="at">questCompleted</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> [</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>      { <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;Farewell.&quot;</span><span class="op">,</span> <span class="dt">nextNode</span><span class="op">:</span> <span class="kw">null</span> }</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="dt">ask_location</span><span class="op">:</span> {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;I lost it near the ancient ruins to the north.&quot;</span><span class="op">,</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">options</span><span class="op">:</span> [</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>      { <span class="dt">text</span><span class="op">:</span> <span class="st">&quot;I will go look.&quot;</span><span class="op">,</span> <span class="dt">nextNode</span><span class="op">:</span> <span class="kw">null</span> }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<p>Each node contains narrative text, potential side effects
+(<code>action</code>), and an array of selectable options directing the
+flow to the next node pointer (<code>nextNode</code>). Setting
+<code>nextNode</code> to <code>null</code> cleanly signals the
+termination of the conversation.</p>
+<h3 id="local-vs-global-state-management">Local vs. Global State
+Management</h3>
+<p>A robust dialogue manager separates local conversation state from
+global game state:</p>
+<ul>
+<li><strong>Local Dialogue State:</strong> Tracks transient variables
+specific to the ongoing interaction, such as <code>currentNodeId</code>,
+the active Non-Player Character (NPC), conversation history stack (to
+allow "back" navigation), and local counters (e.g., how many times an
+NPC was questioned).</li>
+<li><strong>Global Game State:</strong> Tracks persistent data like
+inventory items, quest progress, character relationship metrics, and
+world events.</li>
+</ul>
+<p>By passing the global game state object to dialogue evaluation
+functions, the dialogue system can make decisions without directly
+owning external game systems like inventory or quest trackers.</p>
+<h3 id="conditional-branching-and-option-pruning">Conditional Branching
+and Option Pruning</h3>
+<p>Branching trees require dynamic option filtering based on current
+game progress. Options can include a <code>condition</code> predicate
+function.</p>
+<p>During runtime, the dialogue engine parses the current node and
+filters the choices against the current state:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getAvailableOptions</span>(node<span class="op">,</span> gameState) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> node<span class="op">.</span><span class="at">options</span><span class="op">.</span><span class="fu">filter</span>(option <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">typeof</span> option<span class="op">.</span><span class="at">condition</span> <span class="op">===</span> <span class="st">&#39;function&#39;</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> option<span class="op">.</span><span class="fu">condition</span>(gameState)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This prevents unavailable branches from rendering or allows them to
+be displayed as disabled, visually communicating locked narrative paths
+to the player.</p>
+<h3 id="state-mutation-via-dialogue-triggers">State Mutation via
+Dialogue Triggers</h3>
+<p>Selecting a dialogue branch often impacts the game world. When a node
+executes, an associated payload or action function runs to mutate the
+game state.</p>
+<p>To maintain clean architecture, avoid hardcoding mutations directly
+inside the UI layer. Instead, use an event-driven approach or an action
+runner:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DialogueRunner {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(tree<span class="op">,</span> gameState) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">tree</span> <span class="op">=</span> tree<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">gameState</span> <span class="op">=</span> gameState<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">currentNodeId</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">start</span>(startNodeId) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">goToNode</span>(startNodeId)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">goToNode</span>(nodeId) {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>nodeId <span class="op">||</span> <span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">tree</span>[nodeId]) {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">end</span>()<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">currentNodeId</span> <span class="op">=</span> nodeId<span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> node <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">tree</span>[nodeId]<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Execute state mutations</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">typeof</span> node<span class="op">.</span><span class="at">action</span> <span class="op">===</span> <span class="st">&#39;function&#39;</span>) {</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>      node<span class="op">.</span><span class="fu">action</span>(<span class="kw">this</span><span class="op">.</span><span class="at">gameState</span>)<span class="op">;</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">selectOption</span>(optionIndex) {</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> node <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">tree</span>[<span class="kw">this</span><span class="op">.</span><span class="at">currentNodeId</span>]<span class="op">;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> availableOptions <span class="op">=</span> <span class="fu">getAvailableOptions</span>(node<span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">gameState</span>)<span class="op">;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> chosenOption <span class="op">=</span> availableOptions[optionIndex]<span class="op">;</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (chosenOption) {</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">goToNode</span>(chosenOption<span class="op">.</span><span class="at">nextNode</span>)<span class="op">;</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">end</span>() {</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">currentNodeId</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Emit conversation ended event</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>() {</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Updates UI with node.text and getAvailableOptions(node, this.gameState)</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="persistence-and-serialization">Persistence and
+Serialization</h3>
+<p>Because state is decoupled from the tree structure itself, persisting
+dialogue progress requires saving only two elements: the global game
+state object and a list of visited node IDs. The dialogue graph remains
+static and read-only, allowing the complete dialogue context to be
+serialized into a standard JSON string and stored via
+<code>localStorage</code> or an indexed database. When loading, the
+engine simply restores the state object and re-evaluates the active node
+pointer.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-dialogue-tree-state-management';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

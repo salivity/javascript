@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Audio Generation with JavaScript AudioWorklet - javascript</title>
+    <meta name="description" content="This article explores how custom JavaScript audio worklet filters generate real-time procedural sound effects for web games. By running mathematical synthesis algorithms and digital signal processing (DSP) filters on a dedicated audio rendering thread, de">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/procedural-audio-generation-with-java-script-audio-worklet">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Procedural Audio Generation with JavaScript AudioWorklet - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/procedural-audio-generation-with-java-script-audio-worklet" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how custom JavaScript audio worklet filters generate real-time procedural sound effects for web games. By running mathematical synthesis algorithms and digital signal processing (DSP) filters on a dedicated audio rendering thread, de" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="procedural-audio-generation-with-javascript-audioworklet">Procedural
+Audio Generation with JavaScript AudioWorklet</h1>
+<p>This article explores how custom JavaScript audio worklet filters
+generate real-time procedural sound effects for web games. By running
+mathematical synthesis algorithms and digital signal processing (DSP)
+filters on a dedicated audio rendering thread, developers can bypass the
+performance bottlenecks of the main UI thread. The following sections
+break down the underlying mechanics of <code>AudioWorklet</code>, the
+process of synthesizing raw audio buffers from code, and how game
+physics can dynamically modulate procedural audio output.</p>
+<h2 id="the-role-of-audioworklet-in-web-games">The Role of AudioWorklet
+in Web Games</h2>
+<p>Traditional web audio relies on pre-rendered audio files loaded into
+HTML5 audio tags or basic Web Audio API buffer nodes. This approach
+consumes memory and lacks real-time adaptability. The
+<code>AudioWorklet</code> interface, part of the modern Web Audio API,
+replaces older script processors by executing custom audio code off the
+main browser thread.</p>
+<p>Running on a high-priority audio rendering thread prevents frame
+drops and audio glitches caused by heavy game logic, DOM updates, or
+canvas rendering. Within this thread, developers can create an
+<code>AudioWorkletProcessor</code> that writes audio samples directly
+into output buffers at standard sampling rates (typically 44.1 kHz or 48
+kHz).</p>
+<h2 id="generating-procedural-audio-from-scratch">Generating Procedural
+Audio from Scratch</h2>
+<p>Procedural sound generation relies on mathematical formulas rather
+than static recordings. An <code>AudioWorkletProcessor</code> defines a
+<code>process()</code> method, which the browser calls repeatedly to
+compute short blocks of audio frames (usually 128 samples per render
+quantum).</p>
+<p>Within this loop, developers compute audio samples using primary
+synthesis techniques:</p>
+<ul>
+<li><strong>Waveform Synthesis:</strong> Basic shapes such as sine,
+square, triangle, and sawtooth waves are calculated using the phase of
+an oscillator over time. These form the base tones for laser blasts,
+power-ups, and retro UI sounds.</li>
+<li><strong>Noise Generation:</strong> Algorithms like pseudo-random
+number generation produce white or pink noise, serving as the
+foundational acoustic energy for wind, explosions, waterfalls, and
+footsteps.</li>
+<li><strong>Frequency Modulation (FM):</strong> Modulating the frequency
+of one waveform with another creates rich, metallic, or chaotic timbres
+ideal for alien sounds, alarms, and mechanical rumbles.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Inside a custom AudioWorkletProcessor</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">process</span>(inputs<span class="op">,</span> outputs<span class="op">,</span> parameters) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> output <span class="op">=</span> outputs[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> channel <span class="op">=</span> output[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> channel<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Generate white noise for an explosion or wind effect</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    channel[i] <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="dv">2</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2
+id="shaping-sound-with-custom-digital-signal-processing-dsp-filters">Shaping
+Sound with Custom Digital Signal Processing (DSP) Filters</h2>
+<p>Raw synthesis often sounds harsh. Custom filters implemented within
+the worklet process and sculpt this raw sound into realistic sound
+effects:</p>
+<ol type="1">
+<li><strong>State-Variable and Biquad Filters:</strong> Mathematical
+difference equations attenuate or boost specific frequencies. A low-pass
+filter gradually removes high frequencies from white noise to simulate
+distance, muffling, or the decay of an explosion.</li>
+<li><strong>Envelopes (ADSR):</strong> Attack, Decay, Sustain, and
+Release curves dictate how volume and frequency change over
+milliseconds. A steep attack followed by an exponential decay transforms
+filtered noise into a convincing gunshot or hit marker.</li>
+<li><strong>Delay Lines and Feedback:</strong> By storing previous
+samples in circular buffers, custom worklets generate echoes, comb
+filtering, and physical modeling synthesis (such as the Karplus-Strong
+algorithm for plucked strings or metallic impacts).</li>
+</ol>
+<h2 id="connecting-game-physics-to-sound-parameters">Connecting Game
+Physics to Sound Parameters</h2>
+<p>Procedural sound effects gain their utility when driven by dynamic
+game states. The <code>AudioWorkletNode</code> communicates with the
+<code>AudioWorkletProcessor</code> through two main channels:</p>
+<ul>
+<li><strong>AudioParams:</strong> Custom parameters defined in the
+worklet can be modulated at audio-rate (a-rate) or control-rate
+(k-rate), enabling sample-accurate parameter changes without zipper
+noise.</li>
+<li><strong>MessagePort:</strong> Game events send JSON payloads to the
+processor to trigger one-shot effects, change modes, or initialize
+procedural states.</li>
+</ul>
+<p>For example, a racing game can map a vehicle's velocity, tire
+friction, and engine RPM directly to worklet parameters. The worklet
+modulates the frequency of an oscillator for engine pitch, blends in
+resonant-filtered noise for tire skids, and scales amplitude based on
+camera distance—all synthesized on the fly without loading a single
+audio asset.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/procedural-audio-generation-with-java-script-audio-worklet';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

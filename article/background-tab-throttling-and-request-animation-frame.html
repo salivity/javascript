@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Tab Throttling and requestAnimationFrame - javascript</title>
+    <meta name="description" content="Modern web browsers optimize system resources by throttling or completely pausing requestAnimationFrame (rAF) when a browser tab loses focus. In JavaScript game programming, this behavior directly disrupts the game loop, leading to massive delta time spik">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/background-tab-throttling-and-request-animation-frame">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Background Tab Throttling and requestAnimationFrame - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/background-tab-throttling-and-request-animation-frame" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern web browsers optimize system resources by throttling or completely pausing requestAnimationFrame (rAF) when a browser tab loses focus. In JavaScript game programming, this behavior directly disrupts the game loop, leading to massive delta time spik" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="background-tab-throttling-and-requestanimationframe">Background
+Tab Throttling and requestAnimationFrame</h1>
+<p>Modern web browsers optimize system resources by throttling or
+completely pausing <code>requestAnimationFrame</code> (rAF) when a
+browser tab loses focus. In JavaScript game programming, this behavior
+directly disrupts the game loop, leading to massive delta time spikes,
+physics simulation breakdowns, and desynchronization between rendering,
+audio, and network states. Understanding how browsers handle background
+tabs and implementing proper state-handling strategies are essential
+steps to preventing game crashes and maintaining a seamless player
+experience.</p>
+<h2 id="why-browsers-throttle-requestanimationframe">Why Browsers
+Throttle requestAnimationFrame</h2>
+<p>To conserve battery life and CPU usage, browsers such as Chrome,
+Firefox, and Safari deprioritize inactive tabs. While an active tab
+typically fires <code>requestAnimationFrame</code> callbacks at the
+display's native refresh rate (usually 60Hz to 144Hz), switching to
+another tab causes the browser to either lower the execution frequency
+to as low as once per second (1Hz) or stop invoking the callback
+entirely until the user returns.</p>
+<h2 id="core-issues-caused-by-throttling">Core Issues Caused by
+Throttling</h2>
+<h3 id="the-delta-time-spiral-of-death">The Delta Time "Spiral of
+Death"</h3>
+<p>Most modern game engines compute game logic using a variable delta
+time (<code>dt</code>)—the elapsed time between the current frame and
+the previous frame. When a user switches tabs and returns a minute
+later, the next <code>requestAnimationFrame</code> callback receives a
+timestamp showing an elapsed time of 60 seconds instead of the usual
+~16.6 milliseconds.</p>
+<p>If this raw <code>dt</code> is fed into physics or collision systems,
+several problems occur:</p>
+<ul>
+<li><strong>Tunneling:</strong> High-speed objects skip past collision
+boundaries entirely because their single-frame displacement is
+massive.</li>
+<li><strong>CPU Freezes:</strong> If the loop uses a fixed timestep with
+a sub-stepping catch-up mechanism, the engine will attempt to simulate
+thousands of iterations in a single frame to catch up with wall-clock
+time, hanging the browser thread.</li>
+</ul>
+<h3 id="audio-and-visual-desynchronization">Audio and Visual
+Desynchronization</h3>
+<p>Audio systems powered by the Web Audio API or standard HTML5 audio
+elements run on separate browser threads that often continue playing
+while rendering is paused. Without intervention, background music,
+scheduled sound effects, and voice lines continue progressing while the
+visual scene freezes, completely ruining pacing and cinematic
+timing.</p>
+<h3 id="multiplayer-and-network-timeouts">Multiplayer and Network
+Timeouts</h3>
+<p>For multiplayer games relying on WebSockets or WebRTC, pausing the
+main thread can prevent heartbeats/pings from sending. Servers may treat
+the stalled connection as a disconnect and drop the client. When the
+player returns, the accumulated server state can flood the client,
+causing a massive processing lag spike.</p>
+<h2 id="how-to-handle-background-throttling">How to Handle Background
+Throttling</h2>
+<h3 id="1-clamp-delta-time">1. Clamp Delta Time</h3>
+<p>Never pass an unbounded delta time directly to your simulation. Set
+an upper limit on how large a single frame's time step can be.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> dt <span class="op">=</span> (currentTime <span class="op">-</span> lastTime) <span class="op">/</span> <span class="dv">1000</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Cap delta time to a maximum of 100ms (0.1s)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  dt <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(dt<span class="op">,</span> <span class="fl">0.1</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">update</span>(dt)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>Clamping prevents physics simulations from breaking and avoids
+lockups in fixed-timestep accumulators.</p>
+<h3 id="2-use-the-page-visibility-api">2. Use the Page Visibility
+API</h3>
+<p>The standard approach to tab switching is to explicitly pause the
+game when the tab is hidden and resume when it becomes visible
+again.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&quot;visibilitychange&quot;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">document</span><span class="op">.</span><span class="at">hidden</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">pauseGame</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">muteAudio</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Reset lastTime to avoid a large dt jump upon resumption</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">resumeGame</span>()<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">unmuteAudio</span>()<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>document.visibilityState</code> allows you to open a
+pause menu, halt non-essential network updates, and suspend the Web
+Audio context using <code>audioCtx.suspend()</code> and
+<code>audioCtx.resume()</code>.</p>
+<h3 id="3-offload-game-logic-to-web-workers">3. Offload Game Logic to
+Web Workers</h3>
+<p>For applications requiring continuous background execution—such as
+idle games or deterministic real-time multiplayer titles—run game logic
+inside a Web Worker.</p>
+<p>Web Workers run on a background thread and are not tied to the
+display refresh cycle. While timers like <code>setInterval</code> can
+still face mild throttling in workers, they are throttled much less
+aggressively than <code>requestAnimationFrame</code>. The worker handles
+time accumulation and physics updates, while the main thread's
+<code>requestAnimationFrame</code> loop purely reads the latest state
+for rendering.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/background-tab-throttling-and-request-animation-frame';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

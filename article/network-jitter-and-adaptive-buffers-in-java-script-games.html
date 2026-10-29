@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Jitter and Adaptive Buffers in JavaScript Games - javascript</title>
+    <meta name="description" content="Network jitter refers to the unpredictable variation in packet transit times across a network, which disrupts the smooth stream of game state updates required for real-time multiplayer games. In browser-based JavaScript game development, unmanaged jitter">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/network-jitter-and-adaptive-buffers-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Network Jitter and Adaptive Buffers in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/network-jitter-and-adaptive-buffers-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Network jitter refers to the unpredictable variation in packet transit times across a network, which disrupts the smooth stream of game state updates required for real-time multiplayer games. In browser-based JavaScript game development, unmanaged jitter" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="network-jitter-and-adaptive-buffers-in-javascript-games">Network
+Jitter and Adaptive Buffers in JavaScript Games</h1>
+<p>Network jitter refers to the unpredictable variation in packet
+transit times across a network, which disrupts the smooth stream of game
+state updates required for real-time multiplayer games. In browser-based
+JavaScript game development, unmanaged jitter causes visible
+micro-stutters, rubber-banding, and visual desynchronization. Adaptive
+jitter buffers address this problem by dynamically holding incoming
+network packets in a queue and adjusting the playback delay based on
+real-time network variance, balancing smooth animation against minimal
+input latency.</p>
+<h2 id="understanding-network-jitter-in-real-time-games">Understanding
+Network Jitter in Real-Time Games</h2>
+<p>When a game server broadcasts state updates at a fixed interval (such
+as 60 ticks per second), a perfect connection would deliver those
+packets to the client at identical intervals. However, real-world
+internet routing involves congestion, routing changes, and hardware
+queuing, causing packets to arrive irregularly.</p>
+<p>While steady latency (ping) simply delays the receipt of an action by
+a constant duration, network jitter—technically termed Packet Delay
+Variation (PDV)—causes bursts of packets to arrive simultaneously,
+followed by periods of packet starvation. In JavaScript games using
+WebRTC DataChannels or WebSockets, an unbuffered client renders these
+bursts erratically: game entities freeze during packet starvation and
+violently snap forward when accumulated packets finally arrive.</p>
+<h2 id="how-a-basic-jitter-buffer-works">How a Basic Jitter Buffer
+Works</h2>
+<p>A basic jitter buffer sits between the network layer (the incoming
+message event listener) and the rendering engine. Instead of applying
+packet state immediately upon arrival, the client inserts received
+packets into an ordered queue and introduces an intentional playback
+delay (an interpolation delay).</p>
+<pre><code>Network Ingress ---&gt; [ Jitter Buffer (Queue) ] ---&gt; Render Loop / State Applicator</code></pre>
+<p>By intentionally lagging behind the server's absolute real-time
+position by a few milliseconds, the rendering loop always has a
+consecutive set of frames to interpolate between. If a packet is delayed
+by network congestion, the buffer absorbs the delay using previously
+queued packets, preventing visual stutter.</p>
+<p>A static buffer, however, relies on a hardcoded delay. If the static
+delay is too low, network spikes cause "buffer underrun" (the buffer
+empties and the game freezes). If the delay is too high, players
+experience unacceptable input latency even on stable connections.</p>
+<h2 id="the-adaptive-jitter-buffer-solution">The Adaptive Jitter Buffer
+Solution</h2>
+<p>An adaptive jitter buffer constantly monitors incoming network
+conditions and resizes the playback window dynamically to maintain the
+lowest possible latency without suffering from underruns.</p>
+<h3 id="1-statistical-jitter-calculation">1. Statistical Jitter
+Calculation</h3>
+<p>The client measures the delay variation of each received packet using
+high-precision timing via <code>performance.now()</code>. A standard
+approach to track jitter uses an Exponential Moving Average (EMA) or
+calculates the standard deviation of inter-packet arrival times:</p>
+<p><span class="math display">\[\Delta t = (t_{\text{client\_recv}} -
+t_{\text{client\_prev}}) - (t_{\text{server\_send}} -
+t_{\text{server\_prev}})\]</span></p>
+<p><span class="math display">\[\text{Jitter}_{\text{new}} = \alpha
+\cdot \text{Jitter}_{\text{old}} + (1 - \alpha) \cdot |\Delta
+t|\]</span></p>
+<p>Using this smoothed metric, the client calculates an optimal target
+buffer depth—typically the median network delay plus a safety margin
+equal to two or three times the current jitter value.</p>
+<h3 id="2-time-dilation-for-buffer-resizing">2. Time Dilation for Buffer
+Resizing</h3>
+<p>When network conditions worsen and jitter increases, the target
+buffer size must expand. When conditions stabilize, the buffer must
+shrink to reduce latency. Abruptly snapping the buffer size causes
+severe visual hitches.</p>
+<p>To adjust smoothly, adaptive buffers apply <strong>time
+dilation</strong>:</p>
+<ul>
+<li><strong>Expanding the buffer:</strong> The client imperceptibly
+slows down the playback speed of game states (e.g., advancing simulation
+time at 95% of normal speed) until the queue reaches the new target
+depth.</li>
+<li><strong>Shrinking the buffer:</strong> The client accelerates
+playback speed slightly (e.g., advancing simulation time at 105% of
+normal speed) to burn through excess queued frames until latency is
+minimized.</li>
+</ul>
+<p>Because the playback rate changes within a tight 2% to 5% window,
+human perception cannot detect the alteration in motion speed.</p>
+<h3 id="3-handling-edge-cases-underruns-and-stale-data">3. Handling Edge
+Cases: Underruns and Stale Data</h3>
+<p>Despite dynamic resizing, extreme packet bursts and stalls still
+occur:</p>
+<ul>
+<li><strong>Buffer Underrun:</strong> When the buffer runs completely
+dry, the engine switches to client-side dead reckoning or linear
+extrapolation, predicting entity trajectories until the next packet
+arrives.</li>
+<li><strong>Buffer Overrun / Out-of-Order Packets:</strong> Over WebRTC
+(configured for unordered, unreliable delivery), older packets may
+arrive after newer ones. The jitter buffer discards packets whose
+sequence IDs or timestamps are older than the currently rendered frame,
+preventing backwards teleportation.</li>
+</ul>
+<h2 id="implementation-essentials-in-javascript">Implementation
+Essentials in JavaScript</h2>
+<p>To implement an adaptive jitter buffer effectively in a browser
+environment:</p>
+<ul>
+<li><strong>Decouple Networking from Rendering:</strong> Process
+incoming messages asynchronously via
+<code>RTCDataChannel.onmessage</code>, push them directly into a typed
+array or sorted queue, and consume them independently within a decoupled
+<code>requestAnimationFrame</code> loop.</li>
+<li><strong>Use Monotonic Clocks:</strong> Always calculate transit
+variance using <code>performance.now()</code> rather than
+<code>Date.now()</code>, as <code>Date.now()</code> is subject to system
+clock shifts and lower clock resolution.</li>
+<li><strong>Hermite or Catmull-Rom Interpolation:</strong> When
+extracting positions from the buffer, use cubic interpolation methods
+between the two surrounding snapshots rather than standard linear
+interpolation (LERP) to ensure smooth entity transitions even during
+time-dilation playback adjustments.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/network-jitter-and-adaptive-buffers-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

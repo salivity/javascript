@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed Timestep in JavaScript Game Physics Loops - javascript</title>
+    <meta name="description" content="Using a fixed timestep loop decouples game logic from rendering, providing a reliable foundation for consistent, deterministic physics simulations in web games. Because browser frame rates frequently fluctuate due to hardware constraints, garbage collecti">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/fixed-timestep-in-java-script-game-physics-loops">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fixed Timestep in JavaScript Game Physics Loops - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/fixed-timestep-in-java-script-game-physics-loops" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Using a fixed timestep loop decouples game logic from rendering, providing a reliable foundation for consistent, deterministic physics simulations in web games. Because browser frame rates frequently fluctuate due to hardware constraints, garbage collecti" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fixed-timestep-in-javascript-game-physics-loops">Fixed Timestep
+in JavaScript Game Physics Loops</h1>
+<p>Using a fixed timestep loop decouples game logic from rendering,
+providing a reliable foundation for consistent, deterministic physics
+simulations in web games. Because browser frame rates frequently
+fluctuate due to hardware constraints, garbage collection, and
+background throttling, passing variable time deltas directly into
+physics calculations can lead to clipping, visual artifacts, and
+unstable simulations. Implementing a fixed timestep—often using an
+accumulator pattern—ensures numerical integration occurs in small,
+predictable increments regardless of how fast or slow the browser
+renders frames.</p>
+<p>In JavaScript, games commonly rely on
+<code>requestAnimationFrame</code> to drive the main loop. This API
+synchronizes updates with the display refresh rate, passing an elapsed
+delta time (<code>dt</code>) since the previous frame. While this
+approach is well-suited for rendering, passing a raw, variable
+<code>dt</code> directly into a physics engine creates serious issues.
+Physics solvers rely on numerical integration algorithms (such as Euler
+or Verlet integration) that assume time advances in small, predictable
+increments. When a browser drops frames or stutters, <code>dt</code>
+spikes. A high delta time causes objects to move excessive distances in
+a single step, resulting in collision detection failures known as
+"tunneling," where fast-moving bodies pass through solid walls, or
+"explosions," where overlapping rigid bodies receive extreme corrective
+forces.</p>
+<p>A fixed timestep loop resolves this issue by standardizing the time
+slice consumed by the physics simulation. Instead of updating physics
+using the exact time elapsed since the last render, the elapsed time is
+added to a running balance called an accumulator. The physics engine
+then steps forward using a predefined, constant interval—typically
+1/60th of a second (16.66ms)—for as many steps as the accumulated time
+permits, subtracting that fixed duration from the accumulator with each
+step.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulator <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fixedStep <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 updates per second</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> frameTime <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Prevent spiral of death by capping frameTime</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (frameTime <span class="op">&gt;</span> <span class="dv">250</span>) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    frameTime <span class="op">=</span> <span class="dv">250</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  accumulator <span class="op">+=</span> frameTime<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (accumulator <span class="op">&gt;=</span> fixedStep) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">updatePhysics</span>(fixedStep)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    accumulator <span class="op">-=</span> fixedStep<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>A critical edge case in JavaScript game loops is the "spiral of
+death." If updating the physics takes longer than the fixed time slice
+itself, or if the browser tab loses focus and pauses execution,
+<code>frameTime</code> can accumulate significantly. The loop will then
+attempt to run dozens or hundreds of catch-up iterations, causing
+further frame drops and freezing the browser. To eliminate this risk,
+the delta time added to the accumulator must be clamped to an upper
+limit (such as 250 milliseconds), dropping time if the system lags too
+far behind.</p>
+<p>Although a fixed timestep stabilizes collision detection and rigid
+body dynamics, it can introduce visual jitter if the display refresh
+rate does not align perfectly with the fixed physics rate (for example,
+running a 60Hz physics loop on a 144Hz monitor). To achieve smooth
+visuals without sacrificing stability, developers use linear
+interpolation (<code>lerp</code>) during the render step. By calculating
+an alpha value from the remaining time in the accumulator divided by the
+fixed step size (<code>accumulator / fixedStep</code>), the rendering
+system can smoothly blend an object's previous position with its current
+position. This technique provides the stability of a deterministic
+physics simulation alongside the visual fluidity of high-refresh-rate
+displays.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/fixed-timestep-in-java-script-game-physics-loops';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

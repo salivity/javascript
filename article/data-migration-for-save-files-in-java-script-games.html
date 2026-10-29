@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Migration for Save Files in JavaScript Games - javascript</title>
+    <meta name="description" content="Data migration in JavaScript game programming is the process of updating legacy save data structures to match the requirements of newer game versions without losing player progress. As games evolve through patches, mechanics are rebalanced, new systems ar">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/data-migration-for-save-files-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Data Migration for Save Files in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/data-migration-for-save-files-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Data migration in JavaScript game programming is the process of updating legacy save data structures to match the requirements of newer game versions without losing player progress. As games evolve through patches, mechanics are rebalanced, new systems ar" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="data-migration-for-save-files-in-javascript-games">Data
+Migration for Save Files in JavaScript Games</h1>
+<p>Data migration in JavaScript game programming is the process of
+updating legacy save data structures to match the requirements of newer
+game versions without losing player progress. As games evolve through
+patches, mechanics are rebalanced, new systems are introduced, and
+obsolete features are removed, inherently altering the schema of the
+save file. This article explains the fundamentals of save file
+migration, the challenges posed by JavaScript's dynamic typing, and the
+standard sequential migration pattern used to seamlessly upgrade older
+saves.</p>
+<h3 id="understanding-the-save-file-schema-problem">Understanding the
+Save File Schema Problem</h3>
+<p>In JavaScript games, save files are commonly serialized as JSON
+strings stored in <code>localStorage</code>, <code>IndexedDB</code>, or
+exported as downloadable files. A basic save file might initially look
+like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;playerLevel&quot;</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;gold&quot;</span><span class="op">:</span> <span class="dv">120</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;inventory&quot;</span><span class="op">:</span> [<span class="st">&quot;sword&quot;</span><span class="op">,</span> <span class="st">&quot;shield&quot;</span>]</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If an update replaces individual inventory item strings with detailed
+item objects containing durability and enchantments, loading the legacy
+save file into the updated game engine will cause runtime errors, such
+as <code>TypeError: Cannot read properties of undefined</code>. Data
+migration bridges this gap by intercepting the loaded payload and
+transforming it before the game state initializes.</p>
+<h3 id="the-versioning-pattern">The Versioning Pattern</h3>
+<p>The cornerstone of data migration is explicit schema versioning.
+Every save payload must contain a dedicated version identifier. When the
+game loads a save, it reads the version identifier and compares it
+against the engine’s current schema version.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;schemaVersion&quot;</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;playerLevel&quot;</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;gold&quot;</span><span class="op">:</span> <span class="dv">120</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;inventory&quot;</span><span class="op">:</span> [<span class="st">&quot;sword&quot;</span><span class="op">,</span> <span class="st">&quot;shield&quot;</span>]</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If the loaded <code>schemaVersion</code> is less than the current
+version, the migration pipeline executes.</p>
+<h3 id="implementing-sequential-migrations">Implementing Sequential
+Migrations</h3>
+<p>The most reliable approach to handling multiple updates over time is
+the sequential migration pipeline. Instead of writing complex
+conditional branches for every historical version combination,
+developers create discrete, chained migration functions that step
+through versions sequentially (e.g., v1 to v2, then v2 to v3).</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CURRENT_SCHEMA_VERSION <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> migrations <span class="op">=</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Migrate from Version 1 to Version 2</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dv">1</span><span class="op">:</span> (data) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="op">...</span>data<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">schemaVersion</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Convert inventory strings to objects</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">inventory</span><span class="op">:</span> data<span class="op">.</span><span class="at">inventory</span><span class="op">.</span><span class="fu">map</span>(itemName <span class="kw">=&gt;</span> ({</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">id</span><span class="op">:</span> itemName<span class="op">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">durability</span><span class="op">:</span> <span class="dv">100</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      }))</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Migrate from Version 2 to Version 3</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="dv">2</span><span class="op">:</span> (data) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>      <span class="op">...</span>data<span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">schemaVersion</span><span class="op">:</span> <span class="dv">3</span><span class="op">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Add a newly introduced mana stat</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">stats</span><span class="op">:</span> {</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">mana</span><span class="op">:</span> <span class="dv">50</span><span class="op">,</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">maxMana</span><span class="op">:</span> <span class="dv">50</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">migrateSaveData</span>(saveData) {</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> migratedData <span class="op">=</span> { <span class="op">...</span>saveData }<span class="op">;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Assign a default version if missing (legacy v0)</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span>migratedData<span class="op">.</span><span class="at">schemaVersion</span>) {</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    migratedData<span class="op">.</span><span class="at">schemaVersion</span> <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (migratedData<span class="op">.</span><span class="at">schemaVersion</span> <span class="op">&lt;</span> CURRENT_SCHEMA_VERSION) {</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> migrationStep <span class="op">=</span> migrations[migratedData<span class="op">.</span><span class="at">schemaVersion</span>]<span class="op">;</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>migrationStep) {</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>      <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="vs">`Missing migration step for version </span><span class="sc">${</span>migratedData<span class="op">.</span><span class="at">schemaVersion</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>    migratedData <span class="op">=</span> <span class="fu">migrationStep</span>(migratedData)<span class="op">;</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> migratedData<span class="op">;</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>This pipeline ensures that a player who has not opened the game
+across multiple patches will have their save file upgraded progressively
+until it matches the current game format.</p>
+<h3 id="key-practices-for-robust-migration">Key Practices for Robust
+Migration</h3>
+<ol type="1">
+<li><strong>Immutability and Backups:</strong> Always preserve the raw
+loaded string or create a local backup before performing migrations. If
+a migration step encounters a bug, an uncorrupted version remains
+recoverable.</li>
+<li><strong>Assigning Safe Defaults:</strong> When adding new systems,
+use sensible defaults or compute baseline values derived from existing
+player metrics (such as awarding skill points based on an existing
+player level).</li>
+<li><strong>Automated Unit Testing:</strong> Save snapshots of older
+versions as static JSON fixtures in your test suite. Run the migration
+pipeline against these fixtures during continuous integration to ensure
+legacy saves always resolve to the expected modern format.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/data-migration-for-save-files-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

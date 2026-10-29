@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raycast Obstacle Avoidance in JavaScript Games - javascript</title>
+    <meta name="description" content="This article explains how obstacle avoidance steering behaviors work in JavaScript game development, focusing on the mechanics of using raycasts to guide autonomous agents around walls. You will learn the core differences between local steering and global">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/raycast-obstacle-avoidance-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Raycast Obstacle Avoidance in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/raycast-obstacle-avoidance-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how obstacle avoidance steering behaviors work in JavaScript game development, focusing on the mechanics of using raycasts to guide autonomous agents around walls. You will learn the core differences between local steering and global" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="raycast-obstacle-avoidance-in-javascript-games">Raycast Obstacle
+Avoidance in JavaScript Games</h1>
+<p>This article explains how obstacle avoidance steering behaviors work
+in JavaScript game development, focusing on the mechanics of using
+raycasts to guide autonomous agents around walls. You will learn the
+core differences between local steering and global pathfinding, the
+mathematics behind ray-wall intersection tests, and practical code
+patterns to cast "whiskers" and calculate corrective steering forces in
+real time.</p>
+<h2 id="understanding-obstacle-avoidance-steering">Understanding
+Obstacle Avoidance Steering</h2>
+<p>In game development, obstacle avoidance is a reactive steering
+behavior popularized by Craig Reynolds. Unlike global pathfinding
+algorithms like A* that calculate an entire route across a pre-baked
+navigation mesh, steering behaviors operate locally on a frame-by-frame
+basis.</p>
+<p>An autonomous agent—such as an enemy, NPC, or vehicle—navigates its
+environment by combining multiple movement vectors:</p>
+<ol type="1">
+<li><strong>Desired Velocity:</strong> The direction and speed the agent
+<em>wants</em> to go (e.g., seeking a player or wandering).</li>
+<li><strong>Steering Force:</strong> The corrective force applied to the
+current velocity to produce smooth, natural-looking turns.</li>
+<li><strong>Avoidance Force:</strong> A temporary, high-priority
+steering force applied only when an impending collision is
+detected.</li>
+</ol>
+<p>The fundamental formula governing steering is:</p>
+<p><span class="math display">\[\text{Steering Force} = \text{Desired
+Velocity} - \text{Current Velocity}\]</span></p>
+<p>When an obstacle threatens the agent's path, the desired velocity is
+dynamically redirected away from the obstruction.</p>
+<h2 id="how-raycasts-detect-obstacles">How Raycasts Detect
+Obstacles</h2>
+<p>A raycast is a mathematical query that projects an imaginary line
+segment (a ray) from an origin point along a directional vector to
+determine if, where, and when it intersects with geometry in the game
+world.</p>
+<p>In 2D JavaScript games, walls are typically defined as line segments
+between two points, <span class="math inline">\(A(x_1, y_1)\)</span> and
+<span class="math inline">\(B(x_2, y_2)\)</span>. To detect whether an
+agent will hit a wall, you test whether the agent’s cast ray intersects
+with any nearby wall segment.</p>
+<h3 id="the-whisker-configuration">The Whisker Configuration</h3>
+<p>Casting a single forward ray is rarely enough. A single ray can pass
+through narrow openings but cause the agent's bounding body to clip into
+edges, or it can fail to detect obstacles when approaching at an
+angle.</p>
+<p>The standard approach uses a multi-ray "whisker" array:</p>
+<ul>
+<li><strong>Center Ray:</strong> Projects directly forward along the
+agent's velocity vector to detect head-on collisions. This is usually
+the longest ray.</li>
+<li><strong>Left Whisker:</strong> Projects forward-left at an angle
+(typically <span class="math inline">\(15^\circ\)</span> to <span
+class="math inline">\(30^\circ\)</span>).</li>
+<li><strong>Right Whisker:</strong> Projects forward-right at an
+angle.</li>
+</ul>
+<p>If the left whisker hits a wall, the agent steers right. If the right
+whisker hits, it steers left. If the center ray hits, the agent steers
+away from the surface normal of the impacted wall.</p>
+<h2 id="mathematical-implementation-in-javascript">Mathematical
+Implementation in JavaScript</h2>
+<h3 id="1-line-line-intersection-test">1. Line-Line Intersection
+Test</h3>
+<p>To determine if a ray cast from <span class="math inline">\((x_1,
+y_1)\)</span> to <span class="math inline">\((x_2, y_2)\)</span>
+intersects a wall segment from <span class="math inline">\((x_3,
+y_3)\)</span> to <span class="math inline">\((x_4, y_4)\)</span>, use a
+2D cross-product determinant check:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getIntersection</span>(x1<span class="op">,</span> y1<span class="op">,</span> x2<span class="op">,</span> y2<span class="op">,</span> x3<span class="op">,</span> y4<span class="op">,</span> x4) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> den <span class="op">=</span> (x1 <span class="op">-</span> x2) <span class="op">*</span> (y3 <span class="op">-</span> y4) <span class="op">-</span> (y1 <span class="op">-</span> y2) <span class="op">*</span> (x3 <span class="op">-</span> x4)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (den <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// Lines are parallel</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> t <span class="op">=</span> ((x1 <span class="op">-</span> x3) <span class="op">*</span> (y3 <span class="op">-</span> y4) <span class="op">-</span> (y1 <span class="op">-</span> y3) <span class="op">*</span> (x3 <span class="op">-</span> x4)) <span class="op">/</span> den<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> u <span class="op">=</span> <span class="op">-</span>((x1 <span class="op">-</span> x2) <span class="op">*</span> (y1 <span class="op">-</span> y3) <span class="op">-</span> (y1 <span class="op">-</span> y2) <span class="op">*</span> (x1 <span class="op">-</span> x3)) <span class="op">/</span> den<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// An intersection occurs if both t and u are within the range [0, 1]</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (t <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> t <span class="op">&lt;=</span> <span class="dv">1</span> <span class="op">&amp;&amp;</span> u <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> u <span class="op">&lt;=</span> <span class="dv">1</span>) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> x1 <span class="op">+</span> t <span class="op">*</span> (x2 <span class="op">-</span> x1)<span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> y1 <span class="op">+</span> t <span class="op">*</span> (y2 <span class="op">-</span> y1)<span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">distance</span><span class="op">:</span> t <span class="co">// Normalized distance along the ray</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-generating-whiskers-and-calculating-avoidance">2. Generating
+Whiskers and Calculating Avoidance</h3>
+<p>The agent generates rays based on its current heading and velocity,
+tests each against active obstacles, and applies a lateral repulsion
+vector proportional to how close the collision is:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Agent {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(x<span class="op">,</span> y) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">position</span> <span class="op">=</span> { x<span class="op">,</span> y }<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span> <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span> <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span> <span class="op">=</span> <span class="fl">0.2</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">rayLength</span> <span class="op">=</span> <span class="dv">60</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getWhiskers</span>() {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> heading <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> angles <span class="op">=</span> [<span class="dv">0</span><span class="op">,</span> <span class="op">-</span><span class="fl">0.4</span><span class="op">,</span> <span class="fl">0.4</span>]<span class="op">;</span> <span class="co">// Center, Left (~23°), Right (~23°)</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> lengths <span class="op">=</span> [<span class="kw">this</span><span class="op">.</span><span class="at">rayLength</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">rayLength</span> <span class="op">*</span> <span class="fl">0.7</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">rayLength</span> <span class="op">*</span> <span class="fl">0.7</span>]<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> angles<span class="op">.</span><span class="fu">map</span>((angleOffset<span class="op">,</span> index) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> angle <span class="op">=</span> heading <span class="op">+</span> angleOffset<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> len <span class="op">=</span> lengths[index]<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> {</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">origin</span><span class="op">:</span> { <span class="op">...</span><span class="kw">this</span><span class="op">.</span><span class="at">position</span> }<span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">target</span><span class="op">:</span> {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>          <span class="dt">x</span><span class="op">:</span> <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle) <span class="op">*</span> len<span class="op">,</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>          <span class="dt">y</span><span class="op">:</span> <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) <span class="op">*</span> len</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        }<span class="op">,</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">side</span><span class="op">:</span> angleOffset <span class="co">// Negative = left, positive = right</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>      }<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">avoidWalls</span>(walls) {</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> whiskers <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">getWhiskers</span>()<span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> steerForce <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> whisker <span class="kw">of</span> whiskers) {</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> closestHit <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">const</span> wall <span class="kw">of</span> walls) {</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> hit <span class="op">=</span> <span class="fu">getIntersection</span>(</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>          whisker<span class="op">.</span><span class="at">origin</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> whisker<span class="op">.</span><span class="at">origin</span><span class="op">.</span><span class="at">y</span><span class="op">,</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>          whisker<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> whisker<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">y</span><span class="op">,</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>          wall<span class="op">.</span><span class="at">p1</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> wall<span class="op">.</span><span class="at">p1</span><span class="op">.</span><span class="at">y</span><span class="op">,</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>          wall<span class="op">.</span><span class="at">p2</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> wall<span class="op">.</span><span class="at">p2</span><span class="op">.</span><span class="at">y</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        )<span class="op">;</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (hit <span class="op">&amp;&amp;</span> (<span class="op">!</span>closestHit <span class="op">||</span> hit<span class="op">.</span><span class="at">distance</span> <span class="op">&lt;</span> closestHit<span class="op">.</span><span class="at">distance</span>)) {</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>          closestHit <span class="op">=</span> hit<span class="op">;</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (closestHit) {</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Calculate lateral push: perpendicular to current travel direction</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> heading <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        <span class="co">// If center ray hits, steer away from wall; otherwise steer opposite the whisker side</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> turnDirection <span class="op">=</span> whisker<span class="op">.</span><span class="at">side</span> <span class="op">===</span> <span class="dv">0</span> <span class="op">?</span> <span class="dv">1</span> <span class="op">:</span> (whisker<span class="op">.</span><span class="at">side</span> <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">?</span> <span class="op">-</span><span class="dv">1</span> <span class="op">:</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> avoidAngle <span class="op">=</span> heading <span class="op">+</span> (<span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">2</span>) <span class="op">*</span> turnDirection<span class="op">;</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Force magnitude increases the closer the intersection is (1 - distance)</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> strength <span class="op">=</span> (<span class="dv">1</span> <span class="op">-</span> closestHit<span class="op">.</span><span class="at">distance</span>) <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span><span class="op">;</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>        steerForce<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(avoidAngle) <span class="op">*</span> strength<span class="op">;</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>        steerForce<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(avoidAngle) <span class="op">*</span> strength<span class="op">;</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Clamp steering force</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> magnitude <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(steerForce<span class="op">.</span><span class="at">x</span><span class="op">,</span> steerForce<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (magnitude <span class="op">&gt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span>) {</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>      steerForce<span class="op">.</span><span class="at">x</span> <span class="op">=</span> (steerForce<span class="op">.</span><span class="at">x</span> <span class="op">/</span> magnitude) <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span><span class="op">;</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>      steerForce<span class="op">.</span><span class="at">y</span> <span class="op">=</span> (steerForce<span class="op">.</span><span class="at">y</span> <span class="op">/</span> magnitude) <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span><span class="op">;</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> steerForce<span class="op">;</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>  <span class="fu">update</span>(walls) {</span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> avoidance <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">avoidWalls</span>(walls)<span class="op">;</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply steering force to velocity</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">+=</span> avoidance<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">+=</span> avoidance<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Maintain max speed limit</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (speed <span class="op">&gt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span>) {</span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> (<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span> <span class="op">/</span> speed) <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span><span class="op">;</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> (<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span> <span class="op">/</span> speed) <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span><span class="op">;</span></span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Update position</span></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span> <span class="op">+=</span> <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span> <span class="op">+=</span> <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="best-practices-for-stable-agent-guidance">Best Practices for
+Stable Agent Guidance</h2>
+<ul>
+<li><strong>Dynamic Ray Length:</strong> Scale ray lengths relative to
+current velocity. Faster agents need to look further ahead to start
+braking or turning early enough to avoid high-speed penetration.</li>
+<li><strong>Spatial Partitioning:</strong> Avoid checking every whisker
+against every wall segment in large maps. Group static walls into a
+grid, quadtree, or spatial hash to limit intersection tests strictly to
+nearby geometry.</li>
+<li><strong>Surface Normals for Center Impacts:</strong> When the center
+ray detects a direct head-on collision, calculate the hit surface normal
+rather than choosing an arbitrary turning side. Steer along the
+reflection vector of that normal to prevent oscillations.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/raycast-obstacle-avoidance-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

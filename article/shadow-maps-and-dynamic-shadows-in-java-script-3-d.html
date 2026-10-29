@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Maps and Dynamic Shadows in JavaScript 3D - javascript</title>
+    <meta name="description" content="This article provides an overview of shadow mapping, the standard technique used to cast real-time dynamic shadows in 3D JavaScript game development. You will learn the fundamental mechanics of shadow maps, explore the two-pass rendering pipeline used by">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/shadow-maps-and-dynamic-shadows-in-java-script-3-d">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Shadow Maps and Dynamic Shadows in JavaScript 3D - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/shadow-maps-and-dynamic-shadows-in-java-script-3-d" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of shadow mapping, the standard technique used to cast real-time dynamic shadows in 3D JavaScript game development. You will learn the fundamental mechanics of shadow maps, explore the two-pass rendering pipeline used by" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="shadow-maps-and-dynamic-shadows-in-javascript-3d">Shadow Maps
+and Dynamic Shadows in JavaScript 3D</h1>
+<p>This article provides an overview of shadow mapping, the standard
+technique used to cast real-time dynamic shadows in 3D JavaScript game
+development. You will learn the fundamental mechanics of shadow maps,
+explore the two-pass rendering pipeline used by WebGL engines like
+Three.js and Babylon.js, understand how to implement shadows in your
+code, and discover common techniques to resolve visual artifacts like
+shadow acne and aliasing.</p>
+<h2 id="what-is-a-shadow-map">What Is a Shadow Map?</h2>
+<p>A shadow map is a texture that stores depth information from the
+perspective of a light source rather than the player's camera. In 3D
+graphics, calculating realistic light occlusion in real time is
+computationally expensive. Shadow mapping simplifies this by treating
+the light as a camera and recording the distance to the nearest surface
+for every pixel the light can see. When the scene is rendered from the
+actual camera, the game engine samples this depth texture to determine
+whether a given point is hidden from the light by another object.</p>
+<h2 id="the-two-pass-rendering-pipeline">The Two-Pass Rendering
+Pipeline</h2>
+<p>Dynamic shadow casting relies on a two-pass rendering process
+executed on the GPU every frame:</p>
+<h3 id="pass-1-the-depth-pass-lights-perspective">Pass 1: The Depth Pass
+(Light's Perspective)</h3>
+<ol type="1">
+<li>The engine shifts the viewpoint to the position and orientation of
+the light source. Directional lights use an orthographic projection,
+while point lights and spotlights use a perspective projection.</li>
+<li>The scene is rendered into an off-screen Framebuffer Object (FBO)
+containing a depth texture instead of a standard color buffer.</li>
+<li>Only depth values (<span
+class="math inline">\(Z\)</span>-coordinates) of shadow-casting meshes
+are written. The resulting texture stores the distance from the light to
+the closest surface at each texel.</li>
+</ol>
+<h3 id="pass-2-the-camera-pass-scene-rendering">Pass 2: The Camera Pass
+(Scene Rendering)</h3>
+<ol type="1">
+<li>The engine renders the scene normally from the player's camera
+viewpoint.</li>
+<li>During fragment shading, each pixel's world-space position is
+transformed into the light's coordinate space using the light’s
+view-projection matrix.</li>
+<li>The shader compares the fragment's current distance to the light
+with the depth stored at the corresponding coordinate in the shadow
+map.</li>
+<li>If the fragment's distance is greater than the depth stored in the
+shadow map, another object is closer to the light, meaning the fragment
+is in shadow. If the distances match (within a small threshold), the
+fragment is lit.</li>
+</ol>
+<h2 id="implementation-in-javascript-engines">Implementation in
+JavaScript Engines</h2>
+<p>In modern JavaScript WebGL libraries like Three.js, the low-level
+shader math and framebuffer handling are abstracted into high-level
+properties:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Enable shadow maps on the WebGL renderer</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>renderer<span class="op">.</span><span class="at">shadowMap</span><span class="op">.</span><span class="at">enabled</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>renderer<span class="op">.</span><span class="at">shadowMap</span><span class="op">.</span><span class="at">type</span> <span class="op">=</span> THREE<span class="op">.</span><span class="at">PCFSoftShadowMap</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Configure the light to generate a shadow map</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> light <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">DirectionalLight</span>(<span class="bn">0xffffff</span><span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>light<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">set</span>(<span class="dv">5</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">5</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>light<span class="op">.</span><span class="at">castShadow</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>light<span class="op">.</span><span class="at">shadow</span><span class="op">.</span><span class="at">mapSize</span><span class="op">.</span><span class="at">width</span> <span class="op">=</span> <span class="dv">2048</span><span class="op">;</span>  <span class="co">// Resolution of the depth texture</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>light<span class="op">.</span><span class="at">shadow</span><span class="op">.</span><span class="at">mapSize</span><span class="op">.</span><span class="at">height</span> <span class="op">=</span> <span class="dv">2048</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>scene<span class="op">.</span><span class="fu">add</span>(light)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Configure meshes</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>characterMesh<span class="op">.</span><span class="at">castShadow</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span>    <span class="co">// Casts shadows onto other surfaces</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>groundMesh<span class="op">.</span><span class="at">receiveShadow</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span>    <span class="co">// Displays shadows cast upon it</span></span></code></pre></div>
+<p>Behind the scenes, the JavaScript engine manages the render targets,
+binds the depth texture as a uniform to your material shaders, and
+performs the depth comparison automatically.</p>
+<h2 id="overcoming-common-shadow-map-artifacts">Overcoming Common Shadow
+Map Artifacts</h2>
+<p>Real-time shadow mapping introduces common graphical issues that
+developers must tune:</p>
+<ul>
+<li><strong>Shadow Acne:</strong> Caused by precision limits in the
+depth buffer, creating striped or moiré patterns across flat surfaces
+where a surface incorrectly shadows itself. This is fixed by applying a
+small depth <code>bias</code> to offset the depth comparison.</li>
+<li><strong>Peter Panning:</strong> If the shadow bias is set too high,
+shadows detach from the base of objects, making them appear to float.
+Balancing bias and normal bias eliminates acne without causing this
+detachment.</li>
+<li><strong>Aliasing and Jagged Edges:</strong> Because shadow maps have
+a fixed resolution, zooming in can reveal pixelated shadow boundaries.
+Techniques like Percentage-Closer Filtering (PCF) blur the edges by
+sampling neighboring texels in the shadow map to produce smooth, soft
+shadows. For vast open worlds, Cascaded Shadow Maps (CSM) partition the
+view frustum into multiple depth maps to maintain high resolution near
+the camera while saving resources at a distance.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/shadow-maps-and-dynamic-shadows-in-java-script-3-d';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

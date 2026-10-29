@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creating WebGL Water Ripple Shaders in JavaScript - javascript</title>
+    <meta name="description" content="Custom WebGL shaders create water ripple distortion effects in JavaScript games by rendering the scene to an off-screen texture and using a fragment shader to mathematically displace the texture coordinates based on wave physics. By calculating wave propa">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/creating-web-gl-water-ripple-shaders-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Creating WebGL Water Ripple Shaders in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/creating-web-gl-water-ripple-shaders-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Custom WebGL shaders create water ripple distortion effects in JavaScript games by rendering the scene to an off-screen texture and using a fragment shader to mathematically displace the texture coordinates based on wave physics. By calculating wave propa" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="creating-webgl-water-ripple-shaders-in-javascript">Creating
+WebGL Water Ripple Shaders in JavaScript</h1>
+<p>Custom WebGL shaders create water ripple distortion effects in
+JavaScript games by rendering the scene to an off-screen texture and
+using a fragment shader to mathematically displace the texture
+coordinates based on wave physics. By calculating wave
+propagation—typically via trigonometric functions or dynamic
+heightmaps—the shader perturbs the UV coordinates used to sample the
+background image. This article explains the underlying architecture, the
+mathematical formulas driving wave displacement, and the step-by-step
+implementation process required to achieve real-time liquid distortion
+in modern web games.</p>
+<h2 id="the-webgl-pipeline-for-water-distortion">The WebGL Pipeline for
+Water Distortion</h2>
+<p>To distort an underlying scene, the rendering engine cannot draw
+directly to the canvas default framebuffer. Instead, it relies on a
+two-pass rendering technique:</p>
+<ol type="1">
+<li><strong>Scene Pass (Render to Texture):</strong> The game renders
+the background environment, characters, and static objects onto an
+off-screen Framebuffer Object (FBO). The result is stored as a standard
+2D texture.</li>
+<li><strong>Distortion Pass (Shader Execution):</strong> A full-screen
+quad (two triangles covering the viewport) is rendered using a custom
+shader program. The fragment shader takes the texture from the first
+pass along with dynamic uniforms (such as ripple centers, elapsed time,
+and wave properties) and samples the texture using distorted
+coordinates.</li>
+</ol>
+<h2 id="sending-ripple-data-from-javascript">Sending Ripple Data from
+JavaScript</h2>
+<p>JavaScript acts as the controller, passing uniform variables to the
+GPU through the WebGL API. For single or procedural ripples, the CPU
+sends arrays of ripple origins, elapsed lifetimes, and strengths:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rippleCenterLocation <span class="op">=</span> gl<span class="op">.</span><span class="fu">getUniformLocation</span>(program<span class="op">,</span> <span class="st">&quot;u_center&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> timeLocation <span class="op">=</span> gl<span class="op">.</span><span class="fu">getUniformLocation</span>(program<span class="op">,</span> <span class="st">&quot;u_time&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Pass normalized screen coordinates (0.0 to 1.0) and time in seconds</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">uniform2f</span>(rippleCenterLocation<span class="op">,</span> clickX <span class="op">/</span> canvas<span class="op">.</span><span class="at">width</span><span class="op">,</span> <span class="fl">1.0</span> <span class="op">-</span> (clickY <span class="op">/</span> canvas<span class="op">.</span><span class="at">height</span>))<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">uniform1f</span>(timeLocation<span class="op">,</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>() <span class="op">*</span> <span class="fl">0.001</span>)<span class="op">;</span></span></code></pre></div>
+<h2 id="the-vertex-shader">The Vertex Shader</h2>
+<p>The vertex shader in a post-processing setup remains minimal. It maps
+a clip-space quad to the screen and outputs normalized UV coordinates
+(ranging from <code>0.0</code> to <code>1.0</code>) to the fragment
+shader.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">attribute</span> <span class="dt">vec2</span> a_position<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">varying</span> <span class="dt">vec2</span> v_uv<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="fu">main</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    v_uv <span class="op">=</span> <span class="op">(</span>a_position <span class="op">+</span> <span class="fl">1.0</span><span class="op">)</span> <span class="op">*</span> <span class="fl">0.5</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">gl_Position</span> <span class="op">=</span> <span class="dt">vec4</span><span class="op">(</span>a_position<span class="op">,</span> <span class="fl">0.0</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="fragment-shader-distortion-mathematics">Fragment Shader
+Distortion Mathematics</h2>
+<p>The core distortion logic resides entirely within the fragment
+shader. The shader calculates the distance between the current pixel and
+the ripple origin, computes wave displacement using a periodic function,
+and shifts the texture lookup vector.</p>
+<h3 id="1-distance-and-aspect-ratio-correction">1. Distance and Aspect
+Ratio Correction</h3>
+<p>Because screen aspect ratios are rarely 1:1, distance calculations in
+raw UV space produce elliptical ripples instead of perfect circles. The
+fragment shader normalizes the aspect ratio:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">vec2</span> aspect <span class="op">=</span> <span class="dt">vec2</span><span class="op">(</span>u_resolution<span class="op">.</span><span class="fu">x</span> <span class="op">/</span> u_resolution<span class="op">.</span><span class="fu">y</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">vec2</span> dir <span class="op">=</span> <span class="op">(</span>v_uv <span class="op">-</span> u_center<span class="op">)</span> <span class="op">*</span> aspect<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> dist <span class="op">=</span> <span class="bu">length</span><span class="op">(</span>dir<span class="op">);</span></span></code></pre></div>
+<h3 id="2-wave-propagation-and-decay">2. Wave Propagation and Decay</h3>
+<p>A realistic ripple expands outward over time and loses energy due to
+friction. The wave profile is computed using a sine function modulated
+by an attenuation factor:</p>
+<ul>
+<li><strong>Propagation:</strong> <code>dist - (u_time * speed)</code>
+moves the wave outward over time.</li>
+<li><strong>Frequency &amp; Amplitude:</strong> Multipliers control wave
+crest density and wave height.</li>
+<li><strong>Falloff:</strong> An exponential or smoothstep decay ensures
+the wave disappears at both its outer edge and its center.</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> wave <span class="op">=</span> <span class="bu">sin</span><span class="op">(</span>dist <span class="op">*</span> <span class="fl">40.0</span> <span class="op">-</span> u_time <span class="op">*</span> <span class="fl">10.0</span><span class="op">);</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> falloff <span class="op">=</span> <span class="bu">exp</span><span class="op">(-</span>dist <span class="op">*</span> <span class="fl">4.0</span><span class="op">)</span> <span class="op">*</span> <span class="bu">max</span><span class="op">(</span><span class="fl">0.0</span><span class="op">,</span> <span class="fl">1.0</span> <span class="op">-</span> u_time<span class="op">);</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> displacement <span class="op">=</span> wave <span class="op">*</span> falloff <span class="op">*</span> u_amplitude<span class="op">;</span></span></code></pre></div>
+<h3 id="3-coordinate-perturbation-and-texture-fetch">3. Coordinate
+Perturbation and Texture Fetch</h3>
+<p>The calculated displacement scalar is multiplied by the normalized
+direction vector pointing away from the ripple origin. This offset
+modifies the original UV coordinate used to sample the background
+texture.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">vec2</span> <span class="dt">offset</span> <span class="op">=</span> <span class="bu">normalize</span><span class="op">(</span>dir<span class="op">)</span> <span class="op">*</span> displacement<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">vec2</span> distortedUV <span class="op">=</span> v_uv <span class="op">+</span> <span class="dt">offset</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Clamp coordinates to prevent edge artifacts</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>distortedUV <span class="op">=</span> <span class="bu">clamp</span><span class="op">(</span>distortedUV<span class="op">,</span> <span class="fl">0.0</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="dt">vec4</span> sceneColor <span class="op">=</span> <span class="dt">texture2D</span><span class="op">(</span>u_sceneTexture<span class="op">,</span> distortedUV<span class="op">);</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="va">gl_FragColor</span> <span class="op">=</span> sceneColor<span class="op">;</span></span></code></pre></div>
+<h2 id="advanced-implementation-ping-pong-heightmaps">Advanced
+Implementation: Ping-Pong Heightmaps</h2>
+<p>While analytic sine waves work well for isolated impacts, games
+requiring complex fluid interaction—such as rain, character wading, and
+wall reflections—use a dynamic 2D wave equation simulation.</p>
+<p>This approach uses two alternating FBO textures (ping-pong
+buffering). In each frame:</p>
+<ol type="1">
+<li>A simulation shader computes the new height of each texel based on
+the average height of its four orthogonal neighbors from the previous
+frame minus its previous velocity.</li>
+<li>JavaScript injects disturbances by drawing points into the active
+heightmap texture.</li>
+<li>The final rendering shader computes surface normals via the Sobel
+operator or finite differences on the heightmap.</li>
+<li>These normals directly dictate the UV refraction vector and allow
+the addition of specular highlights via the Fresnel effect, producing
+realistic, interactive 2D fluid surfaces directly on the GPU.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/creating-web-gl-water-ripple-shaders-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

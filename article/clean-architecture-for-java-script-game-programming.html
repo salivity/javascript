@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clean Architecture for JavaScript Game Programming - javascript</title>
+    <meta name="description" content="Applying clean architecture to JavaScript game development creates a strict boundary between low-level technical infrastructure—such as WebGL rendering, Web Audio, and DOM events—and pure gameplay mechanics. By enforcing an inward-pointing dependency rule">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/clean-architecture-for-java-script-game-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Clean Architecture for JavaScript Game Programming - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/clean-architecture-for-java-script-game-programming" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Applying clean architecture to JavaScript game development creates a strict boundary between low-level technical infrastructure—such as WebGL rendering, Web Audio, and DOM events—and pure gameplay mechanics. By enforcing an inward-pointing dependency rule" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="clean-architecture-for-javascript-game-programming">Clean
+Architecture for JavaScript Game Programming</h1>
+<p>Applying clean architecture to JavaScript game development creates a
+strict boundary between low-level technical infrastructure—such as WebGL
+rendering, Web Audio, and DOM events—and pure gameplay mechanics. By
+enforcing an inward-pointing dependency rule, developers ensure that
+domain logic remains independent of third-party frameworks and
+platform-specific APIs. This overview explores how structuring game
+logic, boundary interfaces, and engine infrastructure leads to modular
+codebases that support headless server simulation, automated unit
+testing, and framework-agnostic rendering.</p>
+<h3 id="the-core-problem-tight-coupling-in-web-games">The Core Problem:
+Tight Coupling in Web Games</h3>
+<p>In standard JavaScript game development, game mechanics are
+frequently entangled with browser APIs or specific libraries such as
+PixiJS, Phaser, or Three.js. When a player entity directly references a
+canvas context to draw a sprite, or checks browser keyboard events
+directly within a combat calculation, the game logic becomes impossible
+to run without a browser environment. This coupling prevents unit
+testing in pure Node.js environments and complicates running
+authoritative multiplayer servers, where graphics and user input
+hardware are nonexistent.</p>
+<h3 id="the-dependency-rule-in-game-systems">The Dependency Rule in Game
+Systems</h3>
+<p>Clean architecture resolves this by enforcing the Dependency Rule:
+inner layers know nothing about outer layers. In game development, the
+layers are arranged concentrically:</p>
+<ol type="1">
+<li><strong>Domain Entities:</strong> Pure JavaScript objects and state
+machines containing the fundamental game data (e.g., player health,
+inventory state, coordinate math, spatial grids).</li>
+<li><strong>Game Rules / Use Cases:</strong> Orchestration logic
+determining actions and outcomes (e.g., calculating damage, leveling up,
+pathfinding, validating movement).</li>
+<li><strong>Interface Adapters:</strong> Translators that convert raw
+engine data into domain-friendly formats and vice versa (e.g., mapping
+keyboard state to abstract game intents, mapping spatial vectors to
+renderable scene graphs).</li>
+<li><strong>Infrastructure / Engine Core:</strong> Platform-dependent
+code including Canvas 2D/WebGL rendering loops, WebSockets,
+LocalStorage, Web Audio API, and DOM listeners.</li>
+</ol>
+<p>Under this model, the inner layers (Entities and Game Rules) never
+import or reference modules from the outer layers (Infrastructure).</p>
+<h3
+id="defining-boundaries-with-interfaces-and-inversion-of-control">Defining
+Boundaries with Interfaces and Inversion of Control</h3>
+<p>Because JavaScript lacks native interface types, developers rely on
+TypeScript interfaces, abstract classes, or structural typing (duck
+typing) to establish contracts between layers.</p>
+<p>Instead of game logic pushing visual data directly to a screen, the
+core logic interacts with an abstract boundary:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Game Core Boundary (Port)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> RenderPort {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drawEntity</span>(id<span class="op">,</span> x<span class="op">,</span> y<span class="op">,</span> rotation) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">Error</span>(<span class="st">&quot;Method not implemented.&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Infrastructure Implementation (Adapter)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PixiRenderAdapter <span class="kw">extends</span> RenderPort {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(stage<span class="op">,</span> spriteLibrary) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span>()<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">stage</span> <span class="op">=</span> stage<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">sprites</span> <span class="op">=</span> spriteLibrary<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drawEntity</span>(id<span class="op">,</span> x<span class="op">,</span> y<span class="op">,</span> rotation) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> sprite <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">sprites</span><span class="op">.</span><span class="fu">get</span>(id)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    sprite<span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    sprite<span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    sprite<span class="op">.</span><span class="at">rotation</span> <span class="op">=</span> rotation<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By injecting this adapter into the game loop using Inversion of
+Control (IoC), the game logic updates spatial positions and notifies the
+port without requiring knowledge of textures, shaders, or rendering
+libraries.</p>
+<h3 id="separating-input-from-intent">Separating Input from Intent</h3>
+<p>Clean architecture dictates that player input should be normalized
+before it reaches game rules. The browser's <code>keydown</code> or
+<code>pointerdown</code> events belong to the outermost infrastructure
+layer.</p>
+<p>An input adapter translates these raw events into abstract domain
+commands, such as <code>MOVE_LEFT</code>, <code>JUMP</code>, or
+<code>USE_SKILL</code>. The core game rules process these commands
+purely as state transformations. Consequently, input can originate from
+a keyboard, a virtual mobile joystick, an automated AI agent, or a
+network packet from a remote client without altering a single line of
+gameplay code.</p>
+<h3 id="decoupling-the-game-loop-and-state-updates">Decoupling the Game
+Loop and State Updates</h3>
+<p>A standard game loop consists of processing input, updating world
+state, and rendering frames. Clean architecture splits this tick into
+deterministic state updates and non-deterministic visual
+interpolations:</p>
+<ul>
+<li><strong>Domain Update Loop:</strong> Executes on a fixed time step
+(e.g., 60 updates per second) using pure functions or strict mutation
+patterns to update domain entities. It relies exclusively on numerical
+logic and data structures.</li>
+<li><strong>Engine Render Loop:</strong> Operates on
+<code>requestAnimationFrame</code>. It queries the current domain state,
+interpolates between the previous and current state frames, and draws
+the result.</li>
+</ul>
+<p>This separation ensures that game physics and rules are completely
+detached from frame rate variations and GPU constraints.</p>
+<h3 id="practical-benefits-of-the-architecture">Practical Benefits of
+the Architecture</h3>
+<ul>
+<li><strong>Headless Execution:</strong> The entire game simulation can
+execute in a Node.js worker thread or on an authoritative backend server
+without mocking browser APIs like <code>window</code>,
+<code>document</code>, or WebGL contexts.</li>
+<li><strong>Rapid Automated Testing:</strong> Unit tests can verify
+complex mechanics—such as combat calculations or inventory limits—in
+milliseconds using standard runners like Vitest or Jest, without
+instantiating mock canvases.</li>
+<li><strong>Engine Portability:</strong> Migrating a game from a 2D
+Canvas renderer to a 3D WebGL framework requires replacing only the
+outer infrastructure adapters, leaving all core rules, progression
+systems, and entity behaviors intact.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/clean-architecture-for-java-script-game-programming';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

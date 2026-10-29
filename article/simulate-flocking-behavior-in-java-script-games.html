@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulate Flocking Behavior in JavaScript Games - javascript</title>
+    <meta name="description" content="Flocking behavior allows game developers to simulate the natural, coordinated movements of bird flocks or fish schools without relying on a centralized controller. This article breaks down the mathematical foundations of Craig Reynolds&#39; classic &quot;Boids&quot; al">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/simulate-flocking-behavior-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Simulate Flocking Behavior in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/simulate-flocking-behavior-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Flocking behavior allows game developers to simulate the natural, coordinated movements of bird flocks or fish schools without relying on a centralized controller. This article breaks down the mathematical foundations of Craig Reynolds&#39; classic &quot;Boids&quot; al" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="simulate-flocking-behavior-in-javascript-games">Simulate
+Flocking Behavior in JavaScript Games</h1>
+<p>Flocking behavior allows game developers to simulate the natural,
+coordinated movements of bird flocks or fish schools without relying on
+a centralized controller. This article breaks down the mathematical
+foundations of Craig Reynolds' classic "Boids" algorithm, details the
+three primary steering forces—separation, alignment, and cohesion—and
+explains how to implement and optimize these behaviors using 2D vector
+mathematics in a JavaScript game loop.</p>
+<h2 id="the-boids-algorithm-concept">The Boids Algorithm Concept</h2>
+<p>Flocking is an emergent behavior: complex group intelligence arises
+from simple individual rules. Instead of scripting the path of an entire
+group, each entity (traditionally called a "boid") makes autonomous
+steering decisions based only on the positions and velocities of other
+entities within its local field of view (perception radius).</p>
+<p>In JavaScript, each boid is an object containing at least two 2D
+vectors: <code>position</code> and <code>velocity</code>, along with an
+<code>acceleration</code> vector used to apply forces dynamically.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Boid {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(x<span class="op">,</span> y) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">position</span> <span class="op">=</span> <span class="kw">new</span> <span class="fu">Vector</span>(x<span class="op">,</span> y)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span> <span class="op">=</span> Vector<span class="op">.</span><span class="fu">random2D</span>()<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">acceleration</span> <span class="op">=</span> <span class="kw">new</span> <span class="fu">Vector</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span> <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span> <span class="op">=</span> <span class="fl">0.1</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">perceptionRadius</span> <span class="op">=</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="the-three-core-steering-rules">The Three Core Steering
+Rules</h2>
+<p>Coordinated movement depends on three primary vector-calculated
+forces calculated during each frame update.</p>
+<h3 id="1-separation-avoid-crowding">1. Separation (Avoid Crowding)</h3>
+<p>Separation prevents entities from colliding with nearby flockmates.
+The entity calculates a repulsive vector pointing directly away from
+every neighbor within a critical distance. Closer neighbors exert a
+stronger repulsive force, typically scaled inversely to the
+distance.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">separation</span>(boids) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> steering <span class="op">=</span> <span class="kw">new</span> <span class="fu">Vector</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> total <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> other <span class="kw">of</span> boids) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> d <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">distance</span>(other<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (other <span class="op">!==</span> <span class="kw">this</span> <span class="op">&amp;&amp;</span> d <span class="op">&lt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">perceptionRadius</span> <span class="op">/</span> <span class="dv">2</span>) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> diff <span class="op">=</span> Vector<span class="op">.</span><span class="fu">subtract</span>(<span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">,</span> other<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      diff<span class="op">.</span><span class="fu">divide</span>(d <span class="op">*</span> d)<span class="op">;</span> <span class="co">// Inversely proportional to distance</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      steering<span class="op">.</span><span class="fu">add</span>(diff)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      total<span class="op">++;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (total <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">divide</span>(total)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">setMagnitude</span>(<span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span>)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">subtract</span>(<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">limit</span>(<span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span>)<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> steering<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-alignment-match-heading">2. Alignment (Match Heading)</h3>
+<p>Alignment matches the entity's direction of travel with the general
+flow of the group. The entity sums the velocities of all neighbors
+within its perception radius, finds the average heading, and steers
+toward that target trajectory.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">alignment</span>(boids) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> steering <span class="op">=</span> <span class="kw">new</span> <span class="fu">Vector</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> total <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> other <span class="kw">of</span> boids) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> d <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">distance</span>(other<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (other <span class="op">!==</span> <span class="kw">this</span> <span class="op">&amp;&amp;</span> d <span class="op">&lt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">perceptionRadius</span>) {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      steering<span class="op">.</span><span class="fu">add</span>(other<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      total<span class="op">++;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (total <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">divide</span>(total)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">setMagnitude</span>(<span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span>)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">subtract</span>(<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">limit</span>(<span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span>)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> steering<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-cohesion-stay-together">3. Cohesion (Stay Together)</h3>
+<p>Cohesion keeps the group united. An entity calculates the average
+position (center of mass) of its perceived neighbors and applies a
+steering force to move toward that center.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cohesion</span>(boids) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> centerOfMass <span class="op">=</span> <span class="kw">new</span> <span class="fu">Vector</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> total <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> other <span class="kw">of</span> boids) {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> d <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">distance</span>(other<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (other <span class="op">!==</span> <span class="kw">this</span> <span class="op">&amp;&amp;</span> d <span class="op">&lt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">perceptionRadius</span>) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>      centerOfMass<span class="op">.</span><span class="fu">add</span>(other<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>      total<span class="op">++;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (total <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    centerOfMass<span class="op">.</span><span class="fu">divide</span>(total)<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> desired <span class="op">=</span> Vector<span class="op">.</span><span class="fu">subtract</span>(centerOfMass<span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    desired<span class="op">.</span><span class="fu">setMagnitude</span>(<span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span>)<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> steering <span class="op">=</span> Vector<span class="op">.</span><span class="fu">subtract</span>(desired<span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    steering<span class="op">.</span><span class="fu">limit</span>(<span class="kw">this</span><span class="op">.</span><span class="at">maxForce</span>)<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> steering<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">new</span> <span class="fu">Vector</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="applying-forces-in-the-game-loop">Applying Forces in the Game
+Loop</h2>
+<p>Reynolds defined steering force as:<br />
+<code>Steering Force = Desired Velocity - Current Velocity</code></p>
+<p>Limiting this steering force by <code>maxForce</code> prevents
+immediate, unnatural snapping of directions, creating organic, smooth
+turning curves.</p>
+<p>In every frame of the JavaScript game loop, the forces are
+calculated, weighted, and summed to update velocity and position:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">flock</span>(boids) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> sep <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">separation</span>(boids)<span class="op">.</span><span class="fu">multiply</span>(<span class="fl">1.5</span>)<span class="op">;</span> <span class="co">// Weight separation higher</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> ali <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">alignment</span>(boids)<span class="op">.</span><span class="fu">multiply</span>(<span class="fl">1.0</span>)<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> coh <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">cohesion</span>(boids)<span class="op">.</span><span class="fu">multiply</span>(<span class="fl">1.0</span>)<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">acceleration</span><span class="op">.</span><span class="fu">add</span>(sep)<span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">acceleration</span><span class="op">.</span><span class="fu">add</span>(ali)<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">acceleration</span><span class="op">.</span><span class="fu">add</span>(coh)<span class="op">;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="fu">update</span>() {</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="fu">add</span>(<span class="kw">this</span><span class="op">.</span><span class="at">acceleration</span>)<span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="fu">limit</span>(<span class="kw">this</span><span class="op">.</span><span class="at">maxSpeed</span>)<span class="op">;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">add</span>(<span class="kw">this</span><span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">this</span><span class="op">.</span><span class="at">acceleration</span><span class="op">.</span><span class="fu">multiply</span>(<span class="dv">0</span>)<span class="op">;</span> <span class="co">// Reset acceleration per frame</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="performance-optimization-in-javascript">Performance Optimization
+in JavaScript</h2>
+<p>A naive flocking algorithm evaluates every entity against every other
+entity, resulting in <span class="math inline">\(O(n^2)\)</span> time
+complexity. In an HTML5 Canvas or WebGL environment running at 60 FPS,
+performance drops drastically beyond a few hundred entities.</p>
+<p>To optimize:</p>
+<ul>
+<li><strong>Spatial Partitioning:</strong> Implement a Quadtree or a
+Spatial Hash Grid. Instead of searching all entities, an entity only
+queries neighbors inside its immediate spatial bucket, reducing
+complexity toward <span class="math inline">\(O(n \log n)\)</span> or
+<span class="math inline">\(O(n)\)</span>.</li>
+<li><strong>Distance Squaring:</strong> Avoid the computationally
+expensive <code>Math.sqrt()</code> during distance checks by comparing
+squared distances (<code>dx*dx + dy*dy &lt; radius*radius</code>).</li>
+<li><strong>TypedArrays:</strong> For simulations exceeding thousands of
+boids, replace object-based vectors with flat <code>Float32Array</code>
+buffers to eliminate JavaScript garbage collection pauses.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/simulate-flocking-behavior-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Grid Snapping for City Builder Games - javascript</title>
+    <meta name="description" content="Grid snapping in city builder JavaScript game programming is a technique that constrains the freeform placement of structures to a predefined, invisible coordinate matrix. This article explains the fundamentals of grid snapping, the underlying mathematica">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-grid-snapping-for-city-builder-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Grid Snapping for City Builder Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-grid-snapping-for-city-builder-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Grid snapping in city builder JavaScript game programming is a technique that constrains the freeform placement of structures to a predefined, invisible coordinate matrix. This article explains the fundamentals of grid snapping, the underlying mathematica" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-grid-snapping-for-city-builder-games">JavaScript Grid
+Snapping for City Builder Games</h1>
+<p>Grid snapping in city builder JavaScript game programming is a
+technique that constrains the freeform placement of structures to a
+predefined, invisible coordinate matrix. This article explains the
+fundamentals of grid snapping, the underlying mathematical formulas used
+to convert screen-space mouse positions into world-space grid units, how
+to handle multi-tile structures, and how to link this system to a
+data-driven 2D spatial array to manage collisions and building
+footprints.</p>
+<h3 id="what-is-grid-snapping">What is Grid Snapping?</h3>
+<p>In a city builder, players interact with a continuous coordinate
+space using their mouse or touch input. Without constraints, placing
+buildings leads to overlapping meshes, misaligned roads, and visual
+clutter. Grid snapping restricts placement coordinates to discrete
+intervals—known as cells or tiles. Instead of dropping an asset at
+arbitrary floating-point coordinates like <code>(143.7, 88.2)</code>,
+the system rounds the placement coordinate to fixed intervals such as
+<code>(128, 64)</code>.</p>
+<p>This mechanic is essential for structural aesthetics, procedural road
+connections, pathfinding algorithms (like A*), and tracking city
+resources on a cell-by-cell basis.</p>
+<h3 id="the-core-snapping-math">The Core Snapping Math</h3>
+<p>The mathematical logic for grid snapping is lightweight and executed
+on every frame or mouse-move event. The core calculation divides the raw
+input coordinate by the size of the grid cell, rounds the value, and
+multiplies it back by the grid size.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> GRID_SIZE <span class="op">=</span> <span class="dv">32</span><span class="op">;</span> <span class="co">// Cell width and height in pixels</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">snapToGrid</span>(rawX<span class="op">,</span> rawY<span class="op">,</span> gridSize) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> snappedX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(rawX <span class="op">/</span> gridSize) <span class="op">*</span> gridSize<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> snappedY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(rawY <span class="op">/</span> gridSize) <span class="op">*</span> gridSize<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> { <span class="dt">x</span><span class="op">:</span> snappedX<span class="op">,</span> <span class="dt">y</span><span class="op">:</span> snappedY }<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Using <code>Math.floor()</code> aligns the coordinate to the top-left
+boundary of the current cell, which matches standard HTML5 Canvas
+coordinate conventions. Using <code>Math.round()</code> aligns placement
+to the nearest intersection point, which is useful when snapping
+vertices rather than tile footprints.</p>
+<h3 id="handling-viewport-and-camera-offsets">Handling Viewport and
+Camera Offsets</h3>
+<p>Raw mouse events from the DOM (<code>e.clientX</code>,
+<code>e.clientY</code>) do not correspond directly to world coordinates
+in games with scrolling, panning, or zooming cameras. The application
+must map the pointer coordinates relative to the canvas and add the
+camera's translation offset before applying the snap formula:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getCanvasWorldCoordinates</span>(<span class="bu">event</span><span class="op">,</span> canvas<span class="op">,</span> camera) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rect <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getBoundingClientRect</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> screenX <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientX</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">left</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> screenY <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientY</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">top</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Adjust for camera translation and zoom scale</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> worldX <span class="op">=</span> (screenX <span class="op">/</span> camera<span class="op">.</span><span class="at">zoom</span>) <span class="op">+</span> camera<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> worldY <span class="op">=</span> (screenY <span class="op">/</span> camera<span class="op">.</span><span class="at">zoom</span>) <span class="op">+</span> camera<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">snapToGrid</span>(worldX<span class="op">,</span> worldY<span class="op">,</span> GRID_SIZE)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="isometric-grid-snapping">Isometric Grid Snapping</h3>
+<p>For 2.5D isometric city builders, coordinates must be transformed
+between Cartesian coordinates and isometric screen coordinates.</p>
+<p>To convert raw screen coordinates to an isometric grid position:</p>
+<ol type="1">
+<li>Divide screen <span class="math inline">\(X\)</span> by half the
+tile width and screen <span class="math inline">\(Y\)</span> by half the
+tile height.</li>
+<li>Apply the isometric rotation formulas:
+<ul>
+<li><code>tileX = Math.floor((screenY / (tileHeight / 2) + screenX / (tileWidth / 2)) / 2)</code></li>
+<li><code>tileY = Math.floor((screenY / (tileHeight / 2) - screenX / (tileWidth / 2)) / 2)</code></li>
+</ul></li>
+<li>Convert the resulting grid coordinates back to isometric screen
+space to render a preview building "ghost" under the cursor.</li>
+</ol>
+<h3 id="multi-tile-buildings-and-validation">Multi-Tile Buildings and
+Validation</h3>
+<p>City buildings often span multiple tiles, such as a 2x2 commercial
+building or a 3x3 stadium. When implementing snapping for multi-tile
+structures:</p>
+<ol type="1">
+<li><strong>Anchor Point Normalization:</strong> Establish an origin
+(typically the top-left tile of the footprint). The cursor snaps the
+origin tile to the grid, and child tiles are calculated as offsets
+relative to that origin.</li>
+<li><strong>Occupancy Matrix:</strong> Track the world state via a 2D
+array or a spatial hash map. Before confirming placement, iterate
+through every cell covered by the building’s footprint:</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">canPlaceBuilding</span>(gridMatrix<span class="op">,</span> startTileX<span class="op">,</span> startTileY<span class="op">,</span> widthInTiles<span class="op">,</span> heightInTiles) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> x <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> x <span class="op">&lt;</span> widthInTiles<span class="op">;</span> x<span class="op">++</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (<span class="kw">let</span> y <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> y <span class="op">&lt;</span> heightInTiles<span class="op">;</span> y<span class="op">++</span>) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> targetX <span class="op">=</span> startTileX <span class="op">+</span> x<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> targetY <span class="op">=</span> startTileY <span class="op">+</span> y<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Check boundaries and existing structures</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (gridMatrix[targetX]<span class="op">?.</span>[targetY] <span class="op">!==</span> <span class="kw">null</span>) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span> <span class="co">// Cell occupied or out of bounds</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="visual-feedback-building-previews">Visual Feedback: Building
+Previews</h3>
+<p>While hovering over the grid, render a semi-transparent "ghost" of
+the building at the snapped coordinates. By validating the coordinates
+against the occupancy matrix on each update, the preview can dynamically
+tint green for valid placement or red for invalid placement, providing
+instantaneous feedback before the player commits the build
+transaction.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-grid-snapping-for-city-builder-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

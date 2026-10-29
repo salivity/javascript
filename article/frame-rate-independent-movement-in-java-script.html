@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frame Rate Independent Movement in JavaScript - javascript</title>
+    <meta name="description" content="Frame rate independent movement speed scaling is a technique in JavaScript game development that ensures in-game entities move at a consistent speed regardless of the display refresh rate or fluctuations in frames per second (FPS). By decoupling game upda">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/frame-rate-independent-movement-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Frame Rate Independent Movement in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/frame-rate-independent-movement-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Frame rate independent movement speed scaling is a technique in JavaScript game development that ensures in-game entities move at a consistent speed regardless of the display refresh rate or fluctuations in frames per second (FPS). By decoupling game upda" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="frame-rate-independent-movement-in-javascript">Frame Rate
+Independent Movement in JavaScript</h1>
+<p>Frame rate independent movement speed scaling is a technique in
+JavaScript game development that ensures in-game entities move at a
+consistent speed regardless of the display refresh rate or fluctuations
+in frames per second (FPS). By decoupling game updates from the
+rendering cycle using a time measurement known as "delta time," objects
+travel the exact same physical distance over a given duration whether
+the game runs at 30 FPS, 60 FPS, or 144 FPS. This article explains the
+underlying problem of frame-dependent movement, the mathematical
+solution using delta time, and how to implement it correctly using
+<code>requestAnimationFrame</code>.</p>
+<h3 id="the-problem-frame-dependent-movement">The Problem:
+Frame-Dependent Movement</h3>
+<p>In basic game loops, developers often update an object's position by
+adding a fixed value per frame:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">update</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  player<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> player<span class="op">.</span><span class="at">speed</span><span class="op">;</span> <span class="co">// e.g., 5 pixels per frame</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(update)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>In this setup, <code>speed</code> represents pixels per frame. If a
+monitor runs at 60Hz, <code>update</code> executes 60 times per second,
+moving the player 300 pixels per second. However, on a 144Hz monitor,
+the player moves 720 pixels per second. If the frame rate drops due to
+system lag, the player slows down. This creates an unfair, inconsistent
+player experience.</p>
+<h3 id="the-solution-delta-time">The Solution: Delta Time</h3>
+<p>To achieve frame rate independence, movement speeds must be defined
+in units per second (e.g., pixels per second) rather than units per
+frame. To calculate how far an entity should move during a single frame,
+multiply the movement speed by the amount of time that elapsed since the
+previous frame. This elapsed time is called <strong>delta time</strong>
+(<span class="math inline">\(\Delta t\)</span>).</p>
+<p>The basic formula is:</p>
+<p><span class="math display">\[\text{Distance} = \text{Speed
+(pixels/second)} \times \Delta t \text{ (seconds)}\]</span></p>
+<p>If the game runs at 60 FPS, <span class="math inline">\(\Delta
+t\)</span> is roughly <span class="math inline">\(0.0167\)</span>
+seconds. If it runs at 30 FPS, <span class="math inline">\(\Delta
+t\)</span> is roughly <span class="math inline">\(0.0333\)</span>
+seconds. Multiplying by <span class="math inline">\(\Delta t\)</span>
+automatically scales the movement so that the overall distance covered
+over one real-world second remains identical.</p>
+<h3 id="implementing-delta-time-in-javascript">Implementing Delta Time
+in JavaScript</h3>
+<p>The browser's <code>requestAnimationFrame</code> function passes a
+high-resolution timestamp (a <code>DOMHighResTimeStamp</code> in
+milliseconds) to its callback. This timestamp can be used to compute the
+delta time between consecutive frames.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> player <span class="op">=</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">speed</span><span class="op">:</span> <span class="dv">200</span> <span class="co">// 200 pixels per second</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Convert elapsed time from milliseconds to seconds</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> deltaTime <span class="op">=</span> (currentTime <span class="op">-</span> lastTime) <span class="op">/</span> <span class="dv">1000</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Prevent large jumps if the tab loses focus or lags</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (deltaTime <span class="op">&gt;</span> <span class="fl">0.1</span>) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    deltaTime <span class="op">=</span> <span class="fl">0.1</span><span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Update position using deltaTime</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  player<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> player<span class="op">.</span><span class="at">speed</span> <span class="op">*</span> deltaTime<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Render game state</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co">// Start the loop</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>((time) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> time<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="critical-considerations">Critical Considerations</h3>
+<ul>
+<li><strong>Time Clamping:</strong> If a user switches browser tabs,
+<code>requestAnimationFrame</code> pauses. When the tab becomes active
+again, the calculated <code>deltaTime</code> can be massive, causing
+objects to teleport across the screen or phase through walls. Clamping
+<code>deltaTime</code> to an upper limit (such as <span
+class="math inline">\(0.1\)</span> seconds) prevents these large spatial
+anomalies.</li>
+<li><strong>Physics Stability:</strong> While simple linear movement
+works well with a variable delta time, complex physics calculations
+(such as collision resolution and gravity) can become unstable when time
+steps vary. For advanced physics, developers often implement a
+fixed-timestep update loop paired with variable-rate rendering
+interpolation.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/frame-rate-independent-movement-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

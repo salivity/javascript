@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweep and Prune Collision Detection in JavaScript - javascript</title>
+    <meta name="description" content="This article explores the sweep and prune (SAP) algorithm and its critical role in broad-phase collision detection for JavaScript game programming. It covers the performance bottleneck of naive collision checks, breaks down how projecting and sorting boun">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/sweep-and-prune-collision-detection-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sweep and Prune Collision Detection in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/sweep-and-prune-collision-detection-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the sweep and prune (SAP) algorithm and its critical role in broad-phase collision detection for JavaScript game programming. It covers the performance bottleneck of naive collision checks, breaks down how projecting and sorting boun" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="sweep-and-prune-collision-detection-in-javascript">Sweep and
+Prune Collision Detection in JavaScript</h1>
+<p>This article explores the sweep and prune (SAP) algorithm and its
+critical role in broad-phase collision detection for JavaScript game
+programming. It covers the performance bottleneck of naive collision
+checks, breaks down how projecting and sorting bounding-box intervals
+reduces computational complexity, explains the optimization benefits of
+temporal coherence, and provides practical guidelines for implementing
+the algorithm without triggering garbage collection pauses in browser
+runtimes.</p>
+<h2 id="the-collision-detection-bottleneck-in-javascript">The Collision
+Detection Bottleneck in JavaScript</h2>
+<p>JavaScript games run on a single main thread alongside rendering and
+input processing. To maintain a smooth frame rate of 60 frames per
+second, each frame must complete its entire cycle in under 16.6
+milliseconds.</p>
+<p>In a naive collision detection system with <span
+class="math inline">\(n\)</span> objects, testing every entity against
+every other entity requires an all-pairs check:</p>
+<p><span class="math display">\[\frac{n(n - 1)}{2} \approx
+O(n^2)\]</span></p>
+<p>With 100 objects, the engine performs nearly 5,000 checks per frame.
+With 1,000 objects, that number escalates to roughly 500,000 checks.
+Running complex shape intersection tests at this scale quickly drops
+frame rates. To solve this, collision detection is split into two
+stages:</p>
+<ol type="1">
+<li><strong>Broad-phase:</strong> Quickly identifies pairs of objects
+that <em>might</em> be colliding, discarding the vast majority that are
+far apart.</li>
+<li><strong>Narrow-phase:</strong> Runs precise, computationally
+expensive mathematical checks (such as the Separating Axis Theorem or
+GJK) only on the candidate pairs flagged by the broad-phase.</li>
+</ol>
+<h2 id="how-sweep-and-prune-works">How Sweep and Prune Works</h2>
+<p>Sweep and prune is an axis-aligned bounding box (AABB) broad-phase
+algorithm. It operates on the principle that if two bounding boxes do
+not overlap on any single axis, they cannot possibly intersect in
+multi-dimensional space.</p>
+<p>The algorithm proceeds in three core steps:</p>
+<ol type="1">
+<li><strong>Projection:</strong> Each entity's AABB is projected onto a
+chosen coordinate axis (commonly the X-axis) as a 1D interval defined by
+a minimum boundary value (<code>start</code>) and a maximum boundary
+value (<code>end</code>).</li>
+<li><strong>Sorting:</strong> All endpoint markers are sorted in
+ascending order along that axis.</li>
+<li><strong>Sweeping:</strong> The algorithm iterates ("sweeps") through
+the sorted list from left to right:
+<ul>
+<li>When a <code>start</code> marker is encountered, that entity is
+added to an "active list."</li>
+<li>Any entities currently in the active list overlap with the newly
+added entity on this axis.</li>
+<li>When an <code>end</code> marker is encountered, that entity is
+removed from the active list.</li>
+</ul></li>
+</ol>
+<p>Candidate pairs found overlapping on the primary axis are then
+checked against the remaining axis (or axes in 3D). If they overlap
+across all dimensions, they are forwarded to the narrow-phase
+pipeline.</p>
+<h2 id="exploiting-temporal-coherence">Exploiting Temporal
+Coherence</h2>
+<p>The primary advantage of sweep and prune over spatial partitioning
+structures (such as quadtrees or spatial hashes) is its use of
+<strong>temporal coherence</strong>. In most games, objects move small
+distances between consecutive frames. Consequently, the sorted order of
+bounding box endpoints changes very little from frame <span
+class="math inline">\(k\)</span> to frame <span
+class="math inline">\(k+1\)</span>.</p>
+<p>While general-purpose sorting algorithms like quicksort or
+JavaScript's native <code>Array.prototype.sort()</code> execute in <span
+class="math inline">\(O(n \log n)\)</span> time, an <strong>insertion
+sort</strong> on a nearly sorted array runs in nearly <span
+class="math inline">\(O(n)\)</span> time.</p>
+<p>By persisting the endpoint list across frames and sorting it with an
+insertion sort, the engine avoids re-sorting from scratch. If an object
+moves, the insertion sort only swaps its endpoints with adjacent markers
+until order is restored, keeping frame-to-frame overhead minimal.</p>
+<h2
+id="javascript-specific-implementation-considerations">JavaScript-Specific
+Implementation Considerations</h2>
+<p>Implementing sweep and prune efficiently in JavaScript requires
+careful management of the V8 or JavaScriptCore engines:</p>
+<h3 id="avoiding-garbage-collection-spikes">Avoiding Garbage Collection
+Spikes</h3>
+<p>Creating new objects or arrays each frame triggers frequent garbage
+collection (GC) cycles, resulting in visible micro-stutters.</p>
+<ul>
+<li>Do not instantiate new endpoint objects every frame. Pre-allocate
+endpoint instances and update their numerical values in place.</li>
+<li>Use persistent, pre-sized typed arrays or flat arrays to store
+active lists and candidate collision pairs.</li>
+</ul>
+<h3 id="axis-selection">Axis Selection</h3>
+<p>The algorithm's efficiency depends on the variance of entity
+positions along the chosen primary axis. If all entities cluster along
+the X-axis, the active list will remain full, degrading performance
+toward <span class="math inline">\(O(n^2)\)</span>.</p>
+<ul>
+<li>Choose the axis with the widest spread of entities.</li>
+<li>In dynamic worlds, calculate the variance of object positions along
+the X and Y axes periodically, switching the primary sweep axis to
+whichever dimension offers the greatest spread.</li>
+</ul>
+<p>Sweep and prune eliminates the vast majority of unnecessary
+intersection tests, serving as a lightweight, memory-efficient
+broad-phase solution that allows JavaScript game engines to handle
+hundreds of moving bodies within tight frame budgets.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/sweep-and-prune-collision-detection-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

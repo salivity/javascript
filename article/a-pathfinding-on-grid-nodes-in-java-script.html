@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A* Pathfinding on Grid Nodes in JavaScript - javascript</title>
+    <meta name="description" content="A (A-Star) pathfinding is the industry standard for navigating 2D grid systems in game development, offering an optimal balance between accuracy and computational performance. In JavaScript game engines, the algorithm plots the shortest, obstacle-free rou">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/a-pathfinding-on-grid-nodes-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="A* Pathfinding on Grid Nodes in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/a-pathfinding-on-grid-nodes-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A (A-Star) pathfinding is the industry standard for navigating 2D grid systems in game development, offering an optimal balance between accuracy and computational performance. In JavaScript game engines, the algorithm plots the shortest, obstacle-free rou" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="a-pathfinding-on-grid-nodes-in-javascript">A* Pathfinding on
+Grid Nodes in JavaScript</h1>
+<p>A* (A-Star) pathfinding is the industry standard for navigating 2D
+grid systems in game development, offering an optimal balance between
+accuracy and computational performance. In JavaScript game engines, the
+algorithm plots the shortest, obstacle-free route between a start node
+and an end node by evaluating movement costs and directional heuristics.
+This guide breaks down the core mathematical logic, data structures, and
+execution loop required to implement A* pathfinding across a tile
+grid.</p>
+<h3 id="the-core-formula-fn--gn--hn">The Core Formula: f(n) = g(n) +
+h(n)</h3>
+<p>Every node on a grid evaluated by A* relies on a fundamental scoring
+formula:</p>
+<ul>
+<li><strong>g(n):</strong> The exact cost to move from the starting node
+to the current node <span class="math inline">\(n\)</span>. In an
+orthogonal (four-direction) grid, moving to an adjacent node typically
+adds a cost of 1.</li>
+<li><strong>h(n):</strong> The heuristic estimate representing the
+projected distance from node <span class="math inline">\(n\)</span> to
+the goal. In grid-based games without diagonal movement, the Manhattan
+distance formula is typically used:
+<code>Math.abs(current.x - goal.x) + Math.abs(current.y - goal.y)</code>.
+If eight-directional movement is permitted, Chebyshev or Euclidean
+distance is used instead.</li>
+<li><strong>f(n):</strong> The sum of <span
+class="math inline">\(g\)</span> and <span
+class="math inline">\(h\)</span>. It represents the total estimated cost
+of a complete path passing through node <span
+class="math inline">\(n\)</span>. The algorithm always prioritizes
+expanding the node with the lowest <span
+class="math inline">\(f\)</span> score.</li>
+</ul>
+<h3 id="node-structure-in-javascript">Node Structure in JavaScript</h3>
+<p>To track navigation data, each cell within the grid is modeled as an
+object containing its coordinates, state, and evaluation metrics:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="bu">Node</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(x<span class="op">,</span> y<span class="op">,</span> walkable <span class="op">=</span> <span class="kw">true</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">walkable</span> <span class="op">=</span> walkable<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">g</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">h</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">f</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">parent</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// Points to the preceding node in the optimal path</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The <code>parent</code> pointer is critical because it allows the
+path to be traced backward once the target is reached.</p>
+<h3 id="managing-node-collections-the-open-and-closed-sets">Managing
+Node Collections: The Open and Closed Sets</h3>
+<p>A* operates using two primary collections:</p>
+<ol type="1">
+<li><strong>The Open Set:</strong> An array or priority queue containing
+nodes discovered but not yet fully evaluated. It initially contains only
+the starting node.</li>
+<li><strong>The Closed Set:</strong> A list or set containing nodes that
+have already been examined and expanded. Once placed here, a node is
+skipped in subsequent searches to prevent infinite loops.</li>
+</ol>
+<h3 id="the-algorithm-execution-loop">The Algorithm Execution Loop</h3>
+<p>The search process runs iteratively through these steps until the
+goal node is found or the open set is empty:</p>
+<ol type="1">
+<li><strong>Select the Best Candidate:</strong> Identify the node in the
+open set with the lowest <span class="math inline">\(f\)</span> value.
+If multiple nodes share the lowest <span
+class="math inline">\(f\)</span>, the one with the lower <span
+class="math inline">\(h\)</span> value is chosen to break ties.</li>
+<li><strong>Move to Closed Set:</strong> Remove the chosen node from the
+open set and push it into the closed set.</li>
+<li><strong>Target Verification:</strong> If the current node matches
+the destination coordinates, the search concludes immediately.</li>
+<li><strong>Evaluate Neighbors:</strong> Retrieve orthogonal (and
+optionally diagonal) adjacent nodes that are walkable and not in the
+closed set.</li>
+<li><strong>Calculate Step Costs:</strong> For each valid neighbor,
+compute a tentative <span class="math inline">\(g\)</span> cost (current
+node's <span class="math inline">\(g\)</span> + movement cost).
+<ul>
+<li>If the neighbor is not in the open set, calculate its <span
+class="math inline">\(h\)</span> and <span
+class="math inline">\(f\)</span> scores, assign its <code>parent</code>
+to the current node, and add it to the open set.</li>
+<li>If the neighbor is already in the open set, check if the tentative
+<span class="math inline">\(g\)</span> is lower than its existing <span
+class="math inline">\(g\)</span>. If so, update its <span
+class="math inline">\(g\)</span>, recalculate <span
+class="math inline">\(f\)</span>, and update its <code>parent</code> to
+the current node.</li>
+</ul></li>
+</ol>
+<h3 id="path-reconstruction">Path Reconstruction</h3>
+<p>Once the destination node is reached, the final path is assembled via
+back-propagation:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">reconstructPath</span>(endNode) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> path <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> current <span class="op">=</span> endNode<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (current <span class="op">!==</span> <span class="kw">null</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    path<span class="op">.</span><span class="fu">push</span>({ <span class="dt">x</span><span class="op">:</span> current<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> current<span class="op">.</span><span class="at">y</span> })<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    current <span class="op">=</span> current<span class="op">.</span><span class="at">parent</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> path<span class="op">.</span><span class="fu">reverse</span>()<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The returned array gives the game entity the exact sequence of tile
+coordinates required to travel from start to finish.</p>
+<h3 id="javascript-performance-optimization">JavaScript Performance
+Optimization</h3>
+<p>In real-time browser games, searching large grids every frame can
+cause frame drops. Performance can be maximized by:</p>
+<ul>
+<li><strong>Replacing Array Sorts with a Binary Heap:</strong> Sorting
+an array on every step runs in <span class="math inline">\(O(n \log
+n)\)</span> time. Using a min-heap reduces the removal of the
+lowest-<span class="math inline">\(f\)</span> node to <span
+class="math inline">\(O(\log n)\)</span>.</li>
+<li><strong>Reusing Grid Allocations:</strong> Rather than instantiating
+new <code>Node</code> instances on every path request, maintain a static
+grid and reset node scores using an incrementing search ID counter.</li>
+<li><strong>Path Smoothing:</strong> Post-process the final node array
+using raycasting (line-of-sight checks) to eliminate unnecessary zigzag
+turns typical of orthogonal grid calculations.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/a-pathfinding-on-grid-nodes-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

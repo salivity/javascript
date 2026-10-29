@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protect JavaScript Game Saves Against Tampering - javascript</title>
+    <meta name="description" content="In client-side JavaScript game development, storing save data in formats like JSON leaves game states vulnerable to trivial modification through browser developer tools or text editors. Implementing cryptographic encryption and integrity verification rais">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/protect-java-script-game-saves-against-tampering">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Protect JavaScript Game Saves Against Tampering - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/protect-java-script-game-saves-against-tampering" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In client-side JavaScript game development, storing save data in formats like JSON leaves game states vulnerable to trivial modification through browser developer tools or text editors. Implementing cryptographic encryption and integrity verification rais" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="protect-javascript-game-saves-against-tampering">Protect
+JavaScript Game Saves Against Tampering</h1>
+<p>In client-side JavaScript game development, storing save data in
+formats like JSON leaves game states vulnerable to trivial modification
+through browser developer tools or text editors. Implementing
+cryptographic encryption and integrity verification raises the technical
+barrier against local tampering, ensuring that players cannot easily
+alter statistics, currency, or progression flags stored in
+<code>localStorage</code>, IndexedDB, or local file systems.</p>
+<h3 id="the-vulnerability-of-client-side-storage">The Vulnerability of
+Client-Side Storage</h3>
+<p>JavaScript games that execute entirely within a player's environment
+inherently expose their storage mechanisms. Standard storage APIs, such
+as <code>Window.localStorage</code> or IndexedDB, persist plain text or
+lightly serialized objects. A player can open the browser console,
+inspect the stored data, modify values such as player health or
+inventory counts, and reload the game with the altered state.</p>
+<h3 id="how-encryption-prevents-tampering">How Encryption Prevents
+Tampering</h3>
+<p>Encryption addresses local tampering primarily by transforming
+human-readable data structures into unreadable ciphertext and coupling
+that ciphertext with cryptographic integrity verification.</p>
+<ol type="1">
+<li><strong>Obfuscation of Data Structure:</strong> By utilizing
+symmetric encryption algorithms like AES (Advanced Encryption Standard),
+plain JSON strings are scrambled into high-entropy ciphertext. A player
+attempting to edit their save file in a text editor cannot determine
+which bytes correspond to specific game variables.</li>
+<li><strong>Authenticated Encryption (AEAD):</strong> Modern
+cryptographic modes, such as AES-GCM (Galois/Counter Mode), provide both
+confidentiality and data integrity. AES-GCM generates an authentication
+tag during encryption. If a user modifies even a single byte of the
+encrypted payload, the decryption process fails the mathematical
+verification and rejects the save file as corrupt.</li>
+<li><strong>Hashing and HMAC Verification:</strong> If standard
+encryption modes like AES-CBC are used, integrity is often enforced by
+pairing the ciphertext with a Hash-based Message Authentication Code
+(HMAC) using SHA-256. Upon loading, the game computes the HMAC of the
+file using a secret key and compares it against the stored signature.
+Any divergence indicates tampering, prompting the game to discard the
+save.</li>
+</ol>
+<h3 id="implementation-with-the-web-crypto-api">Implementation with the
+Web Crypto API</h3>
+<p>Modern JavaScript provides native cryptographic operations through
+the <code>crypto.subtle</code> API, eliminating the need for third-party
+libraries:</p>
+<ul>
+<li><strong>Key Generation or Derivation:</strong> The game derives a
+<code>CryptoKey</code> using PBKDF2 from a hardcoded or dynamically
+computed seed phrase combined with a static salt.</li>
+<li><strong>Encryption Phase:</strong> The game serializes the player
+state to a JSON string, generates a random Initialization Vector (IV),
+and executes
+<code>crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encodedData)</code>.
+The IV and ciphertext are concatenated and converted to a Base64 string
+for storage.</li>
+<li><strong>Decryption Phase:</strong> When loading, the game splits the
+IV from the ciphertext and executes
+<code>crypto.subtle.decrypt()</code>. If the data was altered, the
+promise rejects, signaling that the save file has been compromised.</li>
+</ul>
+<h3 id="the-limits-of-client-side-protection">The Limits of Client-Side
+Protection</h3>
+<p>While encryption stops casual editing, it does not provide absolute
+security in client-side architectures. Because the decryption keys and
+verification algorithms exist within the game's JavaScript source code,
+a determined user can debug the runtime, extract keys from memory, or
+modify the source code to bypass integrity checks entirely.
+Consequently, encryption in local JavaScript games serves as a defense
+against casual tampering rather than a replacement for
+server-authoritative validation.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/protect-java-script-game-saves-against-tampering';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

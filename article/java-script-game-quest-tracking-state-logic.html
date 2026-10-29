@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Game Quest Tracking State Logic - javascript</title>
+    <meta name="description" content="This article explores how to implement robust quest tracking state logic in JavaScript game programming, detailing the data structures, state machines, and event-driven mechanics required to build a dynamic quest system. You will learn how to structure qu">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-game-quest-tracking-state-logic">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Game Quest Tracking State Logic - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-game-quest-tracking-state-logic" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how to implement robust quest tracking state logic in JavaScript game programming, detailing the data structures, state machines, and event-driven mechanics required to build a dynamic quest system. You will learn how to structure qu" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-game-quest-tracking-state-logic">JavaScript Game
+Quest Tracking State Logic</h1>
+<p>This article explores how to implement robust quest tracking state
+logic in JavaScript game programming, detailing the data structures,
+state machines, and event-driven mechanics required to build a dynamic
+quest system. You will learn how to structure quest data, track linear
+and non-linear objectives, advance states securely, and decouple quest
+triggers from your primary game loop using clear, practical JavaScript
+patterns.</p>
+<hr />
+<h3 id="understanding-the-quest-state-lifecycle">Understanding the Quest
+State Lifecycle</h3>
+<p>A quest tracking system functions primarily as a Finite State Machine
+(FSM). At any given moment, a quest exists in one mutually exclusive
+state, transitioning to another based on player actions or world
+conditions.</p>
+<p>The standard lifecycle states include:</p>
+<ul>
+<li><strong>LOCKED / UNAVAILABLE</strong>: Prerequisites (level, prior
+quests) are not yet met.</li>
+<li><strong>AVAILABLE</strong>: Prerequisites are met; the quest can be
+accepted from an NPC, board, or trigger.</li>
+<li><strong>ACTIVE</strong>: The player is actively working on the quest
+objectives.</li>
+<li><strong>COMPLETED</strong>: All required objectives have been
+achieved, and rewards are distributed.</li>
+<li><strong>FAILED</strong>: The player failed a condition (e.g., timed
+out, VIP NPC died).</li>
+</ul>
+<h3 id="step-1-defining-the-quest-data-model">Step 1: Defining the Quest
+Data Model</h3>
+<p>A robust quest system separates the static quest definition
+(metadata, narrative text, required targets) from the dynamic player
+state (current counts, completion flags).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Quest Definition (Static Template)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> QuestDefinitions <span class="op">=</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">slay_goblins</span><span class="op">:</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">id</span><span class="op">:</span> <span class="st">&quot;slay_goblins&quot;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">title</span><span class="op">:</span> <span class="st">&quot;Goblin Menace&quot;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">description</span><span class="op">:</span> <span class="st">&quot;Eliminate the goblins terrorizing the outer farmlands.&quot;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">prerequisites</span><span class="op">:</span> { <span class="dt">playerLevel</span><span class="op">:</span> <span class="dv">2</span> }<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">steps</span><span class="op">:</span> [</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">id</span><span class="op">:</span> <span class="st">&quot;kill_goblins&quot;</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">description</span><span class="op">:</span> <span class="st">&quot;Defeat 5 Goblins&quot;</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">targetType</span><span class="op">:</span> <span class="st">&quot;KILL&quot;</span><span class="op">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">targetId</span><span class="op">:</span> <span class="st">&quot;goblin&quot;</span><span class="op">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">requiredAmount</span><span class="op">:</span> <span class="dv">5</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">id</span><span class="op">:</span> <span class="st">&quot;report_to_guard&quot;</span><span class="op">,</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">description</span><span class="op">:</span> <span class="st">&quot;Report back to Captain Marcus&quot;</span><span class="op">,</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">targetType</span><span class="op">:</span> <span class="st">&quot;TALK&quot;</span><span class="op">,</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">targetId</span><span class="op">:</span> <span class="st">&quot;npc_marcus&quot;</span><span class="op">,</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="dt">requiredAmount</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="step-2-modeling-dynamic-player-quest-state">Step 2: Modeling
+Dynamic Player Quest State</h3>
+<p>The player's save data only needs to store active progress, keeping
+memory overhead low and simplifying serialization.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Player Quest Instance (Dynamic State)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> QuestInstance {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(definition) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">questId</span> <span class="op">=</span> definition<span class="op">.</span><span class="at">id</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">status</span> <span class="op">=</span> <span class="st">&quot;ACTIVE&quot;</span><span class="op">;</span> <span class="co">// AVAILABLE, ACTIVE, COMPLETED, FAILED</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">currentStepIndex</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">stepProgress</span> <span class="op">=</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      [definition<span class="op">.</span><span class="at">steps</span>[<span class="dv">0</span>]<span class="op">.</span><span class="at">id</span>]<span class="op">:</span> <span class="dv">0</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getCurrentStep</span>(definition) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> definition<span class="op">.</span><span class="at">steps</span>[<span class="kw">this</span><span class="op">.</span><span class="at">currentStepIndex</span>]<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-3-implementing-step-progression-logic">Step 3: Implementing
+Step Progression Logic</h3>
+<p>Quest objectives generally progress incrementally. The state logic
+must validate that an event matches the current step before updating
+progress.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> QuestManager {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(definitions) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">definitions</span> <span class="op">=</span> definitions<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">activeQuests</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">completedQuests</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">acceptQuest</span>(questId) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> definition <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">definitions</span>[questId]<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>definition <span class="op">||</span> <span class="kw">this</span><span class="op">.</span><span class="at">activeQuests</span><span class="op">.</span><span class="fu">has</span>(questId) <span class="op">||</span> <span class="kw">this</span><span class="op">.</span><span class="at">completedQuests</span><span class="op">.</span><span class="fu">has</span>(questId)) {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> questInstance <span class="op">=</span> <span class="kw">new</span> <span class="fu">QuestInstance</span>(definition)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">activeQuests</span><span class="op">.</span><span class="fu">set</span>(questId<span class="op">,</span> questInstance)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">processProgress</span>(actionType<span class="op">,</span> targetId<span class="op">,</span> amount <span class="op">=</span> <span class="dv">1</span>) {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> [questId<span class="op">,</span> quest] <span class="kw">of</span> <span class="kw">this</span><span class="op">.</span><span class="at">activeQuests</span><span class="op">.</span><span class="fu">entries</span>()) {</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> definition <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">definitions</span>[questId]<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> currentStep <span class="op">=</span> quest<span class="op">.</span><span class="fu">getCurrentStep</span>(definition)<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>currentStep) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Check if the current action satisfies the current step</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (currentStep<span class="op">.</span><span class="at">targetType</span> <span class="op">===</span> actionType <span class="op">&amp;&amp;</span> currentStep<span class="op">.</span><span class="at">targetId</span> <span class="op">===</span> targetId) {</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">updateStepProgress</span>(quest<span class="op">,</span> definition<span class="op">,</span> currentStep<span class="op">,</span> amount)<span class="op">;</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">updateStepProgress</span>(quest<span class="op">,</span> definition<span class="op">,</span> step<span class="op">,</span> amount) {</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentProgress <span class="op">=</span> (quest<span class="op">.</span><span class="at">stepProgress</span>[step<span class="op">.</span><span class="at">id</span>] <span class="op">||</span> <span class="dv">0</span>) <span class="op">+</span> amount<span class="op">;</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    quest<span class="op">.</span><span class="at">stepProgress</span>[step<span class="op">.</span><span class="at">id</span>] <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(currentProgress<span class="op">,</span> step<span class="op">.</span><span class="at">requiredAmount</span>)<span class="op">;</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (quest<span class="op">.</span><span class="at">stepProgress</span>[step<span class="op">.</span><span class="at">id</span>] <span class="op">&gt;=</span> step<span class="op">.</span><span class="at">requiredAmount</span>) {</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">advanceStep</span>(quest<span class="op">,</span> definition)<span class="op">;</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">advanceStep</span>(quest<span class="op">,</span> definition) {</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>    quest<span class="op">.</span><span class="at">currentStepIndex</span> <span class="op">+=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Check if all steps are completed</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (quest<span class="op">.</span><span class="at">currentStepIndex</span> <span class="op">&gt;=</span> definition<span class="op">.</span><span class="at">steps</span><span class="op">.</span><span class="at">length</span>) {</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">completeQuest</span>(quest)<span class="op">;</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Initialize next step progress</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> nextStep <span class="op">=</span> quest<span class="op">.</span><span class="fu">getCurrentStep</span>(definition)<span class="op">;</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>      quest<span class="op">.</span><span class="at">stepProgress</span>[nextStep<span class="op">.</span><span class="at">id</span>] <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">completeQuest</span>(quest) {</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>    quest<span class="op">.</span><span class="at">status</span> <span class="op">=</span> <span class="st">&quot;COMPLETED&quot;</span><span class="op">;</span></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">activeQuests</span><span class="op">.</span><span class="fu">delete</span>(quest<span class="op">.</span><span class="at">questId</span>)<span class="op">;</span></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">completedQuests</span><span class="op">.</span><span class="fu">add</span>(quest<span class="op">.</span><span class="at">questId</span>)<span class="op">;</span></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="step-4-decoupling-with-an-event-driven-architecture">Step 4:
+Decoupling with an Event-Driven Architecture</h3>
+<p>Hardcoding quest updates directly into game actions (such as combat
+or inventory handlers) leads to spaghetti code. Instead, tie the quest
+tracker to a pub/sub event bus.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Game Event Bus Integration</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> EventBus {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">listeners</span> <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">on</span>(<span class="bu">event</span><span class="op">,</span> callback) {</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">listeners</span>[<span class="bu">event</span>]) <span class="kw">this</span><span class="op">.</span><span class="at">listeners</span>[<span class="bu">event</span>] <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">listeners</span>[<span class="bu">event</span>]<span class="op">.</span><span class="fu">push</span>(callback)<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">emit</span>(<span class="bu">event</span><span class="op">,</span> data) {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">listeners</span>[<span class="bu">event</span>]) {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">listeners</span>[<span class="bu">event</span>]<span class="op">.</span><span class="fu">forEach</span>(callback <span class="kw">=&gt;</span> <span class="fu">callback</span>(data))<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> gameEvents <span class="op">=</span> <span class="kw">new</span> <span class="fu">EventBus</span>()<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> questManager <span class="op">=</span> <span class="kw">new</span> <span class="fu">QuestManager</span>(QuestDefinitions)<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">// Bind QuestManager to global events</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>gameEvents<span class="op">.</span><span class="fu">on</span>(<span class="st">&quot;ENEMY_KILLED&quot;</span><span class="op">,</span> ({ enemyType }) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  questManager<span class="op">.</span><span class="fu">processProgress</span>(<span class="st">&quot;KILL&quot;</span><span class="op">,</span> enemyType<span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>gameEvents<span class="op">.</span><span class="fu">on</span>(<span class="st">&quot;NPC_INTERACTED&quot;</span><span class="op">,</span> ({ npcId }) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  questManager<span class="op">.</span><span class="fu">processProgress</span>(<span class="st">&quot;TALK&quot;</span><span class="op">,</span> npcId<span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="step-5-handling-multi-objective-and-non-linear-steps">Step 5:
+Handling Multi-Objective and Non-Linear Steps</h3>
+<p>For quests where steps can be completed in any order within a phase
+(e.g., collect three different items simultaneously), alter the
+<code>currentStepIndex</code> linear flow into an array of concurrent
+active step IDs:</p>
+<ol type="1">
+<li>Maintain an <code>activeStepIds</code> list in the
+<code>QuestInstance</code>.</li>
+<li>Check incoming events against all IDs currently present in
+<code>activeStepIds</code>.</li>
+<li>Advance the quest state only when every step in the active group
+evaluates <code>stepProgress &gt;= requiredAmount</code>.</li>
+</ol>
+<h3 id="summary-of-state-flow">Summary of State Flow</h3>
+<ol type="1">
+<li><strong>Trigger fires</strong>: An in-game action emits an event via
+the event bus.</li>
+<li><strong>Evaluation</strong>: The <code>QuestManager</code> compares
+the event payload against active quest criteria.</li>
+<li><strong>Mutation</strong>: If valid, the target step's dynamic
+counter increments.</li>
+<li><strong>Transition Check</strong>: If the target threshold is met,
+the manager either unlocks the next step or flags the entire quest as
+<code>COMPLETED</code>.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-game-quest-tracking-state-logic';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

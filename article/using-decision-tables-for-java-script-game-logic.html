@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using Decision Tables for JavaScript Game Logic - javascript</title>
+    <meta name="description" content="Managing complex game states often leads to deeply nested conditionals and brittle code architectures that are difficult to debug. This article explores how decision tables resolve this issue in JavaScript game development by replacing tangled if/else lad">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/using-decision-tables-for-java-script-game-logic">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using Decision Tables for JavaScript Game Logic - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/using-decision-tables-for-java-script-game-logic" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Managing complex game states often leads to deeply nested conditionals and brittle code architectures that are difficult to debug. This article explores how decision tables resolve this issue in JavaScript game development by replacing tangled if/else lad" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-decision-tables-for-javascript-game-logic">Using Decision
+Tables for JavaScript Game Logic</h1>
+<p>Managing complex game states often leads to deeply nested
+conditionals and brittle code architectures that are difficult to debug.
+This article explores how decision tables resolve this issue in
+JavaScript game development by replacing tangled <code>if/else</code>
+ladders with declarative, tabular structures. By decoupling rule
+evaluation from action execution, decision tables clarify multi-variable
+states, streamline debugging, and make expanding game mechanics
+significantly faster.</p>
+<h3 id="the-problem-with-deeply-nested-conditionals">The Problem with
+Deeply Nested Conditionals</h3>
+<p>In game loops, entities frequently react to a combination of dynamic
+conditions: player input, physical environment, resource meters, and
+status effects. Handling these with traditional control flow creates
+"arrow anti-patterns" or massive <code>switch</code> blocks:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (player<span class="op">.</span><span class="at">isGrounded</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (input<span class="op">.</span><span class="at">jump</span> <span class="op">&amp;&amp;</span> player<span class="op">.</span><span class="at">stamina</span> <span class="op">&gt;=</span> <span class="dv">10</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="fu">jump</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (input<span class="op">.</span><span class="at">attack</span> <span class="op">&amp;&amp;</span> player<span class="op">.</span><span class="at">weaponDrawn</span>) {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="fu">attack</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> <span class="cf">if</span> (player<span class="op">.</span><span class="at">inWater</span>) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (input<span class="op">.</span><span class="at">jump</span>) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="fu">swimUp</span>()<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>As new mechanics like status ailments or power-ups are introduced,
+every added condition increases cyclomatic complexity exponentially.
+Missing edge cases becomes common, and refactoring existing mechanics
+risks breaking unrelated states.</p>
+<h3 id="what-is-a-decision-table">What is a Decision Table?</h3>
+<p>A decision table is a structured, matrix-based representation of
+conditions and their corresponding actions. It models inputs as columns
+or keys and determines the resulting system state without embedding
+logical branches directly into the execution flow.</p>
+<p>In JavaScript, decision tables can be implemented effectively using
+arrays of rule objects, bitmasks, or compound key lookups via plain
+objects or <code>Map</code> instances.</p>
+<h3 id="implementing-a-decision-table-in-javascript">Implementing a
+Decision Table in JavaScript</h3>
+<p>Consider a player character deciding between multiple states—running,
+jumping, wall-sliding, or falling—based on several environmental
+flags.</p>
+<p>Instead of writing sequential branches, conditions and actions are
+structured declaratively:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> playerRules <span class="op">=</span> [</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;Jump&#39;</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">when</span><span class="op">:</span> (p<span class="op">,</span> input) <span class="kw">=&gt;</span> p<span class="op">.</span><span class="at">isGrounded</span> <span class="op">&amp;&amp;</span> input<span class="op">.</span><span class="at">jump</span> <span class="op">&amp;&amp;</span> p<span class="op">.</span><span class="at">stamina</span> <span class="op">&gt;=</span> <span class="dv">10</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">action</span><span class="op">:</span> (p) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      p<span class="op">.</span><span class="at">velocityY</span> <span class="op">=</span> <span class="op">-</span><span class="dv">12</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      p<span class="op">.</span><span class="at">stamina</span> <span class="op">-=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;Wall Slide&#39;</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">when</span><span class="op">:</span> (p<span class="op">,</span> input) <span class="kw">=&gt;</span> <span class="op">!</span>p<span class="op">.</span><span class="at">isGrounded</span> <span class="op">&amp;&amp;</span> p<span class="op">.</span><span class="at">isTouchingWall</span> <span class="op">&amp;&amp;</span> p<span class="op">.</span><span class="at">velocityY</span> <span class="op">&gt;</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">action</span><span class="op">:</span> (p) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      p<span class="op">.</span><span class="at">velocityY</span> <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// slow fall speed</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">name</span><span class="op">:</span> <span class="st">&#39;Standard Fall&#39;</span><span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">when</span><span class="op">:</span> (p) <span class="kw">=&gt;</span> <span class="op">!</span>p<span class="op">.</span><span class="at">isGrounded</span><span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">action</span><span class="op">:</span> (p) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>      p<span class="op">.</span><span class="at">velocityY</span> <span class="op">+=</span> <span class="fl">0.5</span><span class="op">;</span> <span class="co">// normal gravity</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePlayerState</span>(player<span class="op">,</span> input) {</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> matchedRule <span class="op">=</span> playerRules<span class="op">.</span><span class="fu">find</span>(rule <span class="kw">=&gt;</span> rule<span class="op">.</span><span class="fu">when</span>(player<span class="op">,</span> input))<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (matchedRule) {</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    matchedRule<span class="op">.</span><span class="fu">action</span>(player)<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>For discrete, binary conditions (e.g., <code>isGrounded</code>,
+<code>hasWeapon</code>, <code>isStunned</code>), you can achieve
+constant-time <span class="math inline">\(O(1)\)</span> lookups using
+bitwise flags or string serialization:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stateLookup <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Key format: &quot;isGrounded:hasStamina:inputAction&quot;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;true:true:attack&#39;</span><span class="op">:</span> (player) <span class="kw">=&gt;</span> player<span class="op">.</span><span class="fu">performGroundAttack</span>()<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;false:true:attack&#39;</span><span class="op">:</span> (player) <span class="kw">=&gt;</span> player<span class="op">.</span><span class="fu">performAirAttack</span>()<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;true:true:jump&#39;</span><span class="op">:</span> (player) <span class="kw">=&gt;</span> player<span class="op">.</span><span class="fu">jump</span>()<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;true:false:jump&#39;</span><span class="op">:</span> (player) <span class="kw">=&gt;</span> player<span class="op">.</span><span class="fu">pant</span>()<span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">resolveAction</span>(player<span class="op">,</span> actionType) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> stateKey <span class="op">=</span> <span class="vs">`</span><span class="sc">${</span>player<span class="op">.</span><span class="at">isGrounded</span><span class="sc">}</span><span class="vs">:</span><span class="sc">${</span>player<span class="op">.</span><span class="at">stamina</span> <span class="op">&gt;</span> <span class="dv">0</span><span class="sc">}</span><span class="vs">:</span><span class="sc">${</span>actionType<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> action <span class="op">=</span> stateLookup[stateKey] <span class="op">||</span> (() <span class="kw">=&gt;</span> {})<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">action</span>(player)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="key-advantages-in-game-programming">Key Advantages in Game
+Programming</h3>
+<h4 id="1-exhaustive-edge-case-detection">1. Exhaustive Edge-Case
+Detection</h4>
+<p>By listing state variables as axes of a table, developers can
+visually or programmatically audit every possible permutation. This
+prevents unexpected states, such as a player initiating an attack while
+locked in hit-stun, from going unnoticed during development.</p>
+<h4 id="2-separation-of-state-evaluation-and-behavior">2. Separation of
+State Evaluation and Behavior</h4>
+<p>Conditional checks evaluate <em>what</em> the entity is, while
+actions dictate <em>what it does</em>. Separating these concerns makes
+mechanics modular. Modifying a jump requirement does not require
+altering physics handling, and updating an animation does not risk
+breaking collision logic.</p>
+<h4 id="3-data-driven-scalability">3. Data-Driven Scalability</h4>
+<p>Because decision tables are plain JavaScript objects or arrays, they
+can be extracted into JSON files or external configuration sheets. Game
+designers can tune behaviors, adjust transition prerequisites, or
+disable mechanics directly without altering the underlying engine
+logic.</p>
+<h4 id="4-simplified-unit-testing">4. Simplified Unit Testing</h4>
+<p>Testing complex logic in a decision table does not require simulating
+multiple sequential game frames. Each rule is a pure condition function
+paired with an isolated mutation function, allowing individual
+transitions to be tested with simple, deterministic mock data.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/using-decision-tables-for-java-script-game-logic';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

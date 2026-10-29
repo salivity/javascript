@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spatial Grids for Broad-Phase Collision in JavaScript - javascript</title>
+    <meta name="description" content="In JavaScript game programming, naive collision detection checks every entity against every other entity, creating a massive computational bottleneck that rapidly degrades frame rates as object counts increase. Spatial partitioning grids solve this issue">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/spatial-grids-for-broad-phase-collision-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spatial Grids for Broad-Phase Collision in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/spatial-grids-for-broad-phase-collision-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript game programming, naive collision detection checks every entity against every other entity, creating a massive computational bottleneck that rapidly degrades frame rates as object counts increase. Spatial partitioning grids solve this issue" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="spatial-grids-for-broad-phase-collision-in-javascript">Spatial
+Grids for Broad-Phase Collision in JavaScript</h1>
+<p>In JavaScript game programming, naive collision detection checks
+every entity against every other entity, creating a massive
+computational bottleneck that rapidly degrades frame rates as object
+counts increase. Spatial partitioning grids solve this issue by dividing
+the game world into localized two-dimensional cells, enabling the
+broad-phase collision step to query only entities that occupy the same
+or adjacent areas. This article explains how spatial grids dramatically
+reduce algorithmic complexity, optimize CPU cycles in JavaScript's
+single-threaded runtime, and maintain smooth performance in real-time
+browser games.</p>
+<h3 id="the-bottleneck-of-naive-collision-detection">The Bottleneck of
+Naive Collision Detection</h3>
+<p>A brute-force collision system iterates through every entity in the
+game and checks it against every other entity. For <span
+class="math inline">\(n\)</span> active objects, this requires <span
+class="math inline">\(\frac{n(n - 1)}{2}\)</span> calculations per
+frame, resulting in an <span class="math inline">\(O(n^2)\)</span> time
+complexity.</p>
+<p>In JavaScript, where the rendering and game logic typically share a
+single thread via <code>requestAnimationFrame</code>, performing
+hundreds of thousands of geometric comparisons every 16 milliseconds
+causes dropped frames and sluggish gameplay. To scale beyond a few dozen
+objects, the collision pipeline must be split into two stages:
+broad-phase and narrow-phase. Narrow-phase performs exact,
+mathematically intensive geometric checks (such as Separating Axis
+Theorem or circle-polygon intersections), while broad-phase quickly
+discards pairs of objects that are nowhere near each other.</p>
+<h3 id="how-spatial-partitioning-grids-work">How Spatial Partitioning
+Grids Work</h3>
+<p>A spatial partitioning grid breaks down the continuous coordinates of
+a 2D canvas into a discrete, uniform matrix of cells. Each cell acts as
+a container or "bucket" holding references to the entities currently
+residing inside its boundaries.</p>
+<ol type="1">
+<li><strong>Cell Mapping:</strong> The grid assigns a fixed dimension to
+each cell, denoted as <code>cellSize</code>. Any point <span
+class="math inline">\((x, y)\)</span> in the game world maps directly to
+a discrete grid coordinate using integer division: <span
+class="math display">\[\text{gridX} = \lfloor x / \text{cellSize}
+\rfloor\]</span> <span class="math display">\[\text{gridY} = \lfloor y /
+\text{cellSize} \rfloor\]</span></li>
+<li><strong>Object Registration:</strong> At the start of each frame or
+whenever an entity moves, its bounding box is evaluated. If an entity is
+small, it maps to a single cell. If it spans across cell boundaries, it
+is registered in all overlapping cells.</li>
+<li><strong>Targeted Queries:</strong> When evaluating potential
+collisions for an entity, the engine only queries the contents of the
+cell(s) that the entity currently occupies. Entities located in distant
+cells are never compared against each other.</li>
+</ol>
+<h3 id="reducing-algorithmic-complexity">Reducing Algorithmic
+Complexity</h3>
+<p>By filtering out distant objects mathematically, the spatial grid
+transforms broad-phase collision from <span
+class="math inline">\(O(n^2)\)</span> down toward <span
+class="math inline">\(O(n)\)</span> under uniform distribution.</p>
+<p>Instead of checking an entity against all other <span
+class="math inline">\(n - 1\)</span> entities, the game checks it
+against <span class="math inline">\(k\)</span> entities, where <span
+class="math inline">\(k\)</span> represents the average population of a
+cell. Because <span class="math inline">\(k\)</span> is typically small
+and relatively constant regardless of how large the total world becomes,
+adding more entities to a larger game world scales linearly rather than
+exponentially. This allows a JavaScript engine to effortlessly handle
+thousands of simultaneous entities, such as bullets, particles, and
+enemies.</p>
+<h3 id="javascript-implementation-considerations">JavaScript
+Implementation Considerations</h3>
+<p>To extract the highest performance from spatial grids in JavaScript
+environments, developers must account for runtime behavior and garbage
+collection:</p>
+<ul>
+<li><strong>Optimal Cell Sizing:</strong> A well-tuned cell size is
+typically set to one to two times the size of the average largest
+collidable object. If cells are too small, objects span dozens of cells,
+causing excessive insertion overhead. If cells are too large, too many
+objects fall into the same cell, collapsing the system back toward
+brute-force <span class="math inline">\(O(n^2)\)</span> checks.</li>
+<li><strong>Garbage Collection Optimization:</strong> Continuously
+allocating new arrays or objects inside the main loop triggers
+JavaScript's garbage collector, causing micro-stutters. High-performance
+grids reuse flat 1D arrays or <code>TypedArray</code> buffers from frame
+to frame, clearing cell counters rather than instantiating new array
+structures repeatedly.</li>
+<li><strong>Fast Hashing:</strong> To avoid multi-dimensional array
+access overhead or dynamic string keys (like <code>"12,34"</code>),
+developers often convert 2D coordinates into a single 1D index:
+<code>index = gridX + gridY * gridWidth</code>. This allows for
+ultra-fast indexing into contiguous memory arrays.</li>
+</ul>
+<p>By restricting narrow-phase collision calculations exclusively to
+nearby candidates, spatial partitioning grids serve as one of the most
+effective structural optimizations available for high-performance
+JavaScript game development.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/spatial-grids-for-broad-phase-collision-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML5 Canvas Performance: Clearing Canvas Every Frame - javascript</title>
+    <meta name="description" content="Clearing the entire HTML5 canvas each frame is standard practice in JavaScript game development, but it introduces distinct performance costs depending on screen resolution, hardware acceleration, and scene complexity. While modern GPUs handle full-frame">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/html-5-canvas-performance-clearing-canvas-every-frame">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="HTML5 Canvas Performance: Clearing Canvas Every Frame - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/html-5-canvas-performance-clearing-canvas-every-frame" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Clearing the entire HTML5 canvas each frame is standard practice in JavaScript game development, but it introduces distinct performance costs depending on screen resolution, hardware acceleration, and scene complexity. While modern GPUs handle full-frame" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="html5-canvas-performance-clearing-canvas-every-frame">HTML5
+Canvas Performance: Clearing Canvas Every Frame</h1>
+<p>Clearing the entire HTML5 canvas each frame is standard practice in
+JavaScript game development, but it introduces distinct performance
+costs depending on screen resolution, hardware acceleration, and scene
+complexity. While modern GPUs handle full-frame clears effortlessly in
+lightweight applications, doing so indiscriminately across high-DPI
+displays or on mobile hardware can quickly consume memory bandwidth and
+throttle frame rates. Understanding how methods like
+<code>clearRect()</code> interact with the browser's rendering pipeline
+is critical for diagnosing dropped frames and optimizing rendering
+cycles.</p>
+<h3 id="the-mechanics-and-cost-of-full-canvas-clearing">The Mechanics
+and Cost of Full Canvas Clearing</h3>
+<p>In 2D canvas programming, developers typically wipe the display state
+before drawing the next frame using one of two methods: calling
+<code>context.clearRect(0, 0, width, height)</code> or resetting the
+canvas dimensions via <code>canvas.width = canvas.width</code>.</p>
+<p>Resetting canvas dimensions is the most computationally expensive
+approach because it discards the entire drawing context, clears internal
+caches, and resets all canvas state properties (such as fill styles,
+transformations, and blend modes). By contrast, <code>clearRect()</code>
+maintains the context state and simply sets all pixels in the specified
+bounding box to transparent black (<code>rgba(0, 0, 0, 0)</code>).</p>
+<p>However, even <code>clearRect()</code> is not completely free. It
+requires the graphics pipeline to process every pixel within the
+specified area. The performance impact scales directly with the canvas
+resolution:</p>
+<ul>
+<li><strong>Fill-Rate Bottlenecks:</strong> A standard 1080p canvas
+requires clearing roughly 2 million pixels per frame, or 120 million
+pixels per second at 60 FPS. On high-DPI (Retina) screens or 4K
+displays, this number surges past 8 million pixels per frame. Processing
+that volume of pixel manipulation consumes significant memory bandwidth
+and can lead to thermal throttling on mobile devices.</li>
+<li><strong>Redundant Compositing:</strong> After clearing, every
+non-transparent pixel drawn must be blended by the browser compositor.
+If the game immediately paints a static, full-screen background over the
+cleared canvas, the initial clear operation was completely wasted
+computation.</li>
+</ul>
+<h3 id="optimization-strategies">Optimization Strategies</h3>
+<p>When profiling indicates that canvas operations are dominating the
+execution budget, developers can apply several alternative rendering
+patterns.</p>
+<h4 id="1-overwrite-instead-of-clearing">1. Overwrite Instead of
+Clearing</h4>
+<p>If a game features an opaque background image or a full-screen color
+fill, <code>clearRect()</code> is unnecessary. Calling
+<code>drawImage()</code> for a full-frame background or
+<code>fillRect()</code> will overwrite all underlying pixels in a single
+pass, eliminating the redundant clear pass entirely.</p>
+<h4 id="2-dirty-rectangles">2. Dirty Rectangles</h4>
+<p>Instead of wiping the entire coordinate plane, track which entities
+moved or changed state since the previous frame. Use
+<code>clearRect()</code> only over the bounding boxes of moving
+elements, then redraw those elements and any background overlapping
+those exact regions. This technique dramatically cuts down the fill-rate
+requirements, making it ideal for games with static or mostly quiet
+scenes like turn-based strategy or board games.</p>
+<h4 id="3-layered-canvases">3. Layered Canvases</h4>
+<p>Stacking multiple <code>&lt;canvas&gt;</code> elements using CSS
+absolute positioning lets developers separate concerns by update
+frequency:</p>
+<ul>
+<li><strong>Background Layer:</strong> Draws terrain, skyboxes, and
+decorative assets once or only when scrolling.</li>
+<li><strong>Game Layer:</strong> Clears and updates active entities like
+player characters, projectiles, and particle systems every frame.</li>
+<li><strong>UI Layer:</strong> Updates only when health, scores, or menu
+elements change.</li>
+</ul>
+<p>By keeping the primary dynamic canvas transparent and containing only
+moving sprites, the browser handles layer compositing via the GPU,
+drastically reducing the total number of manual canvas redraw
+operations.</p>
+<h3 id="practical-impact">Practical Impact</h3>
+<p>For modern desktop GPUs running games at 1080p, clearing the full
+canvas via <code>clearRect()</code> generally takes less than 1
+millisecond and rarely acts as the primary bottleneck compared to
+complex collision detection, pathfinding, or heavy sprite counts.
+However, on battery-constrained mobile browsers, unaccelerated software
+renderers, or screens with 3x device pixel ratios, full canvas clearing
+causes measurable frame drops and accelerated battery drain. Developers
+should profile their render loop in browser developer tools to ensure
+canvas clearing remains within an acceptable time slice.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/html-5-canvas-performance-clearing-canvas-every-frame';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

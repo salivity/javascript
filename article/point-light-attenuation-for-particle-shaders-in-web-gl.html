@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Point Light Attenuation for Particle Shaders in WebGL - javascript</title>
+    <meta name="description" content="This article explains how particle lighting shaders calculate and apply point light attenuation in JavaScript game development. You will learn how point light data is passed from the JavaScript CPU runtime to the GPU via uniforms, how distance falloff is">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/point-light-attenuation-for-particle-shaders-in-web-gl">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Point Light Attenuation for Particle Shaders in WebGL - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/point-light-attenuation-for-particle-shaders-in-web-gl" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how particle lighting shaders calculate and apply point light attenuation in JavaScript game development. You will learn how point light data is passed from the JavaScript CPU runtime to the GPU via uniforms, how distance falloff is" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="point-light-attenuation-for-particle-shaders-in-webgl">Point
+Light Attenuation for Particle Shaders in WebGL</h1>
+<p>This article explains how particle lighting shaders calculate and
+apply point light attenuation in JavaScript game development. You will
+learn how point light data is passed from the JavaScript CPU runtime to
+the GPU via uniforms, how distance falloff is mathematically computed
+inside GLSL shaders, how normal vectors are handled for billboard
+particles, and how multiple light sources can be efficiently
+processed.</p>
+<h2 id="passing-light-data-from-javascript-to-the-shader">Passing Light
+Data from JavaScript to the Shader</h2>
+<p>In WebGL and WebGPU game development, the CPU is responsible for
+managing game state, including particle positions and light sources. To
+apply lighting to particles, JavaScript passes the point light
+properties to the particle system’s GLSL shader program using uniforms
+or Uniform Buffer Objects (UBOs).</p>
+<p>For a single point light, the minimum required data sent from
+JavaScript includes:</p>
+<ul>
+<li><strong>Position (<code>vec3</code>):</strong> The world-space
+coordinates of the light source.</li>
+<li><strong>Color (<code>vec3</code>):</strong> The RGB diffuse color of
+the light.</li>
+<li><strong>Intensity (<code>float</code>):</strong> The brightness
+multiplier of the light.</li>
+<li><strong>Range / Radius (<code>float</code>):</strong> The maximum
+distance the light travels before its contribution becomes zero.</li>
+<li><strong>Decay / Attenuation Factor (<code>float</code>):</strong>
+The exponent controlling how abruptly the light fades over
+distance.</li>
+</ul>
+<p>In a framework like Three.js, this data is mapped automatically when
+using built-in materials or manually configured inside a
+<code>ShaderMaterial</code> uniform dictionary:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> particleUniforms <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">uPointLightPosition</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Vector3</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">0</span>) }<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">uPointLightColor</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Color</span>(<span class="dv">1</span><span class="op">,</span> <span class="fl">0.8</span><span class="op">,</span> <span class="fl">0.6</span>) }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">uPointLightIntensity</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="fl">2.0</span> }<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">uPointLightRadius</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="fl">15.0</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">uPointLightDecay</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="fl">2.0</span> }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h2 id="calculating-distance-and-attenuation-in-glsl">Calculating
+Distance and Attenuation in GLSL</h2>
+<p>Attenuation is the reduction of light intensity over distance. In
+real-world physics, this follows the inverse-square law, where intensity
+decreases proportionally to the square of the distance. In real-time
+rendering, this formula is typically modified to prevent division by
+zero and to clamp the light contribution cleanly to zero at the outer
+radius.</p>
+<p>Inside the shader, each particle determines its world-space position.
+For standard instanced meshes or billboards, this is calculated in the
+vertex shader and passed to the fragment shader via a varying
+vector.</p>
+<p>The attenuation calculation proceeds as follows:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// In the fragment shader</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">vec3</span> uPointLightPosition<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">vec3</span> uPointLightColor<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">float</span> uPointLightIntensity<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">float</span> uPointLightRadius<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">float</span> uPointLightDecay<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">varying</span> <span class="dt">vec3</span> vWorldPosition<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="fu">main</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Calculate distance from light to particle</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec3</span> lightVec <span class="op">=</span> uPointLightPosition <span class="op">-</span> vWorldPosition<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> <span class="bu">distance</span> <span class="op">=</span> <span class="bu">length</span><span class="op">(</span>lightVec<span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Compute physical inverse-square falloff with a safety epsilon</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> attenuation <span class="op">=</span> <span class="fl">1.0</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1.0</span> <span class="op">+</span> <span class="op">(</span><span class="bu">distance</span> <span class="op">*</span> <span class="bu">distance</span> <span class="op">*</span> <span class="op">(</span>uPointLightDecay <span class="op">/</span> <span class="fl">10.0</span><span class="op">)));</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Apply a smooth windowing function to bring intensity to zero at max radius</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> falloff <span class="op">=</span> <span class="bu">clamp</span><span class="op">(</span><span class="fl">1.0</span> <span class="op">-</span> <span class="bu">pow</span><span class="op">(</span><span class="bu">distance</span> <span class="op">/</span> uPointLightRadius<span class="op">,</span> <span class="fl">4.0</span><span class="op">),</span> <span class="fl">0.0</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    attenuation <span class="op">*=</span> falloff <span class="op">*</span> falloff<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Calculate final light contribution</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec3</span> finalLight <span class="op">=</span> uPointLightColor <span class="op">*</span> <span class="op">(</span>uPointLightIntensity <span class="op">*</span> attenuation<span class="op">);</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="va">gl_FragColor</span> <span class="op">=</span> <span class="dt">vec4</span><span class="op">(</span>finalLight<span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Performing the attenuation calculation in the vertex shader is
+computationally cheaper because it executes once per particle vertex
+rather than per pixel. However, computing it in the fragment shader
+yields superior visual fidelity, especially for large particle quads
+near light boundaries.</p>
+<h2 id="surface-normals-on-billboard-particles">Surface Normals on
+Billboard Particles</h2>
+<p>Point light attenuation determines how much light reaches a point in
+space, but true shading requires an orientation normal to compute
+Lambertian reflectance (<code>dot(N, L)</code>). Because particle
+billboards are flat quads oriented toward the active camera, flat
+shading produces unnatural, plate-like lighting.</p>
+<p>To solve this, particle shaders synthesize a spherical normal across
+the quad using its texture coordinates (UVs):</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Generate a hemispherical normal from UV coordinates ranging from 0.0 to 1.0</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">vec2</span> normalCoord <span class="op">=</span> vUv <span class="op">*</span> <span class="fl">2.0</span> <span class="op">-</span> <span class="fl">1.0</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> normalLengthSq <span class="op">=</span> <span class="bu">dot</span><span class="op">(</span>normalCoord<span class="op">,</span> normalCoord<span class="op">);</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Discard pixels outside the circular particle radius</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">if</span> <span class="op">(</span>normalLengthSq <span class="op">&gt;</span> <span class="fl">1.0</span><span class="op">)</span> <span class="kw">discard</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Derive the Z component to construct a dome-shaped normal</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="dt">vec3</span> normal <span class="op">=</span> <span class="dt">vec3</span><span class="op">(</span>normalCoord<span class="op">,</span> <span class="bu">sqrt</span><span class="op">(</span><span class="fl">1.0</span> <span class="op">-</span> normalLengthSq<span class="op">));</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Transform normal to view or world space and perform diffuse lighting</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="dt">vec3</span> lightDir <span class="op">=</span> <span class="bu">normalize</span><span class="op">(</span>uPointLightPosition <span class="op">-</span> vWorldPosition<span class="op">);</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> diffuse <span class="op">=</span> <span class="bu">max</span><span class="op">(</span><span class="bu">dot</span><span class="op">(</span>normal<span class="op">,</span> lightDir<span class="op">),</span> <span class="fl">0.0</span><span class="op">);</span></span></code></pre></div>
+<p>For unlit or volumetric effects like fire and smoke, developers
+frequently bypass surface normals altogether. Instead, the raw
+attenuation factor directly modulates the emissive opacity or diffuse
+tint of the particle texture.</p>
+<h2 id="handling-multiple-point-lights">Handling Multiple Point
+Lights</h2>
+<p>Games frequently require multiple point lights affecting a single
+particle emitter. Passing individual uniforms for every light quickly
+exceeds GPU uniform limits and degrades performance.</p>
+<p>To support multiple lights efficiently in JavaScript:</p>
+<ol type="1">
+<li><strong>Uniform Arrays:</strong> Pack light properties into
+fixed-size GLSL uniform arrays (e.g.,
+<code>uniform vec3 uPointLightPos[8];</code>) and run a loop inside the
+fragment shader, accumulating the attenuation of each light within
+range.</li>
+<li><strong>Data Textures or UBOs:</strong> Store light bounds, colors,
+and attenuation parameters in a floating-point data texture. The shader
+reads the texture using light indices.</li>
+<li><strong>Clustered / Tiled Forward Shading:</strong> The screen space
+or camera frustum is subdivided into a grid (clusters). JavaScript
+calculates which point lights intersect each grid cell, and the particle
+shader only calculates attenuation for the lights present in its
+assigned cluster.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/point-light-attenuation-for-particle-shaders-in-web-gl';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

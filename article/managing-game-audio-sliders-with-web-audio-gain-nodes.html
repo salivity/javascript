@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Managing Game Audio Sliders with Web Audio Gain Nodes - javascript</title>
+    <meta name="description" content="The Web Audio API allows developers to create sophisticated audio mixing systems for web games by organizing sound sources into a hierarchical audio graph. By routing distinct audio elements through dedicated GainNode instances, developers can isolate sou">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/managing-game-audio-sliders-with-web-audio-gain-nodes">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Managing Game Audio Sliders with Web Audio Gain Nodes - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/managing-game-audio-sliders-with-web-audio-gain-nodes" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Web Audio API allows developers to create sophisticated audio mixing systems for web games by organizing sound sources into a hierarchical audio graph. By routing distinct audio elements through dedicated GainNode instances, developers can isolate sou" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="managing-game-audio-sliders-with-web-audio-gain-nodes">Managing
+Game Audio Sliders with Web Audio Gain Nodes</h1>
+<p>The Web Audio API allows developers to create sophisticated audio
+mixing systems for web games by organizing sound sources into a
+hierarchical audio graph. By routing distinct audio elements through
+dedicated <code>GainNode</code> instances, developers can isolate sound
+effect (SFX) and background music (BGM) volumes while chaining them
+through a master <code>GainNode</code> before the final output. This
+architecture enables responsive UI sliders that scale individual
+channels independently or scale the entire mix globally without clipping
+or latency.</p>
+<h3 id="the-hierarchical-audio-graph">The Hierarchical Audio Graph</h3>
+<p>In the Web Audio API, sound flows from an audio source (such as an
+audio buffer or oscillator) through various processing nodes before
+reaching the hardware speakers (<code>AudioContext.destination</code>).
+A <code>GainNode</code> functions as an adjustable volume control along
+this path, multiplying the incoming audio signal's amplitude by its
+<code>gain.value</code>.</p>
+<p>To establish master and SFX controls, you create a parent-child node
+hierarchy:</p>
+<ol type="1">
+<li><strong>Individual SFX Sources</strong> connect to a <strong>SFX
+Gain Node</strong>.</li>
+<li><strong>SFX Gain Node</strong> (and any other sub-mixes like BGM)
+connects to the <strong>Master Gain Node</strong>.</li>
+<li><strong>Master Gain Node</strong> connects directly to
+<code>AudioContext.destination</code>.</li>
+</ol>
+<p>Because nodes are chained, the total output volume of a sound effect
+is the product of its individual volume, the SFX gain, and the master
+gain (<code>Final Volume = Source × SFX Gain × Master Gain</code>).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Initialize the audio context</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> audioCtx <span class="op">=</span> <span class="kw">new</span> (<span class="bu">window</span><span class="op">.</span><span class="at">AudioContext</span> <span class="op">||</span> <span class="bu">window</span><span class="op">.</span><span class="at">webkitAudioContext</span>)()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Create master and SFX gain nodes</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> masterGain <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createGain</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sfxGain <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createGain</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Route SFX into Master, and Master to the speakers</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>sfxGain<span class="op">.</span><span class="fu">connect</span>(masterGain)<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>masterGain<span class="op">.</span><span class="fu">connect</span>(audioCtx<span class="op">.</span><span class="at">destination</span>)<span class="op">;</span></span></code></pre></div>
+<h3 id="playing-sounds-through-the-sfx-channel">Playing Sounds Through
+the SFX Channel</h3>
+<p>When triggering a sound effect—such as a laser shot or a jump
+sound—you instantiate a transient <code>AudioBufferSourceNode</code>,
+attach the audio buffer, and connect it directly to
+<code>sfxGain</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">playSoundEffect</span>(buffer) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> source <span class="op">=</span> audioCtx<span class="op">.</span><span class="fu">createBufferSource</span>()<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    source<span class="op">.</span><span class="at">buffer</span> <span class="op">=</span> buffer<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Connect source to the SFX channel</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    source<span class="op">.</span><span class="fu">connect</span>(sfxGain)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    source<span class="op">.</span><span class="fu">start</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Since the source is connected to <code>sfxGain</code>, any volume
+adjustments applied to either <code>sfxGain</code> or
+<code>masterGain</code> automatically affect the playing sound
+immediately.</p>
+<h3 id="connecting-html-sliders-to-gain-values">Connecting HTML Sliders
+to Gain Values</h3>
+<p>HTML <code>&lt;input type="range"&gt;</code> elements are typically
+used to capture user input for audio settings. Gain values in the Web
+Audio API generally operate on a linear scale from <code>0.0</code>
+(muted) to <code>1.0</code> (full volume), though values above
+<code>1.0</code> can be used for amplification.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">label</span><span class="ot"> for</span><span class="op">=</span><span class="st">&quot;master-slider&quot;</span><span class="dt">&gt;</span>Master Volume<span class="dt">&lt;/</span><span class="kw">label</span><span class="dt">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">input</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;master-slider&quot;</span><span class="ot"> type</span><span class="op">=</span><span class="st">&quot;range&quot;</span><span class="ot"> min</span><span class="op">=</span><span class="st">&quot;0&quot;</span><span class="ot"> max</span><span class="op">=</span><span class="st">&quot;1&quot;</span><span class="ot"> step</span><span class="op">=</span><span class="st">&quot;0.01&quot;</span><span class="ot"> value</span><span class="op">=</span><span class="st">&quot;1&quot;</span><span class="dt">&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">label</span><span class="ot"> for</span><span class="op">=</span><span class="st">&quot;sfx-slider&quot;</span><span class="dt">&gt;</span>SFX Volume<span class="dt">&lt;/</span><span class="kw">label</span><span class="dt">&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">input</span><span class="ot"> id</span><span class="op">=</span><span class="st">&quot;sfx-slider&quot;</span><span class="ot"> type</span><span class="op">=</span><span class="st">&quot;range&quot;</span><span class="ot"> min</span><span class="op">=</span><span class="st">&quot;0&quot;</span><span class="ot"> max</span><span class="op">=</span><span class="st">&quot;1&quot;</span><span class="ot"> step</span><span class="op">=</span><span class="st">&quot;0.01&quot;</span><span class="ot"> value</span><span class="op">=</span><span class="st">&quot;1&quot;</span><span class="dt">&gt;</span></span></code></pre></div>
+<p>To update the volume without introducing audible clicks or pops
+caused by sudden waveform discontinuities, adjust the <code>gain</code>
+parameter using parameter automation methods rather than setting the
+value directly:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> masterSlider <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;master-slider&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sfxSlider <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">getElementById</span>(<span class="st">&#39;sfx-slider&#39;</span>)<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>masterSlider<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;input&#39;</span><span class="op">,</span> (e) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> volume <span class="op">=</span> <span class="pp">parseFloat</span>(e<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">value</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Smoothly ramp to the new volume over 20 milliseconds</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    masterGain<span class="op">.</span><span class="at">gain</span><span class="op">.</span><span class="fu">setTargetAtTime</span>(volume<span class="op">,</span> audioCtx<span class="op">.</span><span class="at">currentTime</span><span class="op">,</span> <span class="fl">0.02</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>sfxSlider<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;input&#39;</span><span class="op">,</span> (e) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> volume <span class="op">=</span> <span class="pp">parseFloat</span>(e<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">value</span>)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    sfxGain<span class="op">.</span><span class="at">gain</span><span class="op">.</span><span class="fu">setTargetAtTime</span>(volume<span class="op">,</span> audioCtx<span class="op">.</span><span class="at">currentTime</span><span class="op">,</span> <span class="fl">0.02</span>)<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>setTargetAtTime</code> creates an exponential transition
+that prevents the audio signal from jumping instantaneously between
+amplitudes, resulting in clean, artifact-free volume scaling across all
+game sound effects.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/managing-game-audio-sliders-with-web-audio-gain-nodes';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

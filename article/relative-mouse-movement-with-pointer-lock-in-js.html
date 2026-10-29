@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relative Mouse Movement with Pointer Lock in JS - javascript</title>
+    <meta name="description" content="The Pointer Lock API (formerly Mouse Lock) is essential for browser-based 3D games and first-person perspective controls where the mouse directs the camera. Standard mouse tracking relies on absolute screen coordinates that halt as soon as the cursor reac">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/relative-mouse-movement-with-pointer-lock-in-js">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Relative Mouse Movement with Pointer Lock in JS - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/relative-mouse-movement-with-pointer-lock-in-js" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Pointer Lock API (formerly Mouse Lock) is essential for browser-based 3D games and first-person perspective controls where the mouse directs the camera. Standard mouse tracking relies on absolute screen coordinates that halt as soon as the cursor reac" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="relative-mouse-movement-with-pointer-lock-in-js">Relative Mouse
+Movement with Pointer Lock in JS</h1>
+<p>The Pointer Lock API (formerly Mouse Lock) is essential for
+browser-based 3D games and first-person perspective controls where the
+mouse directs the camera. Standard mouse tracking relies on absolute
+screen coordinates that halt as soon as the cursor reaches the edge of
+the viewport or display. Pointer lock circumvents this boundary by
+hiding the mouse cursor, locking it to a target element, and enabling
+the <code>MouseEvent</code> API to provide continuous, relative
+coordinate deltas rather than static absolute positions.</p>
+<h3 id="the-limitation-of-standard-mouse-events">The Limitation of
+Standard Mouse Events</h3>
+<p>Under normal conditions, a <code>mousemove</code> event yields
+properties such as <code>clientX</code>, <code>clientY</code>,
+<code>screenX</code>, and <code>screenY</code>. In a game requiring
+360-degree rotation, tracking these values quickly fails because the
+cursor hits the edge of the screen or leaves the browser window,
+stopping further movement input.</p>
+<p>Attempting to reset cursor positions manually via JavaScript is
+impossible due to security limitations. Pointer lock solves this by
+decoupling movement data from operating system desktop coordinates.</p>
+<h3 id="how-pointer-lock-changes-mouseevent-properties">How Pointer Lock
+Changes MouseEvent Properties</h3>
+<p>When an element enters pointer lock, the browser freezes the physical
+cursor on the screen and ceases updating absolute coordinates. Instead,
+it measures the raw physical movement of the mouse hardware between
+updates and surfaces this delta through two properties on every
+<code>MouseEvent</code>:</p>
+<ul>
+<li><strong><code>MouseEvent.movementX</code></strong>: The distance
+moved horizontally since the previous <code>mousemove</code> event
+(<code>currentEvent.screenX - previousEvent.screenX</code>).</li>
+<li><strong><code>MouseEvent.movementY</code></strong>: The distance
+moved vertically since the previous <code>mousemove</code> event
+(<code>currentEvent.screenY - previousEvent.screenY</code>).</li>
+</ul>
+<p>Because the cursor does not translate across the screen, these deltas
+can continue providing positive or negative values infinitely in any
+direction.</p>
+<h3 id="implementing-pointer-lock">Implementing Pointer Lock</h3>
+<p>Engaging pointer lock requires an asynchronous request triggered by a
+direct user interaction, such as a click:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> canvas <span class="op">=</span> <span class="bu">document</span><span class="op">.</span><span class="fu">querySelector</span>(<span class="st">&#39;canvas&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>canvas<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;click&#39;</span><span class="op">,</span> <span class="kw">async</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">await</span> canvas<span class="op">.</span><span class="fu">requestPointerLock</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">catch</span> (err) {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&#39;Pointer lock request failed:&#39;</span><span class="op">,</span> err)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>To capture the relative input, bind a listener to the
+<code>mousemove</code> event. Once locked, integrate the delta values
+directly into your game's rotation or orientation state:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> cameraYaw <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> cameraPitch <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> sensitivity <span class="op">=</span> <span class="fl">0.002</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">document</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;mousemove&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">document</span><span class="op">.</span><span class="at">pointerLockElement</span> <span class="op">===</span> canvas) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Accumulate the relative motion</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    cameraYaw <span class="op">+=</span> <span class="bu">event</span><span class="op">.</span><span class="at">movementX</span> <span class="op">*</span> sensitivity<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    cameraPitch <span class="op">-=</span> <span class="bu">event</span><span class="op">.</span><span class="at">movementY</span> <span class="op">*</span> sensitivity<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Constrain pitch to avoid flipping the camera</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    cameraPitch <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="op">-</span><span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">/</span> <span class="dv">2</span><span class="op">,</span> cameraPitch))<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="managing-state-changes-and-errors">Managing State Changes and
+Errors</h3>
+<p>Browsers trigger events on the <code>document</code> object to report
+the lifecycle of a pointer lock session:</p>
+<ul>
+<li><strong><code>pointerlockchange</code></strong>: Dispatched whenever
+pointer lock is entered or exited. Check
+<code>document.pointerLockElement</code> to verify whether your canvas
+holds the active lock.</li>
+<li><strong><code>pointerlockerror</code></strong>: Dispatched if the
+request fails, such as when called outside of an approved user gesture
+event handler or inside an unpermitted iframe.</li>
+</ul>
+<p>The user can exit pointer lock at any time by pressing the
+<code>Escape</code> key, or the game can exit programmatically using
+<code>document.exitPointerLock()</code>.</p>
+<h3 id="handling-pointer-acceleration">Handling Pointer
+Acceleration</h3>
+<p>By default, the operating system applies acceleration curves to mouse
+movement, altering <code>movementX</code> and <code>movementY</code>
+based on hardware speed rather than pure distance. For competitive games
+requiring consistent 1:1 physical tracking, the pointer lock request
+accepts an options object to disable acceleration:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> canvas<span class="op">.</span><span class="fu">requestPointerLock</span>({</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">unadjustedMovement</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>If the system does not support <code>unadjustedMovement</code>, the
+promise will reject, allowing you to gracefully fall back to a standard
+<code>requestPointerLock()</code> call.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/relative-mouse-movement-with-pointer-lock-in-js';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

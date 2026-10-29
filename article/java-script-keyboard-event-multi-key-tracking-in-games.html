@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript KeyboardEvent Multi-Key Tracking in Games - javascript</title>
+    <meta name="description" content="Tracking continuous multi-key inputs in JavaScript game development requires decoupling event listeners from game logic, as native browser events cannot smoothly handle simultaneous keys. By using keydown and keyup events solely to update an input state r">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-keyboard-event-multi-key-tracking-in-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript KeyboardEvent Multi-Key Tracking in Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-keyboard-event-multi-key-tracking-in-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tracking continuous multi-key inputs in JavaScript game development requires decoupling event listeners from game logic, as native browser events cannot smoothly handle simultaneous keys. By using keydown and keyup events solely to update an input state r" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-keyboardevent-multi-key-tracking-in-games">JavaScript
+KeyboardEvent Multi-Key Tracking in Games</h1>
+<p>Tracking continuous multi-key inputs in JavaScript game development
+requires decoupling event listeners from game logic, as native browser
+events cannot smoothly handle simultaneous keys. By using
+<code>keydown</code> and <code>keyup</code> events solely to update an
+input state repository—such as a boolean map or a <code>Set</code>—and
+querying that state inside a <code>requestAnimationFrame</code> loop,
+developers can reliably process complex, simultaneous actions like
+diagonal movement or shooting while running.</p>
+<h3 id="the-limitation-of-native-events">The Limitation of Native
+Events</h3>
+<p>The browser's native <code>KeyboardEvent</code> API relies on the
+operating system’s repeat rate. When a user holds down a key, the
+browser fires an initial <code>keydown</code> event, pauses for a brief
+delay (the typematic delay), and then fires repeated
+<code>keydown</code> events.</p>
+<p>If a player holds down the "ArrowUp" key and then presses
+"ArrowRight", the browser interrupts the "ArrowUp" repeat stream to emit
+the new key's events. Relying directly on these listeners to update game
+coordinates causes stuttering, delays, and an inability to detect true
+concurrent input.</p>
+<h3 id="the-input-state-map-solution">The Input State Map Solution</h3>
+<p>To handle continuous multi-key presses, developers maintain an
+ongoing record of active keys. The <code>KeyboardEvent</code> listeners
+serve only to toggle states within a shared data structure.</p>
+<ol type="1">
+<li><strong><code>keydown</code>:</strong> Mark the pressed key as
+active (<code>true</code>).</li>
+<li><strong><code>keyup</code>:</strong> Mark the released key as
+inactive (<code>false</code>) or remove it from the set.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> activeKeys <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;keydown&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  activeKeys<span class="op">.</span><span class="fu">add</span>(<span class="bu">event</span><span class="op">.</span><span class="at">code</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;keyup&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  activeKeys<span class="op">.</span><span class="fu">delete</span>(<span class="bu">event</span><span class="op">.</span><span class="at">code</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using <code>event.code</code> (such as <code>KeyW</code> or
+<code>ArrowUp</code>) is standard in game development because it
+identifies the physical key location on the keyboard, remaining
+consistent regardless of system language, layout, or whether the
+<code>Shift</code> modifier is active.</p>
+<h3 id="processing-input-in-the-game-loop">Processing Input in the Game
+Loop</h3>
+<p>Instead of executing actions inside the event listeners, the game's
+update loop inspects the <code>activeKeys</code> structure every frame.
+This design uncouples player input from the operating system's repeat
+frequency and synchronizes it with the display's refresh rate.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateGameState</span>() {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;KeyW&#39;</span>) <span class="op">||</span> activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;ArrowUp&#39;</span>)) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="at">y</span> <span class="op">-=</span> player<span class="op">.</span><span class="at">speed</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;KeyS&#39;</span>) <span class="op">||</span> activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;ArrowDown&#39;</span>)) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> player<span class="op">.</span><span class="at">speed</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;KeyA&#39;</span>) <span class="op">||</span> activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;ArrowLeft&#39;</span>)) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="at">x</span> <span class="op">-=</span> player<span class="op">.</span><span class="at">speed</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;KeyD&#39;</span>) <span class="op">||</span> activeKeys<span class="op">.</span><span class="fu">has</span>(<span class="st">&#39;ArrowRight&#39;</span>)) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> player<span class="op">.</span><span class="at">speed</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>() {</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">updateGameState</span>()<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>Because each condition evaluates independently on every frame,
+simultaneous inputs (like pressing <code>KeyW</code> and
+<code>KeyD</code> together) execute concurrently, producing seamless
+diagonal movement.</p>
+<h3 id="handling-edge-cases">Handling Edge Cases</h3>
+<p>To ensure a robust input system, two common edge cases must be
+managed:</p>
+<ul>
+<li><p><strong>Window Blur:</strong> If the player switches tabs or the
+browser window loses focus while a key is held down, the corresponding
+<code>keyup</code> event will never fire, causing the character to move
+indefinitely. Listening to the <code>blur</code> event allows you to
+clear all active keys:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;blur&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  activeKeys<span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Default Browser Behaviors:</strong> Certain keys (such as
+<code>Space</code>, <code>ArrowUp</code>, or <code>Tab</code>) trigger
+browser scrolling or navigation. Calling
+<code>event.preventDefault()</code> inside the <code>keydown</code>
+listener for recognized game keys prevents unwanted default interactions
+without interfering with other system shortcuts.</p></li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-keyboard-event-multi-key-tracking-in-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

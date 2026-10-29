@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How requestAnimationFrame Regulates Game Frame Rates - javascript</title>
+    <meta name="description" content="In JavaScript game development, requestAnimationFrame is the standard API used to create smooth, efficient animation loops by synchronizing game updates with the user&#39;s monitor refresh rate. This method eliminates visual tearing, reduces CPU and GPU usage">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/how-request-animation-frame-regulates-game-frame-rates">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How requestAnimationFrame Regulates Game Frame Rates - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/how-request-animation-frame-regulates-game-frame-rates" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript game development, requestAnimationFrame is the standard API used to create smooth, efficient animation loops by synchronizing game updates with the user&#39;s monitor refresh rate. This method eliminates visual tearing, reduces CPU and GPU usage" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-requestanimationframe-regulates-game-frame-rates">How
+requestAnimationFrame Regulates Game Frame Rates</h1>
+<p>In JavaScript game development, <code>requestAnimationFrame</code> is
+the standard API used to create smooth, efficient animation loops by
+synchronizing game updates with the user's monitor refresh rate. This
+method eliminates visual tearing, reduces CPU and GPU usage by pausing
+when the tab is inactive, and provides high-resolution timestamps
+necessary for consistent gameplay across varying hardware. By combining
+hardware-aligned execution with delta-time calculations, developers can
+achieve reliable frame pacing without the stutter and drift associated
+with traditional JavaScript timers.</p>
+<h3 id="hardware-synchronization-and-the-refresh-cycle">Hardware
+Synchronization and the Refresh Cycle</h3>
+<p>Traditional timing functions like <code>setInterval</code> or
+<code>setTimeout</code> push executions onto the event loop regardless
+of the monitor's physical drawing cycle. If a game state updates while
+the display is halfway through a refresh, the result is "screen
+tearing"—a visual artifact where portions of two different frames appear
+simultaneously.</p>
+<p><code>requestAnimationFrame</code> solves this by communicating
+directly with the browser's rendering engine. When called, it schedules
+a specified callback function to run immediately before the next browser
+repaint. On a standard 60Hz display, the browser aims to trigger this
+callback roughly every 16.67 milliseconds. On higher-refresh panels,
+such as 120Hz or 144Hz displays, the interval scales automatically to
+match the hardware's native capability.</p>
+<h3 id="dynamic-resource-management">Dynamic Resource Management</h3>
+<p>A major benefit of <code>requestAnimationFrame</code> is its native
+power-saving behavior. When a user switches tabs, minimizes the browser
+window, or scrolls the game canvas out of view, the browser
+automatically suspends or heavily throttles the execution of the
+callback loop.</p>
+<p>This automatic throttling prevents background processes from draining
+battery life or consuming system memory. Traditional timers continue
+firing at set intervals indefinitely, but
+<code>requestAnimationFrame</code> ensures that processing power is only
+spent when the user can visually consume the output.</p>
+<h3 id="high-precision-timestamps-and-delta-time">High-Precision
+Timestamps and Delta Time</h3>
+<p><code>requestAnimationFrame</code> passes a single argument to its
+callback function: a <code>DOMHighResTimeStamp</code>. This timestamp
+represents the time (measured in fractional milliseconds with
+microsecond precision) since the document's time origin.</p>
+<p>Because display refresh rates vary widely across devices, games
+cannot assume a fixed step between frames. Running a simple position
+update like <code>x += 5</code> will cause an object to move twice as
+fast on a 120Hz screen as it does on a 60Hz screen. Developers use the
+timestamp to calculate "delta time"—the duration between the current
+frame and the previous frame:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> deltaTime <span class="op">=</span> (currentTime <span class="op">-</span> lastTime) <span class="op">/</span> <span class="dv">1000</span><span class="op">;</span> <span class="co">// Convert to seconds</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">update</span>(deltaTime)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>By multiplying game velocity by <code>deltaTime</code>, movement
+remains speed-consistent regardless of whether the browser is running at
+30, 60, or 144 frames per second.</p>
+<h3 id="regulating-and-capping-target-frame-rates">Regulating and
+Capping Target Frame Rates</h3>
+<p>While <code>requestAnimationFrame</code> naturally aligns with the
+display's refresh rate, some games require a lower, locked frame rate
+(e.g., 30 FPS) or a fixed timestep for deterministic physics
+calculations.</p>
+<p>To achieve a capped frame rate, developers compare the elapsed time
+against a target interval. If the elapsed time has not met the
+threshold, the update logic is skipped while allowing the browser's
+render loop to continue smoothly:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> targetFPS <span class="op">=</span> <span class="dv">30</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> frameInterval <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> targetFPS<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastFrameTime <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">fixedLoop</span>(currentTime) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(fixedLoop)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> elapsed <span class="op">=</span> currentTime <span class="op">-</span> lastFrameTime<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (elapsed <span class="op">&gt;</span> frameInterval) {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Adjust for interval drift</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        lastFrameTime <span class="op">=</span> currentTime <span class="op">-</span> (elapsed <span class="op">%</span> frameInterval)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">update</span>()<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(fixedLoop)<span class="op">;</span></span></code></pre></div>
+<p>By delegating the timing rhythm to the browser while handling logic
+intervals programmatically, <code>requestAnimationFrame</code> acts as
+the primary regulator for consistent, stutter-free performance in modern
+web gaming.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/how-request-animation-frame-regulates-game-frame-rates';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

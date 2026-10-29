@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Item Drops: Rarity Tables in JavaScript - javascript</title>
+    <meta name="description" content="Procedural item drop generators in JavaScript rely on weighted probability systems and mathematical distributions to decide what loot a player receives upon defeating an enemy or opening a chest. Instead of using pure, uniform randomness, game developers">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/procedural-item-drops-rarity-tables-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Procedural Item Drops: Rarity Tables in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/procedural-item-drops-rarity-tables-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Procedural item drop generators in JavaScript rely on weighted probability systems and mathematical distributions to decide what loot a player receives upon defeating an enemy or opening a chest. Instead of using pure, uniform randomness, game developers" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="procedural-item-drops-rarity-tables-in-javascript">Procedural
+Item Drops: Rarity Tables in JavaScript</h1>
+<p>Procedural item drop generators in JavaScript rely on weighted
+probability systems and mathematical distributions to decide what loot a
+player receives upon defeating an enemy or opening a chest. Instead of
+using pure, uniform randomness, game developers assign specific weight
+values to different rarity tiers—such as Common, Rare, and Legendary—and
+use algorithms to convert these weights into normalized probability
+ranges. This guide explains how to structure drop tables, calculate
+cumulative distributions, generate items dynamically using JavaScript,
+and apply modifiers like player luck.</p>
+<h3 id="understanding-weighted-drop-tables">Understanding Weighted Drop
+Tables</h3>
+<p>In procedural loot systems, each rarity tier is assigned an integer
+weight that represents its relative frequency. Higher numbers drop more
+frequently, while lower numbers represent rare items.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rarityTable <span class="op">=</span> [</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">tier</span><span class="op">:</span> <span class="st">&quot;Common&quot;</span><span class="op">,</span> <span class="dt">weight</span><span class="op">:</span> <span class="dv">60</span> }<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">tier</span><span class="op">:</span> <span class="st">&quot;Uncommon&quot;</span><span class="op">,</span> <span class="dt">weight</span><span class="op">:</span> <span class="dv">25</span> }<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">tier</span><span class="op">:</span> <span class="st">&quot;Rare&quot;</span><span class="op">,</span> <span class="dt">weight</span><span class="op">:</span> <span class="dv">10</span> }<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">tier</span><span class="op">:</span> <span class="st">&quot;Epic&quot;</span><span class="op">,</span> <span class="dt">weight</span><span class="op">:</span> <span class="dv">4</span> }<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  { <span class="dt">tier</span><span class="op">:</span> <span class="st">&quot;Legendary&quot;</span><span class="op">,</span> <span class="dt">weight</span><span class="op">:</span> <span class="dv">1</span> }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>]<span class="op">;</span></span></code></pre></div>
+<p>The probability <span class="math inline">\(P\)</span> of rolling any
+single tier is:</p>
+<p><span class="math display">\[P(\text{tier}) = \frac{\text{Weight of
+Tier}}{\text{Total Weight of All Tiers}}\]</span></p>
+<p>In the example above, the total weight is <span
+class="math inline">\(100\)</span> (<span class="math inline">\(60 + 25
++ 10 + 4 + 1\)</span>). The chance of rolling a Legendary item is <span
+class="math inline">\(1 / 100\)</span>, or <span
+class="math inline">\(1\%\)</span>.</p>
+<hr />
+<h3 id="the-cumulative-weight-algorithm">The Cumulative Weight
+Algorithm</h3>
+<p>To select an item, the generator uses a cumulative distribution
+approach:</p>
+<ol type="1">
+<li>Sum the weights of all available entries in the table.</li>
+<li>Generate a random floating-point number between zero and the total
+weight using <code>Math.random() * totalWeight</code>.</li>
+<li>Iterate through the table, accumulating weights until the cumulative
+total is greater than or equal to the generated random number.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getDropTier</span>(table) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> totalWeight <span class="op">=</span> table<span class="op">.</span><span class="fu">reduce</span>((sum<span class="op">,</span> entry) <span class="kw">=&gt;</span> sum <span class="op">+</span> entry<span class="op">.</span><span class="at">weight</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> roll <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> totalWeight<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> cumulativeWeight <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> entry <span class="kw">of</span> table) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    cumulativeWeight <span class="op">+=</span> entry<span class="op">.</span><span class="at">weight</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (roll <span class="op">&lt;</span> cumulativeWeight) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> entry<span class="op">.</span><span class="at">tier</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> table[table<span class="op">.</span><span class="at">length</span> <span class="op">-</span> <span class="dv">1</span>]<span class="op">.</span><span class="at">tier</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="procedural-modifications-luck-and-scaling">Procedural
+Modifications: Luck and Scaling</h3>
+<p>Static drop tables become repetitive. Procedural systems dynamically
+alter weights based on game state, such as player level, dungeon
+difficulty, or a "Luck" attribute.</p>
+<h4 id="dynamic-weight-scaling">Dynamic Weight Scaling</h4>
+<p>To increase rare drops without breaking the system, developers apply
+scaling factors to specific tiers before rolling:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">calculateAdjustedTable</span>(baseTable<span class="op">,</span> playerLuck) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> baseTable<span class="op">.</span><span class="fu">map</span>(entry <span class="kw">=&gt;</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> weightModifier <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply luck multiplier to higher rarities</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (entry<span class="op">.</span><span class="at">tier</span> <span class="op">===</span> <span class="st">&quot;Rare&quot;</span>) weightModifier <span class="op">+=</span> playerLuck <span class="op">*</span> <span class="fl">0.05</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (entry<span class="op">.</span><span class="at">tier</span> <span class="op">===</span> <span class="st">&quot;Epic&quot;</span>) weightModifier <span class="op">+=</span> playerLuck <span class="op">*</span> <span class="fl">0.08</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (entry<span class="op">.</span><span class="at">tier</span> <span class="op">===</span> <span class="st">&quot;Legendary&quot;</span>) weightModifier <span class="op">+=</span> playerLuck <span class="op">*</span> <span class="fl">0.12</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">tier</span><span class="op">:</span> entry<span class="op">.</span><span class="at">tier</span><span class="op">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">weight</span><span class="op">:</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">1</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(entry<span class="op">.</span><span class="at">weight</span> <span class="op">*</span> weightModifier))</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By recalculating weights dynamically, higher luck values expand the
+target ranges for rare items while proportionally shrinking the relative
+drop chances of common tiers.</p>
+<hr />
+<h3 id="multi-tiered-loot-generation">Multi-Tiered Loot Generation</h3>
+<p>Full procedural item generation rarely stops at picking a rarity.
+Rarity selection typically acts as the gateway to nested loot tables
+that determine the specific base item, prefixes, suffixes, and
+randomized base stats.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> lootPool <span class="op">=</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">Legendary</span><span class="op">:</span> [</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Sunforged Blade&quot;</span><span class="op">,</span> <span class="dt">baseAttack</span><span class="op">:</span> [<span class="dv">80</span><span class="op">,</span> <span class="dv">110</span>] }<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">name</span><span class="op">:</span> <span class="st">&quot;Aegis of the Dawn&quot;</span><span class="op">,</span> <span class="dt">baseDefense</span><span class="op">:</span> [<span class="dv">70</span><span class="op">,</span> <span class="dv">95</span>] }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  ]</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">generateItem</span>(tier) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> items <span class="op">=</span> lootPool[tier]<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> selectedItem <span class="op">=</span> items[<span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> items<span class="op">.</span><span class="at">length</span>)]<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Procedurally generate stats based on defined ranges</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> generatedStats <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> [stat<span class="op">,</span> range] <span class="kw">of</span> <span class="bu">Object</span><span class="op">.</span><span class="fu">entries</span>(selectedItem)) {</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">Array</span><span class="op">.</span><span class="fu">isArray</span>(range)) {</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> [min<span class="op">,</span> max] <span class="op">=</span> range<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>      generatedStats[stat] <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> (max <span class="op">-</span> min <span class="op">+</span> <span class="dv">1</span>)) <span class="op">+</span> min<span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>      generatedStats[stat] <span class="op">=</span> range<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> {</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span>generatedStats<span class="op">,</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">rarity</span><span class="op">:</span> tier</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="performance-optimization-for-large-tables">Performance
+Optimization for Large Tables</h3>
+<p>For games with thousands of potential drops, iterating linearly
+through arrays on every roll introduces performance overhead. Two
+primary patterns resolve this in JavaScript:</p>
+<ol type="1">
+<li><strong>Prefix Sum Arrays with Binary Search:</strong> Precompute
+the cumulative sums once. Use a binary search algorithm to find the
+winning item in <span class="math inline">\(O(\log n)\)</span> time
+instead of <span class="math inline">\(O(n)\)</span>.</li>
+<li><strong>Vose's Alias Method:</strong> An advanced sampling algorithm
+that requires <span class="math inline">\(O(n)\)</span> setup time but
+allows subsequent random selections in <span
+class="math inline">\(O(1)\)</span> constant time, making it ideal for
+high-frequency loot generators like hack-and-slash games.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/procedural-item-drops-rarity-tables-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

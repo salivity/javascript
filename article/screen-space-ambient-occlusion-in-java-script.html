@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen-Space Ambient Occlusion in JavaScript - javascript</title>
+    <meta name="description" content="Screen-Space Ambient Occlusion (SSAO) is a popular computer graphics technique used in real-time rendering to approximate the soft contact shadows that occur when ambient light is blocked by nearby geometry. In JavaScript game programming, SSAO is impleme">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/screen-space-ambient-occlusion-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Screen-Space Ambient Occlusion in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/screen-space-ambient-occlusion-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Screen-Space Ambient Occlusion (SSAO) is a popular computer graphics technique used in real-time rendering to approximate the soft contact shadows that occur when ambient light is blocked by nearby geometry. In JavaScript game programming, SSAO is impleme" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="screen-space-ambient-occlusion-in-javascript">Screen-Space
+Ambient Occlusion in JavaScript</h1>
+<p>Screen-Space Ambient Occlusion (SSAO) is a popular computer graphics
+technique used in real-time rendering to approximate the soft contact
+shadows that occur when ambient light is blocked by nearby geometry. In
+JavaScript game programming, SSAO is implemented using WebGL or
+WebGPU—often through libraries such as Three.js or Babylon.js, or
+directly via custom shader pipelines. This article explains the core
+principles of SSAO, the mechanics behind screen-space depth sampling,
+and the multi-pass rendering architecture required to implement it
+within a browser-based game engine.</p>
+<h3 id="what-is-screen-space-ambient-occlusion">What is Screen-Space
+Ambient Occlusion?</h3>
+<p>Ambient occlusion simulates the darkening that occurs in creases,
+cracks, holes, and corners where surfaces meet and block ambient
+environmental light. While true ambient occlusion requires
+computationally expensive ray tracing across the full 3D scene,
+Screen-Space Ambient Occlusion operates entirely on the 2D buffers
+output by the rendering pipeline.</p>
+<p>Because SSAO works in "screen space," its performance cost is
+decoupled from the geometric complexity of the 3D scene. Whether a model
+has ten polygons or ten million, the performance of the SSAO pass
+depends primarily on screen resolution and the number of sample points
+taken per pixel.</p>
+<h3 id="how-the-ssao-algorithm-works">How the SSAO Algorithm Works</h3>
+<p>The SSAO algorithm calculates how much of the hemisphere above a
+given surface point is occluded by nearby geometry. It relies on the
+following steps:</p>
+<ol type="1">
+<li><strong>Reconstruct Position and Normal:</strong> For every visible
+pixel, the fragment shader determines the view-space position and
+surface normal. This is achieved by sampling a depth buffer and a
+view-space normal buffer.</li>
+<li><strong>Sample Kernel Generation:</strong> The shader generates a
+set of sample points arranged in a hemisphere oriented along the surface
+normal. A random rotation vector—often sampled from a tiled,
+low-resolution noise texture—is applied to randomize the sample
+distribution and prevent regular banding artifacts.</li>
+<li><strong>Depth Testing:</strong> Each sample point in the 3D
+hemisphere is projected back into screen coordinates to sample the depth
+buffer. The shader compares the depth of the sample point with the
+actual depth stored in the buffer at that screen coordinate.</li>
+<li><strong>Occlusion Accumulation:</strong> If the stored depth value
+is closer to the camera than the sample point, that sample is considered
+occluded. The shader tallies the ratio of occluded samples against total
+samples to generate an occlusion factor between 0.0 (fully lit) and 1.0
+(fully occluded). A range check is applied to avoid false occlusion
+between distant, disconnected objects.</li>
+</ol>
+<h3 id="rendering-ssao-in-javascript-game-engines">Rendering SSAO in
+JavaScript Game Engines</h3>
+<p>In a JavaScript environment, implementing SSAO requires setting up a
+post-processing pipeline using WebGL or WebGPU render targets (Frame
+Buffer Objects). The process consists of four primary stages.</p>
+<h4 id="1-the-g-buffer-pre-pass">1. The G-Buffer Pre-Pass</h4>
+<p>Before calculating occlusion, the engine renders the scene to
+offscreen textures:</p>
+<ul>
+<li><strong>Depth Texture:</strong> Encodes the distance from the camera
+to the nearest surface at each pixel.</li>
+<li><strong>Normal Texture:</strong> Encodes the view-space normal
+vectors (X, Y, Z) in the RGB channels.</li>
+</ul>
+<p>In engines like Three.js, this is handled by rendering the scene with
+a custom material or using a depth/normal pre-pass
+(<code>THREE.DepthTexture</code> and a view-space normal pass).</p>
+<h4 id="2-preparing-sampling-data">2. Preparing Sampling Data</h4>
+<p>SSAO requires two sets of static data uploaded to the GPU:</p>
+<ul>
+<li><strong>Kernel Samples:</strong> An array of 3D vectors (typically
+16 to 64 samples) distributed inside a unit hemisphere, biased toward
+the origin to prioritize close-contact occlusion.</li>
+<li><strong>Noise Texture:</strong> A small, tiled texture (such as 4x4
+pixels) filled with random rotation vectors. Tiling this texture across
+the screen introduces high-frequency noise that disperses sampling
+patterns across neighboring pixels.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example: Generating a hemisphere kernel in JavaScript</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> kernelSize <span class="op">=</span> <span class="dv">32</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> kernel <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> kernelSize<span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> sample <span class="op">=</span> [</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="fl">2.0</span> <span class="op">-</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> <span class="fl">2.0</span> <span class="op">-</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="co">// Restrict to hemisphere (+Z)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Normalize vector</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> len <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(<span class="op">...</span>sample)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  sample <span class="op">=</span> sample<span class="op">.</span><span class="fu">map</span>(v <span class="kw">=&gt;</span> v <span class="op">/</span> len)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Distribute samples closer to the origin</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> scale <span class="op">=</span> i <span class="op">/</span> kernelSize<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  scale <span class="op">=</span> <span class="fl">0.1</span> <span class="op">+</span> (scale <span class="op">*</span> scale) <span class="op">*</span> (<span class="fl">1.0</span> <span class="op">-</span> <span class="fl">0.1</span>)<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  sample <span class="op">=</span> sample<span class="op">.</span><span class="fu">map</span>(v <span class="kw">=&gt;</span> v <span class="op">*</span> scale <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>())<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  kernel<span class="op">.</span><span class="fu">push</span>(<span class="op">...</span>sample)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="3-the-ssao-fragment-shader-pass">3. The SSAO Fragment Shader
+Pass</h4>
+<p>A full-screen quad is drawn using a custom shader. The shader takes
+the depth texture, normal texture, sample kernel array, and noise
+texture as uniforms.</p>
+<p>Inside the GLSL fragment shader:</p>
+<ul>
+<li>View-space positions are reconstructed using screen UV coordinates
+and depth.</li>
+<li>A Tangent-Bitangent-Normal (TBN) matrix is built using the view
+normal and the noise vector to rotate the hemisphere kernel into
+alignment with the surface.</li>
+<li>Samples are transformed and tested against the depth buffer.</li>
+<li>The resulting occlusion value is written to an intermediate
+grayscale render target.</li>
+</ul>
+<h4 id="4-the-edge-preserving-blur-pass">4. The Edge-Preserving Blur
+Pass</h4>
+<p>Because low sample counts produce visible dithering noise, a blur
+pass is necessary. A standard Gaussian blur would bleed across sharp
+depth boundaries, causing shadows to incorrectly leak onto distant
+objects.</p>
+<p>To prevent this, an edge-preserving bilateral blur is used. The
+bilateral blur factors in depth and normal differences between adjacent
+pixels, blurring only across continuous surfaces and preserving sharp
+edges.</p>
+<h4 id="5-scene-composition">5. Scene Composition</h4>
+<p>The final blurred AO texture is combined with the main scene. In
+forward rendering pipelines, the AO texture is multiplied with the
+ambient light term before the final image is drawn to the canvas. In
+deferred rendering pipelines, it is multiplied directly against the
+ambient lighting buffer during the lighting pass.</p>
+<h3 id="engine-integration-and-performance-considerations">Engine
+Integration and Performance Considerations</h3>
+<p>Implementing SSAO from scratch in raw WebGL requires significant
+boilerplate code for framebuffers, textures, and shader passes. For
+production JavaScript applications, developers often utilize built-in
+post-processing passes:</p>
+<ul>
+<li><strong>Three.js:</strong> Provides <code>SSAOPass</code> and
+<code>GTAOPass</code> (Ground-Truth Ambient Occlusion) within its
+<code>postprocessing</code> add-ons.</li>
+<li><strong>Babylon.js:</strong> Includes an optimized
+<code>SSAORenderingPipeline</code> or screen-space rendering pipelines
+natively.</li>
+</ul>
+<p>To maintain 60 frames per second on web platforms, SSAO can be
+rendered at half or quarter resolution and upscaled during the bilateral
+blur pass. Restricting sample counts between 16 and 32 samples provides
+an optimal balance between visual fidelity and browser performance.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/screen-space-ambient-occlusion-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

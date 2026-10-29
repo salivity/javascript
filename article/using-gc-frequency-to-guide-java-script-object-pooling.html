@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using GC Frequency to Guide JavaScript Object Pooling - javascript</title>
+    <meta name="description" content="Tracking garbage collection frequency metrics is critical for JavaScript game developers striving to maintain consistent 60 or 120 FPS performance. By measuring how often the browser&#39;s garbage collector pauses execution and correlating those events with h">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/using-gc-frequency-to-guide-java-script-object-pooling">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using GC Frequency to Guide JavaScript Object Pooling - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/using-gc-frequency-to-guide-java-script-object-pooling" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tracking garbage collection frequency metrics is critical for JavaScript game developers striving to maintain consistent 60 or 120 FPS performance. By measuring how often the browser&#39;s garbage collector pauses execution and correlating those events with h" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-gc-frequency-to-guide-javascript-object-pooling">Using GC
+Frequency to Guide JavaScript Object Pooling</h1>
+<p>Tracking garbage collection frequency metrics is critical for
+JavaScript game developers striving to maintain consistent 60 or 120 FPS
+performance. By measuring how often the browser's garbage collector
+pauses execution and correlating those events with heap allocation
+spikes, developers can pinpoint the exact objects causing memory churn.
+This article explains how to interpret these metrics to identify pooling
+candidates, size object pools accurately, and eliminate frame drops
+caused by automatic memory reclamation.</p>
+<h3 id="the-impact-of-garbage-collection-in-games">The Impact of Garbage
+Collection in Games</h3>
+<p>JavaScript relies on an automatic garbage collector (GC) that
+periodically halts script execution to sweep and reclaim unreferenced
+memory. In standard web applications, a 16-millisecond pause goes
+largely unnoticed. In game development, however, a single frame delay
+causes visible stuttering, or "jank," which breaks player immersion and
+degrades input responsiveness.</p>
+<h3 id="interpreting-gc-frequency-metrics">Interpreting GC Frequency
+Metrics</h3>
+<p>Modern browser profiling tools, such as the Performance and Memory
+panels in Chromium-based browsers, expose allocation timelines and GC
+events. When monitoring a game loop, two primary metrics signal memory
+instability:</p>
+<ol type="1">
+<li><strong>Sawtooth Allocation Graphs:</strong> A steep, frequent rise
+and sharp drop in the heap memory timeline indicates rapid creation and
+destruction of short-lived objects.</li>
+<li><strong>Frequency of Minor vs. Major GCs:</strong> A high frequency
+of "Scavenger" or minor GC events means the young generation space is
+filling up continuously. If left unchecked, these objects get promoted
+to the old generation, triggering expensive major GC sweeps that cause
+significant frame drops.</li>
+</ol>
+<p>When the GC frequency reaches several events per second, it serves as
+a direct indicator that the game loop contains uncontrolled
+allocations.</p>
+<h3 id="identifying-objects-for-pooling">Identifying Objects for
+Pooling</h3>
+<p>High GC frequency metrics rarely point to persistent game assets like
+textures or levels. Instead, they highlight ephemeral, high-volume
+entities instantiated inside update or render cycles. Common culprits
+identified through heap profiling include:</p>
+<ul>
+<li><strong>Particle Systems:</strong> Thousands of individual sparks,
+smoke puffs, or debris particles spawned and destroyed within
+seconds.</li>
+<li><strong>Projectiles and Hitboxes:</strong> Bullets, laser segments,
+and temporary collision boundaries.</li>
+<li><strong>Math Primitives:</strong> Temporary vectors, matrices, and
+rays allocated during physics simulations or distance checks.</li>
+<li><strong>Sound and Animation Instances:</strong> Ephemeral audio
+triggers and tweening nodes.</li>
+</ul>
+<p>If profiling reveals that allocations spike in direct proportion to
+the number of active entities on screen, those entities must be
+transitioned from dynamic instantiation (<code>new Object()</code>) to
+an object pool.</p>
+<h3 id="sizing-and-tuning-object-pools">Sizing and Tuning Object
+Pools</h3>
+<p>GC frequency data does not just reveal <em>what</em> to pool; it
+dictates <em>how</em> to configure the pool.</p>
+<ul>
+<li><strong>Determining Initial Capacity:</strong> Metrics collected
+during peak gameplay reveal the maximum number of simultaneous instances
+an engine requires. Setting the pool's initial size to match this peak
+eliminates the need for dynamic array resizing during runtime.</li>
+<li><strong>Detecting Pool Leaks:</strong> If GC frequency drops
+initially after implementing a pool but gradually resumes after extended
+play sessions, instances are likely being created faster than they are
+returned, causing the pool to expand uncontrollably.</li>
+<li><strong>Preventing Stale References:</strong> Failing to reset
+object properties before returning them to the pool can create
+accidental references that prevent the runtime engine from optimizing
+object shapes, leading to secondary allocation penalties.</li>
+</ul>
+<h3 id="validating-pool-performance">Validating Pool Performance</h3>
+<p>Once an object pool is deployed, re-running memory profiles should
+show an immediate change in metrics. The sawtooth pattern should flatten
+into a nearly horizontal line, and minor GC frequency should approach
+zero during active gameplay. By consistently using GC metrics as a
+feedback loop, developers can ensure their memory footprint remains
+static, preserving predictable execution times across various client
+hardware.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/using-gc-frequency-to-guide-java-script-object-pooling';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

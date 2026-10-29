@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Octrees for 3D Spatial Partitioning in JavaScript - javascript</title>
+    <meta name="description" content="This article explores how octrees adapt the principles of two-dimensional spatial partitioning into three-dimensional space, specifically within the context of JavaScript game development. By recursively dividing a 3D bounding volume into eight octants, o">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/octrees-for-3-d-spatial-partitioning-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Octrees for 3D Spatial Partitioning in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/octrees-for-3-d-spatial-partitioning-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how octrees adapt the principles of two-dimensional spatial partitioning into three-dimensional space, specifically within the context of JavaScript game development. By recursively dividing a 3D bounding volume into eight octants, o" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="octrees-for-3d-spatial-partitioning-in-javascript">Octrees for
+3D Spatial Partitioning in JavaScript</h1>
+<p>This article explores how octrees adapt the principles of
+two-dimensional spatial partitioning into three-dimensional space,
+specifically within the context of JavaScript game development. By
+recursively dividing a 3D bounding volume into eight octants, octrees
+allow web-based game engines to drastically reduce computational
+overhead for collision detection, view frustum culling, and raycasting.
+You will learn the structural mechanics of octrees, how they translate
+from 2D quadtrees, and how to implement them efficiently in JavaScript
+to avoid performance bottlenecks like garbage collection spikes.</p>
+<h3 id="from-quadtrees-to-octrees-adding-the-third-dimension">From
+Quadtrees to Octrees: Adding the Third Dimension</h3>
+<p>In 2D spatial partitioning, quadtrees split a rectangular area into
+four quadrants along the X and Y axes. An octree extends this concept to
+3D space by incorporating the Z-axis, dividing a cubic axis-aligned
+bounding box (AABB) into eight smaller sub-cubes, or "octants."</p>
+<p>Where a quadtree uses two intersecting perpendicular lines to
+partition space, an octree uses three orthogonal planes centered at the
+node's midpoint:</p>
+<ul>
+<li><span class="math inline">\(XY\text{-plane}\)</span> (divides along
+the Z-axis: front/back)</li>
+<li><span class="math inline">\(XZ\text{-plane}\)</span> (divides along
+the Y-axis: top/bottom)</li>
+<li><span class="math inline">\(YZ\text{-plane}\)</span> (divides along
+the X-axis: left/right)</li>
+</ul>
+<p>This geometric division creates eight distinct spatial zones:
+Top-North-East, Top-North-West, Top-South-East, Top-South-West,
+Bottom-North-East, Bottom-North-West, Bottom-South-East, and
+Bottom-South-West.</p>
+<h3 id="core-structure-of-a-javascript-octree-node">Core Structure of a
+JavaScript Octree Node</h3>
+<p>An octree node is typically defined by its spatial boundary, an array
+of stored entities, a maximum capacity threshold, and an array
+referencing its eight children. In JavaScript, a basic node structure
+looks like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> OctreeNode {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(boundary<span class="op">,</span> capacity) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">boundary</span> <span class="op">=</span> boundary<span class="op">;</span> <span class="co">// Axis-Aligned Bounding Box (center, half-dimension)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">capacity</span> <span class="op">=</span> capacity<span class="op">;</span> <span class="co">// Max items before subdividing</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">objects</span> <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">children</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span>     <span class="co">// Array of 8 child OctreeNodes when subdivided</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">isDivided</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When an entity is inserted into a node that has reached its capacity,
+the node subdivides. It instantiates eight children, each spanning half
+the width, height, and depth of the parent node, and migrates existing
+objects down into the appropriate sub-volumes.</p>
+<h3 id="managing-queries-and-collisions">Managing Queries and
+Collisions</h3>
+<p>The primary benefit of an octree in game programming is reducing
+search complexity from <span class="math inline">\(O(N^2)\)</span> to
+<span class="math inline">\(O(N \log N)\)</span> or better.</p>
+<ol type="1">
+<li><strong>Broad-Phase Collision Detection:</strong> Instead of
+checking every object against every other object, an entity only checks
+for collisions against other entities sharing its current leaf node and
+adjacent sibling nodes.</li>
+<li><strong>Frustum Culling:</strong> When rendering a scene using WebGL
+or libraries like Three.js, the camera's view frustum is tested against
+the octree's bounding volumes. If an entire octant falls outside the
+camera's view, the engine skips all objects contained within that
+branch, saving draw calls and vertex processing.</li>
+<li><strong>Raycasting:</strong> For shooting mechanics or mouse
+picking, a ray is traversed through the tree. Nodes that do not
+intersect the ray are immediately discarded, allowing rapid
+identification of targeted objects.</li>
+</ol>
+<h3
+id="javascript-specific-performance-optimizations">JavaScript-Specific
+Performance Optimizations</h3>
+<p>JavaScript engines (like V8) present specific challenges for
+tree-based spatial structures, primarily due to dynamic memory
+allocation and garbage collection.</p>
+<ul>
+<li><strong>Preventing Garbage Collection Thrashing:</strong>
+Continually creating and destroying node objects for moving entities
+will trigger JavaScript's garbage collector, causing frame rate
+stutters. Use object pooling for both the nodes and vector math
+operations to reuse memory allocations.</li>
+<li><strong>Loose Octrees for Dynamic Objects:</strong> Traditional
+octrees require objects strictly within an octant's borders. Moving
+objects that straddle boundaries can cause continuous re-insertions. A
+"loose octree" expands the bounds of each node by a set factor
+(typically 1.5x to 2x) while keeping the step size of the grid
+identical. This overlap prevents objects on boundaries from thrashing
+between nodes.</li>
+<li><strong>Linear Array Octrees:</strong> For static environments (such
+as terrain or level geometry), you can flatten the octree into
+contiguous <code>Float32Array</code> buffers. A flattened octree
+utilizes CPU cache locality far better than traditional pointer-heavy
+object graphs, drastically increasing query speeds in JavaScript.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/octrees-for-3-d-spatial-partitioning-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

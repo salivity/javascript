@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL Shaders in JavaScript Game Rendering - javascript</title>
+    <meta name="description" content="This article provides an overview of how WebGL utilizes vertex and fragment shaders within its graphics pipeline to deliver real-time rendering for JavaScript games. It covers the programmable stages of the graphics hardware, the process of compiling and">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-gl-shaders-in-java-script-game-rendering">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebGL Shaders in JavaScript Game Rendering - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-gl-shaders-in-java-script-game-rendering" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how WebGL utilizes vertex and fragment shaders within its graphics pipeline to deliver real-time rendering for JavaScript games. It covers the programmable stages of the graphics hardware, the process of compiling and" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="webgl-shaders-in-javascript-game-rendering">WebGL Shaders in
+JavaScript Game Rendering</h1>
+<p>This article provides an overview of how WebGL utilizes vertex and
+fragment shaders within its graphics pipeline to deliver real-time
+rendering for JavaScript games. It covers the programmable stages of the
+graphics hardware, the process of compiling and linking GLSL programs in
+JavaScript, the mechanisms for passing dynamic game data to the GPU, and
+how these elements synchronize within a standard game loop to render
+frames efficiently.</p>
+<h2 id="the-webgl-programmable-rendering-pipeline">The WebGL
+Programmable Rendering Pipeline</h2>
+<p>The WebGL pipeline is a sequence of operations that transforms 3D
+geometric data into 2D rasterized pixels on an HTML5
+<code>&lt;canvas&gt;</code>. At the core of this pipeline are two
+programmable stages:</p>
+<ol type="1">
+<li><strong>Vertex Shader:</strong> Processes individual vertex data
+(positions, normals, texture coordinates) delivered from JavaScript. Its
+primary job is to project 3D coordinates into a 2D viewport space known
+as clip space (<code>gl_Position</code>).</li>
+<li><strong>Primitive Assembly and Rasterization:</strong> A
+fixed-function hardware stage that connects vertices into primitives
+(triangles, lines, or points) and breaks them down into fragments
+(potential pixels).</li>
+<li><strong>Fragment Shader:</strong> Executes for every fragment
+generated during rasterization. It calculates the final color value
+(<code>gl_FragColor</code> or <code>out vec4</code>) based on lighting,
+textures, material properties, and interpolated data.</li>
+<li><strong>Frame Buffer Operations:</strong> Applies depth testing,
+stencil testing, and alpha blending before writing the final pixel color
+to the canvas display buffer.</li>
+</ol>
+<h2 id="compiling-and-linking-shaders-in-javascript">Compiling and
+Linking Shaders in JavaScript</h2>
+<p>Because shaders are written in OpenGL ES Shading Language (GLSL), the
+browser’s CPU cannot run them directly. JavaScript acts as the
+coordinator, managing the compilation and GPU execution setup:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Create and compile individual shaders</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vertexShader <span class="op">=</span> gl<span class="op">.</span><span class="fu">createShader</span>(gl<span class="op">.</span><span class="at">VERTEX_SHADER</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">shaderSource</span>(vertexShader<span class="op">,</span> vertexShaderSource)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">compileShader</span>(vertexShader)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> fragmentShader <span class="op">=</span> gl<span class="op">.</span><span class="fu">createShader</span>(gl<span class="op">.</span><span class="at">FRAGMENT_SHADER</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">shaderSource</span>(fragmentShader<span class="op">,</span> fragmentShaderSource)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">compileShader</span>(fragmentShader)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Link shaders into a single GPU program</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> program <span class="op">=</span> gl<span class="op">.</span><span class="fu">createProgram</span>()<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">attachShader</span>(program<span class="op">,</span> vertexShader)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">attachShader</span>(program<span class="op">,</span> fragmentShader)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">linkProgram</span>(program)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Instruct WebGL to use the program</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">useProgram</span>(program)<span class="op">;</span></span></code></pre></div>
+<p>Once linked, the program object represents the active GPU state for
+subsequent draw commands.</p>
+<h2 id="feeding-game-data-to-shaders">Feeding Game Data to Shaders</h2>
+<p>For game objects to move, animate, and display textures, the
+JavaScript application must feed data into the shader pipeline using
+three distinct mechanisms:</p>
+<h3 id="1-attributes-and-vertex-buffer-objects-vbos">1. Attributes and
+Vertex Buffer Objects (VBOs)</h3>
+<p>Attributes supply per-vertex data such as model geometry, vertex
+normals, and UV texture coordinates. In JavaScript, arrays of
+floating-point numbers are transferred to high-performance GPU memory
+via Vertex Buffer Objects:</p>
+<ul>
+<li>JavaScript calls <code>gl.createBuffer()</code> and
+<code>gl.bufferData()</code> to allocate and upload vertex arrays.</li>
+<li>The location of the attribute is queried with
+<code>gl.getAttribLocation()</code>.</li>
+<li><code>gl.vertexAttribPointer()</code> and
+<code>gl.enableVertexAttribArray()</code> map the buffer layout to the
+vertex shader input.</li>
+</ul>
+<h3 id="2-uniforms">2. Uniforms</h3>
+<p>Uniforms are read-only variables that remain constant across an
+entire draw call for every vertex and fragment. Games use uniforms to
+pass:</p>
+<ul>
+<li>Model-View-Projection (MVP) transformation matrices.</li>
+<li>Dynamic lighting configurations (light color, direction,
+intensity).</li>
+<li>Delta time for procedural animations.</li>
+<li>Texture sampler units (<code>sampler2D</code>).</li>
+</ul>
+<p>Uniform locations are retrieved via
+<code>gl.getUniformLocation()</code> and updated using methods such as
+<code>gl.uniformMatrix4fv()</code> or <code>gl.uniform3f()</code>.</p>
+<h3 id="3-varyings">3. Varyings</h3>
+<p>Varyings pass data internally from the vertex shader to the fragment
+shader. When a vertex shader outputs a varying variable (such as a
+normal or UV coordinate), the GPU hardware rasterizer linearly
+interpolates that value across the surface of the triangle. The fragment
+shader then receives the interpolated value corresponding to the exact
+pixel coordinate being shaded.</p>
+<h2 id="execution-in-the-game-loop">Execution in the Game Loop</h2>
+<p>In JavaScript game programming, the rendering pipeline executes
+within the <code>requestAnimationFrame</code> loop:</p>
+<ol type="1">
+<li><strong>State Update:</strong> Update entity positions, camera
+transforms, and game logic on the CPU.</li>
+<li><strong>Clear Buffers:</strong> Clear the color and depth buffers
+using <code>gl.clear()</code>.</li>
+<li><strong>Bind Assets:</strong> Select the active shader program
+(<code>gl.useProgram</code>), bind the model’s vertex array or buffers,
+and bind relevant textures.</li>
+<li><strong>Push Uniforms:</strong> Send updated transformation matrices
+and environmental data to the GPU.</li>
+<li><strong>Draw Call:</strong> Execute <code>gl.drawArrays()</code> or
+<code>gl.drawElements()</code>.</li>
+</ol>
+<p>The draw call triggers the GPU: the vertex shader transforms the
+mesh, primitives are rasterized, the fragment shader computes the
+lighting and surface colors, and the resulting image is presented to the
+user's screen.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/web-gl-shaders-in-java-script-game-rendering';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

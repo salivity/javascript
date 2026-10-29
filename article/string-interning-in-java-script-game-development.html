@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>String Interning in JavaScript Game Development - javascript</title>
+    <meta name="description" content="This article explores the concept of string interning, its implementation within modern JavaScript engines, and its practical impact on identifier comparisons in web-based game programming. You will learn how the engine handles string memory under the hoo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/string-interning-in-java-script-game-development">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="String Interning in JavaScript Game Development - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/string-interning-in-java-script-game-development" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the concept of string interning, its implementation within modern JavaScript engines, and its practical impact on identifier comparisons in web-based game programming. You will learn how the engine handles string memory under the hoo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="string-interning-in-javascript-game-development">String
+Interning in JavaScript Game Development</h1>
+<p>This article explores the concept of string interning, its
+implementation within modern JavaScript engines, and its practical
+impact on identifier comparisons in web-based game programming. You will
+learn how the engine handles string memory under the hood, whether
+string equality checks are truly <span
+class="math inline">\(O(1)\)</span>, and the best practices for
+structuring entity tags, component IDs, and state identifiers to ensure
+optimal frame rates.</p>
+<h2 id="what-is-string-interning">What Is String Interning?</h2>
+<p>String interning is a memory optimization method where the runtime
+environment stores only a single copy of each distinct string value in
+an immutable table, often called the "intern pool" or "atom table."</p>
+<p>When two variables are assigned the same string literal, rather than
+allocating separate blocks of memory for each, the engine points both
+variables to the exact same memory address. This allows equality
+comparisons (<code>a === b</code>) to be evaluated as a fast pointer or
+reference check (<span class="math inline">\(O(1)\)</span>) rather than
+a character-by-character comparison (<span
+class="math inline">\(O(n)\)</span>).</p>
+<h2 id="how-javascript-engines-handle-interning">How JavaScript Engines
+Handle Interning</h2>
+<p>The ECMAScript specification does not require engines to intern
+strings, but major engines like Google V8 (Chrome, Node.js),
+SpiderMonkey (Firefox), and JavaScriptCore (Safari) heavily utilize
+string interning and "atomization."</p>
+<p>In engines like V8:</p>
+<ul>
+<li><strong>String Literals:</strong> Compile-time constants and
+hardcoded literals (e.g., <code>const type = "enemy";</code>) are
+interned automatically.</li>
+<li><strong>Property Keys:</strong> Object keys and property names are
+interned as "atoms" to speed up property lookups through hidden classes
+(shapes).</li>
+<li><strong>Computed Strings:</strong> Dynamically created strings (such
+as those created via concatenation or slicing) are not always interned
+immediately. They may exist as "cons strings" or flat strings in memory,
+meaning an equality check could fall back to a length check followed by
+character scanning if memory pointers differ.</li>
+</ul>
+<h2 id="the-impact-on-identifier-comparisons-in-games">The Impact on
+Identifier Comparisons in Games</h2>
+<p>Game loops process dozens or hundreds of state checks, collision
+verifications, and entity queries every frame at 60 or 120 FPS. Common
+patterns involve comparing tags or states, such as:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (entity<span class="op">.</span><span class="at">tag</span> <span class="op">===</span> <span class="st">&quot;player&quot;</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Execute player logic</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="1-pointer-comparison-vs-character-scanning">1. Pointer
+Comparison vs. Character Scanning</h3>
+<p>Because compile-time string literals are interned, comparing an
+interned identifier to another interned literal usually results in an
+instantaneous reference comparison. The engine checks if the memory
+addresses match. If they do, the operation takes <span
+class="math inline">\(O(1)\)</span> time, just like comparing two
+numbers.</p>
+<h3 id="2-the-danger-of-dynamic-strings">2. The Danger of Dynamic
+Strings</h3>
+<p>If identifiers are generated dynamically during the game loop (e.g.,
+<code>entity.type = "bullet_" + id</code>), these strings are allocated
+dynamically and might not share the same memory pointer as another
+identical string. In this scenario:</p>
+<ul>
+<li>The engine first checks for reference equality (fails).</li>
+<li>The engine checks if the lengths match (passes).</li>
+<li>The engine performs a character-by-character scan (slow).</li>
+<li>Frequent creation of dynamic strings generates garbage collection
+(GC) pressure, causing frame drops or stuttering.</li>
+</ul>
+<h3 id="3-v8-internal-representation-transitions">3. V8 Internal
+Representation Transitions</h3>
+<p>JavaScript strings can change their internal engine representation.
+In hot loops, relying on the engine to keep strings interned can be
+brittle. While engines are smart enough to compare string lengths first
+to exit early on mismatched lengths, matching string lengths with
+different contents force character iteration unless interned.</p>
+<h2 id="best-practices-for-game-identifiers">Best Practices for Game
+Identifiers</h2>
+<p>While string interning mitigates much of the overhead associated with
+string comparisons, game developers should adhere to the following
+conventions in performance-critical code:</p>
+<ol type="1">
+<li><strong>Use Constants for Tags:</strong> Always reference shared
+constants rather than raw string literals across multiple files to
+ensure the engine reuses identical tokens.</li>
+<li><strong>Prefer Integers or Bitmasks:</strong> For high-frequency
+loops (e.g., physics, spatial partitioning, rendering pipelines),
+integer IDs or bit flags are consistently faster than strings. Integers
+do not rely on engine-specific interning behavior and are stored
+directly in CPU registers or typed arrays.</li>
+<li><strong>Use Symbols for Unique Identifiers:</strong> JavaScript
+<code>Symbol</code> primitives provide guaranteed reference equality
+without the risk of character-scanning fallback, making them a type-safe
+and performant alternative to strings for system-level event names and
+component identifiers.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/string-interning-in-java-script-game-development';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

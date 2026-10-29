@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Normal Mapping in JavaScript Game Development - javascript</title>
+    <meta name="description" content="Normal mapping is a fundamental computer graphics technique that simulates high-resolution surface details—such as cracks, bumps, and rivets—on low-polygon 3D meshes without increasing their actual geometric complexity. In browser-based JavaScript game de">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/normal-mapping-in-java-script-game-development">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Normal Mapping in JavaScript Game Development - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/normal-mapping-in-java-script-game-development" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Normal mapping is a fundamental computer graphics technique that simulates high-resolution surface details—such as cracks, bumps, and rivets—on low-polygon 3D meshes without increasing their actual geometric complexity. In browser-based JavaScript game de" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="normal-mapping-in-javascript-game-development">Normal Mapping in
+JavaScript Game Development</h1>
+<p>Normal mapping is a fundamental computer graphics technique that
+simulates high-resolution surface details—such as cracks, bumps, and
+rivets—on low-polygon 3D meshes without increasing their actual
+geometric complexity. In browser-based JavaScript game development,
+where performance and memory constraints are critical, normal mapping
+allows developers using engines like Three.js or Babylon.js to achieve
+AAA-style visual fidelity. By altering how light bounces off an object's
+surface on a per-pixel level rather than adding more vertices, this
+technique keeps draw calls and polygon counts minimal while maintaining
+high visual realism.</p>
+<h3 id="the-role-of-surface-normals-in-lighting">The Role of Surface
+Normals in Lighting</h3>
+<p>In 3D rendering, lighting is calculated using vectors called
+"normals." A normal is a directional vector perpendicular to a polygon's
+surface that tells the rendering engine which way that face is pointing.
+Standard diffuse and specular lighting models (such as Phong or PBR)
+compare the light source's direction with the surface normal to
+determine how bright a particular point on the mesh should be.</p>
+<p>Traditionally, adding finer details to an object requires subdividing
+its geometry into thousands of tiny faces, each with its own normal.
+This quickly causes performance bottlenecks in JavaScript games due to
+vertex buffer overhead and memory bandwidth limits.</p>
+<h3 id="encoding-vectors-into-rgb-textures">Encoding Vectors into RGB
+Textures</h3>
+<p>Normal mapping replaces geometric subdivision by storing thousands of
+normal vectors inside a standard 2D image texture called a normal map.
+Instead of storing red, green, and blue color channels, the image uses
+these channels to represent spatial coordinates:</p>
+<ul>
+<li><strong>Red Channel (X-axis):</strong> Represents the horizontal
+tilt (left to right).</li>
+<li><strong>Green Channel (Y-axis):</strong> Represents the vertical
+tilt (up to down).</li>
+<li><strong>Blue Channel (Z-axis):</strong> Represents depth pointing
+directly outward from the surface.</li>
+</ul>
+<p>Because a vector pointing directly outward has a value of (0, 0, 1)
+in tangent space, it maps to an RGB value with maximum blue and neutral
+red/green, which explains why tangent-space normal maps appear
+distinctly periwinkle or bluish-purple.</p>
+<h3 id="pixel-level-evaluation-in-fragment-shaders">Pixel-Level
+Evaluation in Fragment Shaders</h3>
+<p>The actual magic of normal mapping happens inside the GPU's fragment
+(or pixel) shader during the WebGL rendering pipeline:</p>
+<ol type="1">
+<li><strong>Vertex Stage:</strong> The low-poly mesh passes through the
+vertex shader with a low vertex count, preserving frame rates.</li>
+<li><strong>Texture Sampling:</strong> In the fragment shader, the
+engine samples the normal map texture for every individual pixel
+covering the polygon.</li>
+<li><strong>Vector Transformation:</strong> The RGB values are unpacked
+back into standard directional vector coordinates ranging from -1.0 to
+1.0. These vectors are then converted from tangent space into world
+space using the mesh's Tangent-Bitangent-Normal (TBN) matrix.</li>
+<li><strong>Illumination Calculation:</strong> The fragment shader uses
+these newly extracted, localized normal vectors instead of the mesh's
+real geometric normal to calculate light reflection.</li>
+</ol>
+<p>The result is an optical illusion: the object appears to have
+distinct crevices and protruding details because the shading shifts
+accurately with the light source, even though the underlying surface
+remains completely flat.</p>
+<h3 id="implementing-normal-maps-in-javascript-engines">Implementing
+Normal Maps in JavaScript Engines</h3>
+<p>Modern JavaScript WebGL libraries abstract the underlying GLSL shader
+math, making normal mapping straightforward to implement.</p>
+<p>In <strong>Three.js</strong>, for example, you apply a normal map
+directly through standard PBR materials:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> textureLoader <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">TextureLoader</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> normalTexture <span class="op">=</span> textureLoader<span class="op">.</span><span class="fu">load</span>(<span class="st">&#39;textures/stone_normal.png&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> material <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">MeshStandardMaterial</span>({</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">map</span><span class="op">:</span> textureLoader<span class="op">.</span><span class="fu">load</span>(<span class="st">&#39;textures/stone_diffuse.png&#39;</span>)<span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">normalMap</span><span class="op">:</span> normalTexture<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">normalScale</span><span class="op">:</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Vector2</span>(<span class="dv">1</span><span class="op">,</span> <span class="dv">1</span>) <span class="co">// Controls the intensity of the bump effect</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> mesh <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Mesh</span>(lowPolyGeometry<span class="op">,</span> material)<span class="op">;</span></span></code></pre></div>
+<p>In <strong>Babylon.js</strong>, the implementation follows a similar
+approach using standard or PBR materials:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> material <span class="op">=</span> <span class="kw">new</span> BABYLON<span class="op">.</span><span class="fu">PBRMaterial</span>(<span class="st">&quot;pbr&quot;</span><span class="op">,</span> scene)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>material<span class="op">.</span><span class="at">albedoTexture</span> <span class="op">=</span> <span class="kw">new</span> BABYLON<span class="op">.</span><span class="fu">Texture</span>(<span class="st">&quot;textures/stone_diffuse.png&quot;</span><span class="op">,</span> scene)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>material<span class="op">.</span><span class="at">bumpTexture</span> <span class="op">=</span> <span class="kw">new</span> BABYLON<span class="op">.</span><span class="fu">Texture</span>(<span class="st">&quot;textures/stone_normal.png&quot;</span><span class="op">,</span> scene)<span class="op">;</span></span></code></pre></div>
+<h3 id="performance-benefits-for-the-web">Performance Benefits for the
+Web</h3>
+<p>Browser environments run within memory and processing constraints
+imposed by the host operating system and hardware sandboxing. Normal
+mapping provides several performance advantages for JavaScript
+games:</p>
+<ul>
+<li><strong>Low Memory Footprint:</strong> A single low-poly model
+paired with a 2K normal map uses significantly less memory than a
+high-poly model with hundreds of thousands of vertices.</li>
+<li><strong>Faster Loading Times:</strong> Smaller 3D asset file sizes
+mean quicker asset downloads over the network, minimizing initial load
+times.</li>
+<li><strong>High Frame Rates:</strong> Shifting detail resolution from
+the vertex processing stage to the fragment shader leverages modern GPU
+parallelization, ensuring stable 60+ FPS gameplay even on integrated
+mobile GPUs.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/normal-mapping-in-java-script-game-development';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

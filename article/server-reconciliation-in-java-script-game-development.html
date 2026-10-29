@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Reconciliation in JavaScript Game Development - javascript</title>
+    <meta name="description" content="This article explores server reconciliation, an essential netcode technique used in real-time multiplayer JavaScript games to maintain synchronization between clients and an authoritative server. You will learn the mechanics of client-side prediction, why">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/server-reconciliation-in-java-script-game-development">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Server Reconciliation in JavaScript Game Development - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/server-reconciliation-in-java-script-game-development" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores server reconciliation, an essential netcode technique used in real-time multiplayer JavaScript games to maintain synchronization between clients and an authoritative server. You will learn the mechanics of client-side prediction, why" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="server-reconciliation-in-javascript-game-development">Server
+Reconciliation in JavaScript Game Development</h1>
+<p>This article explores server reconciliation, an essential netcode
+technique used in real-time multiplayer JavaScript games to maintain
+synchronization between clients and an authoritative server. You will
+learn the mechanics of client-side prediction, why prediction errors
+occur due to network latency, and the step-by-step process of using
+input histories and state rewinds to smoothly correct mispredictions
+without sacrificing responsiveness.</p>
+<h3 id="the-need-for-client-side-prediction">The Need for Client-Side
+Prediction</h3>
+<p>In real-time multiplayer games, waiting for a remote server to
+acknowledge player input introduces noticeable input lag. If a player
+presses the right arrow key, waiting 100 milliseconds for a round-trip
+network response makes the controls feel sluggish.</p>
+<p>To eliminate this latency, games implement <strong>client-side
+prediction</strong>. The client applies user input immediately to the
+local state, allowing the character to move instantly on screen.
+Concurrently, the client transmits the input to the authoritative server
+over WebSockets or WebRTC DataChannels for verification.</p>
+<h3 id="what-is-server-reconciliation">What Is Server
+Reconciliation?</h3>
+<p>Server reconciliation is the process where a client checks its
+locally predicted state against the authoritative state returned by the
+server, identifies any discrepancies, and silently corrects them.</p>
+<p>Because the server is the single source of truth, it might reject a
+client's predicted movement. For example, another player may have
+blocked the path, or a physics calculation produced a slightly different
+floating-point result. When the server’s response arrives, its state
+represents the past. Simply teleporting the player to the server's
+coordinates creates jarring visual artifacts known as "rubber-banding."
+Server reconciliation resolves this by rewinding the client to the
+verified server state and replaying all subsequent local inputs that the
+server has not yet processed.</p>
+<h3 id="how-the-reconciliation-process-works">How the Reconciliation
+Process Works</h3>
+<p>To implement server reconciliation in JavaScript, the client and
+server must track inputs using sequential identifiers.</p>
+<h4 id="1-input-buffering-and-sequence-numbering">1. Input Buffering and
+Sequence Numbering</h4>
+<p>Every frame the user generates input, the client assigns it an
+incrementing sequence number (or tick count). The client stores these
+inputs in a local array (an input buffer) alongside their simulated
+outcomes:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> inputSequenceNumber <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> pendingInputs <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">handleInput</span>() {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> input <span class="op">=</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">sequenceNumber</span><span class="op">:</span> <span class="op">++</span>inputSequenceNumber<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">dx</span><span class="op">:</span> <span class="fu">getHorizontalInput</span>()<span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">dy</span><span class="op">:</span> <span class="fu">getVerticalInput</span>()<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">dt</span><span class="op">:</span> deltaTime</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Apply prediction locally</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyMovement</span>(localPlayer<span class="op">,</span> input)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Save for potential future reconciliation</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    pendingInputs<span class="op">.</span><span class="fu">push</span>(input)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Send to authoritative server</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    network<span class="op">.</span><span class="fu">send</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;INPUT&#39;</span><span class="op">,</span> <span class="dt">payload</span><span class="op">:</span> input })<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="2-authoritative-server-processing">2. Authoritative Server
+Processing</h4>
+<p>The server collects inputs from the network, validates them against
+the game rules, updates the world simulation, and broadcasts an
+authoritative state packet. This packet includes the sequence number of
+the last input processed for that specific client:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Server snapshot payload sent to client</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">lastProcessedInput</span><span class="op">:</span> <span class="dv">42</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">position</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="fl">120.5</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="fl">84.0</span> }<span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">velocity</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="fl">5.0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="fl">0.0</span> }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="3-error-detection">3. Error Detection</h4>
+<p>When the client receives the server snapshot, it discards all stored
+inputs with a sequence number less than or equal to
+<code>lastProcessedInput</code>, as they are now confirmed:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">onServerUpdate</span>(snapshot) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Discard acknowledged inputs</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (pendingInputs<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> pendingInputs[<span class="dv">0</span>]<span class="op">.</span><span class="at">sequenceNumber</span> <span class="op">&lt;=</span> snapshot<span class="op">.</span><span class="at">lastProcessedInput</span>) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        pendingInputs<span class="op">.</span><span class="fu">shift</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Compare server position against historical or current predicted position</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> errorThreshold <span class="op">=</span> <span class="fl">0.001</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dx <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(localPlayer<span class="op">.</span><span class="at">x</span> <span class="op">-</span> snapshot<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span>)<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dy <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(localPlayer<span class="op">.</span><span class="at">y</span> <span class="op">-</span> snapshot<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (dx <span class="op">&gt;</span> errorThreshold <span class="op">||</span> dy <span class="op">&gt;</span> errorThreshold) {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="fu">reconcile</span>(snapshot)<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="4-replaying-unprocessed-inputs">4. Replaying Unprocessed
+Inputs</h4>
+<p>If a mismatch exceeds an acceptable threshold, reconciliation
+triggers. The client resets its state to the server's snapshot and
+immediately reapplies all remaining inputs in <code>pendingInputs</code>
+in order:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">reconcile</span>(snapshot) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Rewind state to server&#39;s authoritative state</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    localPlayer<span class="op">.</span><span class="at">x</span> <span class="op">=</span> snapshot<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    localPlayer<span class="op">.</span><span class="at">y</span> <span class="op">=</span> snapshot<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    localPlayer<span class="op">.</span><span class="at">vx</span> <span class="op">=</span> snapshot<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    localPlayer<span class="op">.</span><span class="at">vy</span> <span class="op">=</span> snapshot<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fast-forward: Re-apply inputs that the server hasn&#39;t seen yet</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> input <span class="kw">of</span> pendingInputs) {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="fu">applyMovement</span>(localPlayer<span class="op">,</span> input)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="visual-smoothing">Visual Smoothing</h3>
+<p>While replaying inputs corrects the underlying simulation state
+within a single JavaScript execution tick, large discrepancies can still
+cause a visible jitter. To handle this, game engines decouple the visual
+mesh or sprite position from the underlying physics coordinates. When
+reconciliation shifts the physics coordinates, the rendering system
+smoothly interpolates the render target toward the newly corrected
+position over several frames, masking the mathematical adjustment from
+the player's view.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/server-reconciliation-in-java-script-game-development';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

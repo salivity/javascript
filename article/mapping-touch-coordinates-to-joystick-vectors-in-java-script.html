@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapping Touch Coordinates to Joystick Vectors in JavaScript - javascript</title>
+    <meta name="description" content="Virtual joysticks in JavaScript translate raw 2D touch inputs into normalized directional vectors that game engines use to control character movement, cameras, and mechanics. This translation relies on fundamental trigonometry and vector math: capturing t">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/mapping-touch-coordinates-to-joystick-vectors-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mapping Touch Coordinates to Joystick Vectors in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/mapping-touch-coordinates-to-joystick-vectors-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Virtual joysticks in JavaScript translate raw 2D touch inputs into normalized directional vectors that game engines use to control character movement, cameras, and mechanics. This translation relies on fundamental trigonometry and vector math: capturing t" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="mapping-touch-coordinates-to-joystick-vectors-in-javascript">Mapping
+Touch Coordinates to Joystick Vectors in JavaScript</h1>
+<p>Virtual joysticks in JavaScript translate raw 2D touch inputs into
+normalized directional vectors that game engines use to control
+character movement, cameras, and mechanics. This translation relies on
+fundamental trigonometry and vector math: capturing touch positions,
+calculating the displacement from an anchor point, clamping the maximum
+radius, and normalizing the resulting coordinates into values typically
+ranging between -1.0 and 1.0.</p>
+<h3 id="1-capturing-touch-events-and-defining-the-anchor">1. Capturing
+Touch Events and Defining the Anchor</h3>
+<p>A virtual joystick consists of two visual components: an outer base
+and an inner knob (or thumbstick). When a player interacts with the
+screen, touch events (<code>touchstart</code>, <code>touchmove</code>,
+<code>touchend</code>) track the pointer's coordinates relative to the
+viewport or a <code>&lt;canvas&gt;</code> element.</p>
+<p>The base defines the origin coordinate, <span
+class="math inline">\((x_0, y_0)\)</span>. Depending on the game's
+design, this anchor point is either fixed at a static screen position or
+dynamic, appearing wherever the player first touches within a designated
+zone on <code>touchstart</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> touch <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">touches</span>[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> currentX <span class="op">=</span> touch<span class="op">.</span><span class="at">clientX</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> currentY <span class="op">=</span> touch<span class="op">.</span><span class="at">clientY</span><span class="op">;</span></span></code></pre></div>
+<h3 id="2-calculating-the-displacement-vector">2. Calculating the
+Displacement Vector</h3>
+<p>As the player drags their finger, <code>touchmove</code> triggers
+continuously. The displacement (delta) between the current touch
+position and the joystick's origin is calculated using basic
+subtraction:</p>
+<p><span class="math display">\[\Delta x = \text{currentX} -
+x_0\]</span> <span class="math display">\[\Delta y = \text{currentY} -
+y_0\]</span></p>
+<p>This produces a raw offset vector representing both direction and
+magnitude from the center of the joystick.</p>
+<h3 id="3-measuring-magnitude-with-the-pythagorean-theorem">3. Measuring
+Magnitude with the Pythagorean Theorem</h3>
+<p>To prevent the inner knob from moving infinitely off-screen and to
+determine how far the stick is tilted, you calculate the Euclidean
+distance (magnitude) from the origin using the Pythagorean theorem:</p>
+<p><span class="math display">\[\text{distance} = \sqrt{\Delta x^2 +
+\Delta y^2}\]</span></p>
+<p>In JavaScript:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> distance <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(deltaX<span class="op">,</span> deltaY)<span class="op">;</span></span></code></pre></div>
+<h3 id="4-clamping-to-a-maximum-radius">4. Clamping to a Maximum
+Radius</h3>
+<p>A joystick has a defined boundary, denoted as <code>maxRadius</code>.
+If the user drags their finger further than this boundary, the visual
+knob and vector calculations must be constrained to the edge of the
+circle.</p>
+<p>If <code>distance</code> exceeds <code>maxRadius</code>, the offset
+coordinates are scaled down while preserving their angle:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> clampedX <span class="op">=</span> deltaX<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> clampedY <span class="op">=</span> deltaY<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (distance <span class="op">&gt;</span> maxRadius) {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> angle <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">atan2</span>(deltaY<span class="op">,</span> deltaX)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  clampedX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle) <span class="op">*</span> maxRadius<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  clampedY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) <span class="op">*</span> maxRadius<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Alternatively, this can be done without trigonometric functions by
+scaling via the ratio of the maximum radius to the current distance:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (distance <span class="op">&gt;</span> maxRadius) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> scale <span class="op">=</span> maxRadius <span class="op">/</span> distance<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  clampedX <span class="op">=</span> deltaX <span class="op">*</span> scale<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  clampedY <span class="op">=</span> deltaY <span class="op">*</span> scale<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The clamped coordinates are used to update the visual position of the
+joystick's knob on the screen.</p>
+<h3 id="5-normalizing-the-directional-vector">5. Normalizing the
+Directional Vector</h3>
+<p>Game movement logic generally requires a normalized directional
+vector where each component falls between -1.0 and 1.0. To obtain this,
+divide the clamped displacement by the maximum radius:</p>
+<p><span class="math display">\[v_x =
+\frac{\text{clampedX}}{\text{maxRadius}}\]</span> <span
+class="math display">\[v_y =
+\frac{\text{clampedY}}{\text{maxRadius}}\]</span></p>
+<p>Because browser screens use an inverted Y-axis—where positive Y
+points downward toward the bottom of the screen—most 2D and 3D game
+engines require the Y component to be inverted:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vectorX <span class="op">=</span> clampedX <span class="op">/</span> maxRadius<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> vectorY <span class="op">=</span> <span class="op">-</span>(clampedY <span class="op">/</span> maxRadius)<span class="op">;</span> <span class="co">// Invert so positive represents &quot;up&quot;</span></span></code></pre></div>
+<h3 id="6-applying-a-deadzone">6. Applying a Deadzone</h3>
+<p>Physical analog sticks and touch interfaces both suffer from
+unintentional micro-movements. To avoid jitter when the player rests
+their thumb near the center, an inner deadzone threshold is applied:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> deadzone <span class="op">=</span> <span class="fl">0.1</span><span class="op">;</span> <span class="co">// 10% of maximum radius</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> intensity <span class="op">=</span> distance <span class="op">/</span> maxRadius<span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> finalVectorX <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> finalVectorY <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (intensity <span class="op">&gt;</span> deadzone) {</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  finalVectorX <span class="op">=</span> vectorX<span class="op">;</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  finalVectorY <span class="op">=</span> vectorY<span class="op">;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When the touch ends (<code>touchend</code> or
+<code>touchcancel</code>), the knob resets to <span
+class="math inline">\((x_0, y_0)\)</span>, and the directional vector
+returns to <span class="math inline">\((0, 0)\)</span>, halting
+movement. The resulting vector <span class="math inline">\((v_x,
+v_y)\)</span> can then be multiplied directly by delta time and
+character speed inside the game's main update loop.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/mapping-touch-coordinates-to-joystick-vectors-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

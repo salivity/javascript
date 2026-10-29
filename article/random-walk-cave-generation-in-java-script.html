@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Walk Cave Generation in JavaScript - javascript</title>
+    <meta name="description" content="This article explores how random walk algorithms generate organic, subterranean cave systems in JavaScript game development. By initializing a solid grid of rock and sending an autonomous agent to carve pathways in stochastic directions, developers can cr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/random-walk-cave-generation-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Random Walk Cave Generation in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/random-walk-cave-generation-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how random walk algorithms generate organic, subterranean cave systems in JavaScript game development. By initializing a solid grid of rock and sending an autonomous agent to carve pathways in stochastic directions, developers can cr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="random-walk-cave-generation-in-javascript">Random Walk Cave
+Generation in JavaScript</h1>
+<p>This article explores how random walk algorithms generate organic,
+subterranean cave systems in JavaScript game development. By
+initializing a solid grid of rock and sending an autonomous agent to
+carve pathways in stochastic directions, developers can create
+unpredictable, interconnected caverns suitable for roguelikes,
+platformers, and RPGs. Below, we break down the core mechanics, the
+mathematical logic of the walker, and a functional JavaScript
+implementation for your game engine.</p>
+<h3 id="the-underlying-mechanics-the-drunkards-walk">The Underlying
+Mechanics: The Drunkard's Walk</h3>
+<p>The random walk algorithm—often referred to as the "Drunkard's
+Walk"—operates on a simple premise: an agent is placed on a discrete 2D
+grid filled entirely with solid tiles. At each step, the agent converts
+its current tile into empty space (a floor or air tile) and then picks
+an adjacent direction at random to move. Over thousands of iterations,
+this seemingly chaotic motion naturally excavates continuous, winding
+corridors and expansive open chambers, avoiding the artificial, blocky
+look of static room generators.</p>
+<h3 id="1-setting-up-the-grid">1. Setting Up the Grid</h3>
+<p>The environment begins as a 2D array populated by solid rock values.
+In JavaScript, this is typically structured as an array of arrays
+representing rows and columns, where <code>1</code> represents a wall
+and <code>0</code> represents an excavated floor.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createSolidGrid</span>(width<span class="op">,</span> height) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> grid <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> y <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> y <span class="op">&lt;</span> height<span class="op">;</span> y<span class="op">++</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        grid[y] <span class="op">=</span> <span class="kw">new</span> <span class="bu">Array</span>(width)<span class="op">.</span><span class="fu">fill</span>(<span class="dv">1</span>)<span class="op">;</span> <span class="co">// 1 = solid wall</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-the-carving-loop">2. The Carving Loop</h3>
+<p>The walker requires three main parameters: a starting position, a
+target percentage of open floor (or a maximum step limit), and movement
+constraints to keep it within the grid boundaries.</p>
+<p>Instead of moving completely unconstrained, the agent chooses
+randomly from four cardinal vectors:</p>
+<ul>
+<li>Up: <code>[0, -1]</code></li>
+<li>Down: <code>[0, 1]</code></li>
+<li>Left: <code>[-1, 0]</code></li>
+<li>Right: <code>[1, 0]</code></li>
+</ul>
+<p>At each step, the walker:</p>
+<ol type="1">
+<li>Marks the current coordinate <code>[x, y]</code> as <code>0</code>
+(carved).</li>
+<li>Tracks the number of unique carved cells to monitor progress.</li>
+<li>Selects a random direction.</li>
+<li>Checks that moving in that direction will not cross the outer grid
+boundaries (leaving a buffer zone for outer walls).</li>
+<li>Updates its coordinate.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">generateCave</span>(width<span class="op">,</span> height<span class="op">,</span> fillPercentage <span class="op">=</span> <span class="fl">0.4</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> grid <span class="op">=</span> <span class="fu">createSolidGrid</span>(width<span class="op">,</span> height)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> totalTiles <span class="op">=</span> width <span class="op">*</span> height<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> targetFloorTiles <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(totalTiles <span class="op">*</span> fillPercentage)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Start near the center</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> x <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(width <span class="op">/</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> y <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(height <span class="op">/</span> <span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> floorCount <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> directions <span class="op">=</span> [</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        { <span class="dt">dx</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">dy</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }<span class="op">,</span> <span class="co">// North</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        { <span class="dt">dx</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">dy</span><span class="op">:</span> <span class="dv">1</span> }<span class="op">,</span>  <span class="co">// South</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        { <span class="dt">dx</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span><span class="op">,</span> <span class="dt">dy</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span> <span class="co">// West</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        { <span class="dt">dx</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">dy</span><span class="op">:</span> <span class="dv">0</span> }   <span class="co">// East</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    ]<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (floorCount <span class="op">&lt;</span> targetFloorTiles) {</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Carve current tile if it is a wall</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (grid[y][x] <span class="op">===</span> <span class="dv">1</span>) {</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>            grid[y][x] <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>            floorCount<span class="op">++;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Pick a random direction</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> dir <span class="op">=</span> directions[<span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> directions<span class="op">.</span><span class="at">length</span>)]<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> nextX <span class="op">=</span> x <span class="op">+</span> dir<span class="op">.</span><span class="at">dx</span><span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> nextY <span class="op">=</span> y <span class="op">+</span> dir<span class="op">.</span><span class="at">dy</span><span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Keep walker within bounds (padding by 1 to preserve border walls)</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (nextX <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> nextX <span class="op">&lt;</span> width <span class="op">-</span> <span class="dv">1</span> <span class="op">&amp;&amp;</span> nextY <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> nextY <span class="op">&lt;</span> height <span class="op">-</span> <span class="dv">1</span>) {</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>            x <span class="op">=</span> nextX<span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>            y <span class="op">=</span> nextY<span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid<span class="op">;</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-controlling-cave-morphology">3. Controlling Cave
+Morphology</h3>
+<p>Purely random walks often retread the same paths, which can generate
+large, open central areas surrounded by narrow dead-ends. Game
+developers counter this behavior using specific behavioral
+modifiers:</p>
+<ul>
+<li><strong>Directional Bias:</strong> Forcing the walker to retain its
+current direction for multiple steps creates long, linear mine shafts or
+tunnel segments rather than circular hubs.</li>
+<li><strong>Multiple Walkers:</strong> Spawning two or more agents
+simultaneously from different points distributes the carving work across
+the map, creating distinct cave biomes that eventually intersect.</li>
+<li><strong>Brush Sizing:</strong> Instead of carving a single tile
+(<code>1x1</code>), expanding the walker’s brush to a <code>2x2</code>
+or <code>3x3</code> radius generates massive caverns suited for boss
+arenas or underground lakes.</li>
+</ul>
+<h3 id="4-post-processing-and-smoothing">4. Post-Processing and
+Smoothing</h3>
+<p>While random walks guarantee that all carved paths are
+connected—since every floor tile originates from the single path of the
+agent—the raw edges can appear jagged. Developers typically pass the
+generated array through one or two iterations of Cellular Automata
+(specifically a 4-5 rule: turn a tile to a wall if it has 5 or more wall
+neighbors) to smooth out sharp edges without breaking the continuous
+connectivity formed by the walker.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/random-walk-cave-generation-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

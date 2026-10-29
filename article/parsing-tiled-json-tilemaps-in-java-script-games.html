@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parsing Tiled JSON Tilemaps in JavaScript Games - javascript</title>
+    <meta name="description" content="This article explains how tilemap parsers import, process, and render structured JSON map data exported from level editors like Tiled into JavaScript game engines. You will learn how the Tiled JSON format is structured, how to fetch and unpack layer data,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/parsing-tiled-json-tilemaps-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Parsing Tiled JSON Tilemaps in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/parsing-tiled-json-tilemaps-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how tilemap parsers import, process, and render structured JSON map data exported from level editors like Tiled into JavaScript game engines. You will learn how the Tiled JSON format is structured, how to fetch and unpack layer data," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="parsing-tiled-json-tilemaps-in-javascript-games">Parsing Tiled
+JSON Tilemaps in JavaScript Games</h1>
+<p>This article explains how tilemap parsers import, process, and render
+structured JSON map data exported from level editors like Tiled into
+JavaScript game engines. You will learn how the Tiled JSON format is
+structured, how to fetch and unpack layer data, how to resolve Global
+Tile IDs (GIDs) against tileset definitions, and how to translate raw
+array indices into screen coordinates for canvas rendering.</p>
+<h2 id="the-structure-of-a-tiled-json-export">The Structure of a Tiled
+JSON Export</h2>
+<p>When Tiled exports a map as JSON, it produces a hierarchical object
+containing global map settings, an array of tileset definitions, and an
+array of layer definitions.</p>
+<p>The root object contains top-level properties:</p>
+<ul>
+<li><code>width</code> and <code>height</code>: The dimensions of the
+map measured in tiles.</li>
+<li><code>tilewidth</code> and <code>tileheight</code>: The default size
+of an individual tile in pixels.</li>
+<li><code>tilesets</code>: An array detailing external or embedded
+tileset metadata, including image sources, dimensions, and the crucial
+<code>firstgid</code>.</li>
+<li><code>layers</code>: An array containing distinct map layers such as
+tile layers, object groups, and image layers.</li>
+</ul>
+<p>A standard tile layer holds a <code>data</code> property, which is a
+flat, one-dimensional array of numbers. Each number represents a tile
+identifier.</p>
+<h2 id="fetching-and-ingesting-the-json-file">Fetching and Ingesting the
+JSON File</h2>
+<p>The parsing process begins by asynchronously loading the JSON file
+using the modern browser <code>fetch</code> API. Once loaded, the parser
+converts the payload into a native JavaScript object and loads the
+associated tileset images into <code>HTMLImageElement</code>
+instances.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">async</span> <span class="kw">function</span> <span class="fu">loadTilemap</span>(url) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> response <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(url)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> mapData <span class="op">=</span> <span class="cf">await</span> response<span class="op">.</span><span class="fu">json</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> tilesetImages <span class="op">=</span> <span class="cf">await</span> <span class="bu">Promise</span><span class="op">.</span><span class="fu">all</span>(</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    mapData<span class="op">.</span><span class="at">tilesets</span><span class="op">.</span><span class="fu">map</span>(tileset <span class="kw">=&gt;</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve<span class="op">,</span> reject) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> img <span class="op">=</span> <span class="kw">new</span> <span class="fu">Image</span>()<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        img<span class="op">.</span><span class="at">src</span> <span class="op">=</span> tileset<span class="op">.</span><span class="at">image</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        img<span class="op">.</span><span class="at">onload</span> <span class="op">=</span> () <span class="kw">=&gt;</span> <span class="fu">resolve</span>({ <span class="op">...</span>tileset<span class="op">,</span> <span class="dt">imageElement</span><span class="op">:</span> img })<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        img<span class="op">.</span><span class="at">onerror</span> <span class="op">=</span> reject<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      })<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> { mapData<span class="op">,</span> <span class="dt">tilesets</span><span class="op">:</span> tilesetImages }<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="resolving-global-tile-ids-gids">Resolving Global Tile IDs
+(GIDs)</h2>
+<p>Tiled assigns a Global Identification number (GID) to every tile
+across all used tilesets. A GID of <code>0</code> denotes an empty tile
+where nothing should be drawn.</p>
+<p>Each tileset in the <code>tilesets</code> array specifies a
+<code>firstgid</code>, which is the starting ID number for that specific
+sheet. When multiple tilesets are used, the parser must identify which
+tileset a GID belongs to by finding the tileset with the highest
+<code>firstgid</code> that is less than or equal to the target GID.</p>
+<p>Once the correct tileset is identified, the local tile ID within that
+image is determined by:</p>
+<p><span class="math display">\[\text{Local ID} = \text{GID} -
+\text{firstgid}\]</span></p>
+<p>From this local ID, the parser calculates the source clipping
+coordinates (<code>sx</code>, <code>sy</code>) within the tileset
+image:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getTileSourceCoordinates</span>(gid<span class="op">,</span> tileset) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> localId <span class="op">=</span> gid <span class="op">-</span> tileset<span class="op">.</span><span class="at">firstgid</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> tilesPerRow <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(tileset<span class="op">.</span><span class="at">imagewidth</span> <span class="op">/</span> tileset<span class="op">.</span><span class="at">tilewidth</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> sx <span class="op">=</span> (localId <span class="op">%</span> tilesPerRow) <span class="op">*</span> tileset<span class="op">.</span><span class="at">tilewidth</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> sy <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(localId <span class="op">/</span> tilesPerRow) <span class="op">*</span> tileset<span class="op">.</span><span class="at">tileheight</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> { sx<span class="op">,</span> sy }<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="mapping-1d-layer-data-to-2d-screen-space">Mapping 1D Layer Data
+to 2D Screen Space</h2>
+<p>Because the <code>data</code> array in a tile layer is flattened, the
+parser converts the single array index into 2D grid coordinates <span
+class="math inline">\((x, y)\)</span>, and subsequently into canvas
+destination coordinates <span class="math inline">\((dx,
+dy)\)</span>.</p>
+<p>For an index <span class="math inline">\(i\)</span> in a map of width
+<span class="math inline">\(W\)</span>, where tiles have width <span
+class="math inline">\(TW\)</span> and height <span
+class="math inline">\(TH\)</span>:</p>
+<ul>
+<li>Grid X: <span class="math inline">\(x = i \pmod W\)</span></li>
+<li>Grid Y: <span class="math inline">\(y = \lfloor i / W
+\rfloor\)</span></li>
+<li>Canvas X: <span class="math inline">\(dx = x \times TW\)</span></li>
+<li>Canvas Y: <span class="math inline">\(dy = y \times TH\)</span></li>
+</ul>
+<h2 id="rendering-the-map-to-an-html5-canvas">Rendering the Map to an
+HTML5 Canvas</h2>
+<p>Iterating over every layer allows the parser to draw the map
+sequentially, respecting the visual hierarchy established in the editor.
+Background layers are drawn first, followed by midgrounds, entity
+layers, and foregrounds.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">renderLayer</span>(ctx<span class="op">,</span> layer<span class="op">,</span> mapData<span class="op">,</span> tilesets) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (layer<span class="op">.</span><span class="at">type</span> <span class="op">!==</span> <span class="st">&quot;tilelayer&quot;</span> <span class="op">||</span> <span class="op">!</span>layer<span class="op">.</span><span class="at">visible</span>) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  layer<span class="op">.</span><span class="at">data</span><span class="op">.</span><span class="fu">forEach</span>((gid<span class="op">,</span> index) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (gid <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span><span class="op">;</span> <span class="co">// Skip empty space</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Find the correct tileset</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> tileset <span class="op">=</span> tilesets</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">slice</span>()</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">reverse</span>()</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span><span class="fu">find</span>(ts <span class="kw">=&gt;</span> gid <span class="op">&gt;=</span> ts<span class="op">.</span><span class="at">firstgid</span>)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>tileset) <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate source and destination coordinates</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { sx<span class="op">,</span> sy } <span class="op">=</span> <span class="fu">getTileSourceCoordinates</span>(gid<span class="op">,</span> tileset)<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mapCol <span class="op">=</span> index <span class="op">%</span> layer<span class="op">.</span><span class="at">width</span><span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mapRow <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(index <span class="op">/</span> layer<span class="op">.</span><span class="at">width</span>)<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dx <span class="op">=</span> mapCol <span class="op">*</span> mapData<span class="op">.</span><span class="at">tilewidth</span><span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> dy <span class="op">=</span> mapRow <span class="op">*</span> mapData<span class="op">.</span><span class="at">tileheight</span><span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Draw tile to canvas</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">drawImage</span>(</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>      tileset<span class="op">.</span><span class="at">imageElement</span><span class="op">,</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>      sx<span class="op">,</span> sy<span class="op">,</span> tileset<span class="op">.</span><span class="at">tilewidth</span><span class="op">,</span> tileset<span class="op">.</span><span class="at">tileheight</span><span class="op">,</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>      dx<span class="op">,</span> dy<span class="op">,</span> mapData<span class="op">.</span><span class="at">tilewidth</span><span class="op">,</span> mapData<span class="op">.</span><span class="at">tileheight</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    )<span class="op">;</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="parsing-object-layers-for-collisions-and-entities">Parsing
+Object Layers for Collisions and Entities</h2>
+<p>Tiled maps also export object layers (<code>objectgroup</code>).
+Instead of uniform tile grids, these layers contain custom geometric
+entities with explicit properties:</p>
+<ul>
+<li><strong>Colliders</strong>: Rectangles, polylines, or polygons
+defined by pixel coordinates (<code>x</code>, <code>y</code>,
+<code>width</code>, <code>height</code>). Parsers extract these into
+bounding boxes for collision engines.</li>
+<li><strong>Spawn Points</strong>: Point objects indicating where
+players, non-player characters, or items should be instantiated.</li>
+<li><strong>Custom Properties</strong>: Custom metadata keys defined in
+Tiled (e.g., <code>isDoor: true</code>, <code>health: 50</code>) stored
+as an array of name-value pairs, which the parser exposes to the game's
+logic layer.</li>
+</ul>
+<p>By separating the structural extraction of layout data from
+game-specific rendering, a custom JavaScript tilemap parser provides a
+clean, maintainable bridge between level design tools and the game
+runtime.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/parsing-tiled-json-tilemaps-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

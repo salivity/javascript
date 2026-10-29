@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Garbage Collection and Game Frame Rates - javascript</title>
+    <meta name="description" content="Garbage collection in JavaScript automates memory management, but its non-deterministic execution directly threatens game performance by causing micro-stutters and dropped frames. In real-time game development, consistent frame pacing is as critical as hi">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-garbage-collection-and-game-frame-rates">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Garbage Collection and Game Frame Rates - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-garbage-collection-and-game-frame-rates" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Garbage collection in JavaScript automates memory management, but its non-deterministic execution directly threatens game performance by causing micro-stutters and dropped frames. In real-time game development, consistent frame pacing is as critical as hi" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-garbage-collection-and-game-frame-rates">JavaScript
+Garbage Collection and Game Frame Rates</h1>
+<p>Garbage collection in JavaScript automates memory management, but its
+non-deterministic execution directly threatens game performance by
+causing micro-stutters and dropped frames. In real-time game
+development, consistent frame pacing is as critical as high average
+frame rates. When the browser's engine pauses execution to reclaim
+memory, rendering halts, violating frame budgets and disrupting the
+player experience. Understanding how memory management operates and
+implementing patterns to minimize allocations are vital steps for
+maintaining a stable 60 or 120 frames per second (FPS).</p>
+<h3 id="the-frame-budget-problem">The Frame Budget Problem</h3>
+<p>Real-time browser games typically target 60 FPS, leaving roughly
+16.67 milliseconds to complete all operations for a single frame,
+including input handling, physics, game logic, and WebGL or Canvas
+rendering. For displays running at 120 FPS, this window shrinks to just
+8.33 milliseconds.</p>
+<p>If any frame takes longer than this allocated window, the browser
+drops the frame, resulting in visual stutter commonly called "jank."
+Because JavaScript is single-threaded, garbage collection runs on the
+same thread as your game logic and rendering. Any time spent reclaiming
+memory is deducted directly from your frame budget.</p>
+<h3 id="how-garbage-collection-causes-stutter">How Garbage Collection
+Causes Stutter</h3>
+<p>Modern JavaScript engines, such as V8, utilize generational garbage
+collection divided into two primary phases:</p>
+<ol type="1">
+<li><strong>Scavenge (Minor GC):</strong> Handles short-lived objects.
+While generally fast (often under a few milliseconds), frequent minor
+collections can still consume a noticeable fraction of a 16.67ms frame
+budget.</li>
+<li><strong>Mark-Sweep-Compact (Major GC):</strong> Scans the entire
+heap to reclaim long-lived objects. Although modern engines use
+incremental and concurrent techniques to offload work, major collections
+still require "Stop-the-World" pauses. These pauses can last anywhere
+from 5 to 50 milliseconds or more—instantly causing one or more dropped
+frames.</li>
+</ol>
+<p>Because the developer cannot manually trigger or schedule these
+collection cycles, the pauses appear at unpredictable moments, creating
+sudden, jarring hitches during gameplay.</p>
+<h3 id="common-memory-traps-in-game-loops">Common Memory Traps in Game
+Loops</h3>
+<p>Garbage collection issues are rarely caused by long-lived data like
+loaded textures or audio buffers; they are caused by high allocation
+rates inside the core game loop. Typical culprits include:</p>
+<ul>
+<li><strong>Temporary Vectors and Matrices:</strong> Instantiating math
+primitives (e.g., <code>new Vector2(x, y)</code>) inside update or
+physics loops generates thousands of short-lived objects per
+second.</li>
+<li><strong>Array Mutations:</strong> Methods like
+<code>.filter()</code>, <code>.map()</code>, <code>.slice()</code>, or
+array concatenations allocate entirely new array instances every
+tick.</li>
+<li><strong>Anonymous Closures:</strong> Passing inline functions to
+event listeners, array iterators, or timers creates new function objects
+dynamically.</li>
+<li><strong>String Concatenation:</strong> Dynamically generating text
+inside the render loop creates discardable string primitives that litter
+the heap.</li>
+</ul>
+<h3 id="strategies-to-prevent-gc-pauses">Strategies to Prevent GC
+Pauses</h3>
+<p>To eliminate garbage collection pauses, game developers must reduce
+dynamic allocations to near zero during active gameplay.</p>
+<ul>
+<li><strong>Object Pooling:</strong> Pre-allocate a fixed set of
+reusable objects (such as projectiles, particles, or enemies) at
+startup. Instead of creating and destroying entities with
+<code>new</code> and <code>delete</code>, activate and deactivate
+instances from the pool.</li>
+<li><strong>Scratchpad Variables:</strong> Use static or globally scoped
+helper objects for mathematical calculations. Rather than returning a
+new vector from a function, pass a target vector into the function to be
+modified by reference.</li>
+<li><strong>Static Arrays and Capacity Buffers:</strong> Avoid
+dynamically resizing arrays. Pre-allocate arrays to the maximum expected
+size and track active elements using a counter.</li>
+<li><strong>TypedArrays:</strong> Use <code>Float32Array</code> or
+<code>Int32Array</code> for large datasets like particle attributes or
+coordinate lists. Typed arrays use flat memory layouts, bypassing
+standard object overhead and reducing GC tracking loads.</li>
+</ul>
+<p>By treating memory inside the main update and render loops as
+strictly static, the engine rarely needs to invoke garbage collection,
+ensuring a smooth and uninterrupted frame rate.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-garbage-collection-and-game-frame-rates';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

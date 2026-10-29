@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed-Step Game Loop Accumulators in JavaScript - javascript</title>
+    <meta name="description" content="A cumulative time accumulator in a fixed-step game loop decouples game logic updates from the display rendering rate, ensuring that physics and gameplay mechanics behave deterministically across different hardware and monitor refresh rates. This article e">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/fixed-step-game-loop-accumulators-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fixed-Step Game Loop Accumulators in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/fixed-step-game-loop-accumulators-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A cumulative time accumulator in a fixed-step game loop decouples game logic updates from the display rendering rate, ensuring that physics and gameplay mechanics behave deterministically across different hardware and monitor refresh rates. This article e" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fixed-step-game-loop-accumulators-in-javascript">Fixed-Step Game
+Loop Accumulators in JavaScript</h1>
+<p>A cumulative time accumulator in a fixed-step game loop decouples
+game logic updates from the display rendering rate, ensuring that
+physics and gameplay mechanics behave deterministically across different
+hardware and monitor refresh rates. This article explains how variable
+frame rates cause physics instabilities in JavaScript, how the
+accumulator pattern solves this problem by slicing elapsed time into
+fixed intervals, and how to implement the pattern efficiently alongside
+<code>requestAnimationFrame</code>.</p>
+<h3 id="the-problem-with-variable-timesteps">The Problem with Variable
+Timesteps</h3>
+<p>Browser-based games typically use <code>requestAnimationFrame</code>
+to drive their main loop. This API invokes a callback function just
+before the browser performs a repaint, running at the display's refresh
+rate (commonly 60Hz, 120Hz, or 144Hz).</p>
+<p>Relying directly on the variable delta time (<span
+class="math inline">\(\Delta t\)</span>) between repaints for physics
+calculations causes significant problems. If a browser tab stutters or
+drops frames, <span class="math inline">\(\Delta t\)</span> spikes. A
+large <span class="math inline">\(\Delta t\)</span> can cause moving
+entities to pass entirely through colliders—a phenomenon known as
+tunneling—or cause numerical drift in numerical integrators like Verlet
+or Euler. Conversely, running physics faster on high-refresh-rate
+displays can alter the speed or behavior of the game if not properly
+normalized.</p>
+<h3 id="the-accumulator-pattern-explained">The Accumulator Pattern
+Explained</h3>
+<p>A fixed-step game loop resolves these issues by updating game logic
+in consistent, discrete increments (such as 16.67 milliseconds for a
+target of 60 physics updates per second), regardless of how frequently
+the browser renders.</p>
+<p>The cumulative time accumulator acts as a reservoir for elapsed
+real-world time:</p>
+<ol type="1">
+<li><strong>Measure Real Time:</strong> Calculate the delta time elapsed
+since the previous render frame.</li>
+<li><strong>Accumulate Time:</strong> Add that elapsed time into a
+running total variable (the accumulator).</li>
+<li><strong>Consume Time in Slices:</strong> While the accumulator
+contains at least one fixed time-step worth of time, execute a game
+logic update and subtract the fixed step from the accumulator.</li>
+<li><strong>Render:</strong> Once the accumulator holds less time than a
+single fixed step, draw the current state of the game.</li>
+</ol>
+<h3 id="javascript-implementation">JavaScript Implementation</h3>
+<p>Below is a minimal, robust implementation of an accumulator-based
+loop:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulator <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Target 60 updates per second (in milliseconds)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> TIMESTEP <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Calculate time passed since the last render frame</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> frameTime <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Prevent the &quot;Spiral of Death&quot; by clamping maximum frame time</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (frameTime <span class="op">&gt;</span> <span class="dv">250</span>) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        frameTime <span class="op">=</span> <span class="dv">250</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Accumulate elapsed real time</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    accumulator <span class="op">+=</span> frameTime<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Consume the accumulator in fixed steps</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (accumulator <span class="op">&gt;=</span> TIMESTEP) {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="fu">update</span>(TIMESTEP)<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        accumulator <span class="op">-=</span> TIMESTEP<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5. Render the state</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">update</span>(dt) {</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Update game physics and logic by a fixed dt</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">render</span>() {</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Draw entities to screen</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<h3 id="avoiding-the-spiral-of-death">Avoiding the "Spiral of
+Death"</h3>
+<p>If the simulation takes longer to process an update than the
+allocated <code>TIMESTEP</code>, the accumulator continues to grow
+larger on subsequent frames. The engine is then forced to simulate even
+more fixed steps to catch up, consuming more CPU time, leading to a
+freeze known as the "spiral of death."</p>
+<p>Clamping <code>frameTime</code> (as shown above with
+<code>if (frameTime &gt; 250) frameTime = 250;</code>) limits the
+maximum number of simulation steps processed in a single cycle. If a
+large lag spike occurs or the user minimizes the tab, the game
+simulation falls behind slightly rather than freezing the browser
+indefinitely.</p>
+<h3 id="eliminating-jitter-with-state-interpolation">Eliminating Jitter
+with State Interpolation</h3>
+<p>Because the accumulator consumes time in discrete steps, a remainder
+always stays behind (<code>accumulator &lt; TIMESTEP</code>). Rendering
+the most recent physics state directly can create a subtle visual
+stutter, because the render time rarely aligns perfectly with the
+physics time.</p>
+<p>To achieve fluid visuals, calculate a blending factor <span
+class="math inline">\(\alpha\)</span> (alpha) from the remaining
+time:</p>
+<p><span class="math display">\[\alpha =
+\frac{\text{accumulator}}{\text{TIMESTEP}}\]</span></p>
+<p>The value of <span class="math inline">\(\alpha\)</span> ranges from
+<code>0.0</code> to <code>1.0</code>. Pass this value to the
+<code>render</code> function to linearly interpolate visual positions
+between an entity's previous physics state and its current physics
+state:</p>
+<p><span class="math display">\[\text{renderPosition} =
+\text{previousPosition} \times (1 - \alpha) + \text{currentPosition}
+\times \alpha\]</span></p>
+<p>This combination of a fixed-step logic update, an accumulator, and
+rendering interpolation guarantees stable, deterministic physics
+calculations while presenting smooth motion at any monitor refresh
+rate.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/fixed-step-game-loop-accumulators-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

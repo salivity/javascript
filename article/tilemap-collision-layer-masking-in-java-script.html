@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tilemap Collision Layer Masking in JavaScript - javascript</title>
+    <meta name="description" content="Collision layer masking is a fundamental technique in JavaScript game development used to control which game entities can physically interact with specific tiles in a game world. This article provides a direct overview of how collision layers and masks wo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/tilemap-collision-layer-masking-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tilemap Collision Layer Masking in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/tilemap-collision-layer-masking-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Collision layer masking is a fundamental technique in JavaScript game development used to control which game entities can physically interact with specific tiles in a game world. This article provides a direct overview of how collision layers and masks wo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="tilemap-collision-layer-masking-in-javascript">Tilemap Collision
+Layer Masking in JavaScript</h1>
+<p>Collision layer masking is a fundamental technique in JavaScript game
+development used to control which game entities can physically interact
+with specific tiles in a game world. This article provides a direct
+overview of how collision layers and masks work on tilemap properties,
+the mathematical and bitwise principles behind them, and how to
+implement this pattern efficiently in 2D JavaScript physics engines.</p>
+<h2 id="understanding-layers-vs-masks">Understanding Layers vs.
+Masks</h2>
+<p>In 2D game programming, separating collision detection into "layers"
+and "masks" prevents every object from having to check collisions
+against every other object, which significantly boosts performance.</p>
+<ul>
+<li><strong>Collision Layer (Category):</strong> Defines the identity of
+an object or tile. It answers the question: <em>"What am I?"</em> (e.g.,
+solid wall, water hazard, one-way platform).</li>
+<li><strong>Collision Mask:</strong> Defines which identities an object
+or tile interacts with. It answers the question: <em>"What do I collide
+with?"</em></li>
+</ul>
+<p>When applied to tilemaps, masking allows specific entities to ignore
+certain tiles entirely. For example, a flying enemy can ignore ground
+obstacles, while a player character collides with both walls and
+hazards.</p>
+<h2 id="defining-collision-properties-in-tilemaps">Defining Collision
+Properties in Tilemaps</h2>
+<p>Tilemaps, often designed in tools like Tiled and exported as JSON,
+consist of layers containing arrays of tile IDs. Developers attach
+custom properties to these tiles or layers to denote their collision
+behavior.</p>
+<p>A standard tilemap JSON object may define collision properties at two
+levels:</p>
+<ol type="1">
+<li><strong>Layer-Level Properties:</strong> Applied to an entire layer
+(e.g., a "Ground" layer given <code>collides: true</code> and a
+<code>collisionCategory: 1</code>).</li>
+<li><strong>Tile-Level Properties:</strong> Embedded directly into the
+tileset metadata for granular control (e.g., assigning a tile an integer
+flag like <code>collisionMask: 6</code>).</li>
+</ol>
+<p>In JavaScript, these properties are parsed during the scene setup to
+register the static bodies into the physics system.</p>
+<h2 id="the-bitwise-masking-mechanism">The Bitwise Masking
+Mechanism</h2>
+<p>The most performant way to handle collision masking in JavaScript is
+using bitwise operators. Layers and masks are represented as binary
+numbers (powers of two) where each bit acts as a toggle switch.</p>
+<h3 id="setting-up-bit-flags">Setting Up Bit Flags</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_TERRAIN   <span class="op">=</span> <span class="bn">0b0001</span><span class="op">;</span> <span class="co">// 1</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_WATER     <span class="op">=</span> <span class="bn">0b0010</span><span class="op">;</span> <span class="co">// 2</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_HAZARD    <span class="op">=</span> <span class="bn">0b0100</span><span class="op">;</span> <span class="co">// 4</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CATEGORY_PLATFORM  <span class="op">=</span> <span class="bn">0b1000</span><span class="op">;</span> <span class="co">// 8</span></span></code></pre></div>
+<h3 id="applying-masks-to-entities-and-tiles">Applying Masks to Entities
+and Tiles</h3>
+<p>To specify which layers an entity collides with, combine the bit
+flags using the bitwise OR (<code>|</code>) operator:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// A walking player collides with terrain, hazards, and platforms</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> playerMask <span class="op">=</span> CATEGORY_TERRAIN <span class="op">|</span> CATEGORY_HAZARD <span class="op">|</span> CATEGORY_PLATFORM<span class="op">;</span> <span class="co">// 0b1101 (13)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// A boat entity collides only with terrain</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> boatMask <span class="op">=</span> CATEGORY_TERRAIN<span class="op">;</span> <span class="co">// 0b0001 (1)</span></span></code></pre></div>
+<h3 id="evaluating-collisions">Evaluating Collisions</h3>
+<p>During the physics update loop, the engine evaluates whether an
+entity can collide with a tile using the bitwise AND
+(<code>&amp;</code>) operator:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">canCollide</span>(entityMask<span class="op">,</span> tileCategory) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (entityMask <span class="op">&amp;</span> tileCategory) <span class="op">!==</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Example evaluation:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> tileCategory <span class="op">=</span> CATEGORY_WATER<span class="op">;</span> <span class="co">// 0b0010</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">canCollide</span>(playerMask<span class="op">,</span> tileCategory))<span class="op">;</span> <span class="co">// false (player ignores water collision)</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="fu">canCollide</span>(boatMask<span class="op">,</span> tileCategory))<span class="op">;</span>   <span class="co">// false</span></span></code></pre></div>
+<p>If the result is non-zero, narrow-phase collision detection (such as
+AABB or SAT calculations) proceeds. If the result is zero, the engine
+immediately skips collision resolution for that tile.</p>
+<h2 id="implementation-in-popular-javascript-frameworks">Implementation
+in Popular JavaScript Frameworks</h2>
+<h3 id="phaser-3-arcade--matterjs">Phaser 3 (Arcade &amp;
+Matter.js)</h3>
+<p>In Phaser's Matter.js implementation, tiles can be assigned collision
+categories and masks directly after loading the tilemap:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> wallLayer <span class="op">=</span> map<span class="op">.</span><span class="fu">createLayer</span>(<span class="st">&#39;Walls&#39;</span><span class="op">,</span> tileset<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>wallLayer<span class="op">.</span><span class="fu">setCollisionByProperty</span>({ <span class="dt">collides</span><span class="op">:</span> <span class="kw">true</span> })<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Assign category and mask to the Matter physics tiles</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>wallLayer<span class="op">.</span><span class="fu">forEachTile</span>(tile <span class="kw">=&gt;</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (tile<span class="op">.</span><span class="at">physics</span><span class="op">.</span><span class="at">matterBody</span>) {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        tile<span class="op">.</span><span class="at">physics</span><span class="op">.</span><span class="at">matterBody</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">category</span> <span class="op">=</span> CATEGORY_TERRAIN<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        tile<span class="op">.</span><span class="at">physics</span><span class="op">.</span><span class="at">matterBody</span><span class="op">.</span><span class="at">body</span><span class="op">.</span><span class="at">collisionFilter</span><span class="op">.</span><span class="at">mask</span> <span class="op">=</span> playerMask<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="custom-canvas--webgl-engines">Custom Canvas / WebGL Engines</h3>
+<p>In custom lightweight engines, tilemap collision layer masking is
+evaluated directly against the grid index:</p>
+<ol type="1">
+<li>Convert the entity's bounding box coordinates to tilemap grid
+coordinates.</li>
+<li>Fetch the tile's category flag from the tile data array.</li>
+<li>Execute <code>(entity.mask &amp; tile.category) !== 0</code>.</li>
+<li>Resolve overlap only if the condition returns
+<code>true</code>.</li>
+</ol>
+<h2 id="advantages-of-tilemap-layer-masking">Advantages of Tilemap Layer
+Masking</h2>
+<ul>
+<li><strong>Computational Efficiency:</strong> Eliminates redundant
+mathematical checks using single-cycle CPU bitwise operations.</li>
+<li><strong>Decoupled Design:</strong> Allows level designers to tag
+tiles with behavioral properties in editors without altering physics
+engine code.</li>
+<li><strong>Dynamic Interactions:</strong> Enables complex gameplay
+mechanics, such as ghost abilities, projectile filtering, and variable
+surface interactions, simply by modifying an entity's mask value at
+runtime.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/tilemap-collision-layer-masking-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

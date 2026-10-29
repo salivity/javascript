@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL Vertex Attribute Pointers and Data Layout - javascript</title>
+    <meta name="description" content="This article explores vertex attribute pointers in WebGL and JavaScript game programming, explaining how they bridge raw binary memory in GPU buffers to structured inputs in vertex shaders. You will learn the mechanics of the gl.vertexAttribPointer functi">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-gl-vertex-attribute-pointers-and-data-layout">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebGL Vertex Attribute Pointers and Data Layout - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-gl-vertex-attribute-pointers-and-data-layout" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores vertex attribute pointers in WebGL and JavaScript game programming, explaining how they bridge raw binary memory in GPU buffers to structured inputs in vertex shaders. You will learn the mechanics of the gl.vertexAttribPointer functi" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="webgl-vertex-attribute-pointers-and-data-layout">WebGL Vertex
+Attribute Pointers and Data Layout</h1>
+<p>This article explores vertex attribute pointers in WebGL and
+JavaScript game programming, explaining how they bridge raw binary
+memory in GPU buffers to structured inputs in vertex shaders. You will
+learn the mechanics of the <code>gl.vertexAttribPointer</code> function,
+the critical roles of stride and offset, and how to define both separate
+and interleaved data layouts to optimize game rendering performance.</p>
+<h3 id="what-is-a-vertex-attribute-pointer">What is a Vertex Attribute
+Pointer?</h3>
+<p>In WebGL, 3D meshes are stored as flat binary arrays within Vertex
+Buffer Objects (VBOs) located in GPU memory. A raw buffer contains an
+unstructured stream of numbers; the GPU does not inherently know which
+numbers correspond to positions, texture coordinates (UVs), normals, or
+vertex colors.</p>
+<p>A vertex attribute pointer is an instruction set that tells the GPU
+how to interpret this contiguous block of memory. Through the
+<code>gl.vertexAttribPointer()</code> method, you define the data type,
+size, and location of individual vertex components so the vertex shader
+can assign the data to corresponding <code>in</code> or
+<code>attribute</code> variables.</p>
+<h3 id="the-glvertexattribpointer-method-signature">The
+<code>gl.vertexAttribPointer</code> Method Signature</h3>
+<p>The standard layout configuration is declared using the following
+function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">vertexAttribPointer</span>(index<span class="op">,</span> size<span class="op">,</span> type<span class="op">,</span> normalized<span class="op">,</span> stride<span class="op">,</span> offset)<span class="op">;</span></span></code></pre></div>
+<ul>
+<li><strong><code>index</code></strong>: The target attribute index in
+the shader program, retrieved using
+<code>gl.getAttribLocation()</code>.</li>
+<li><strong><code>size</code></strong>: The number of values per vertex
+for this attribute (1, 2, 3, or 4). For example, a 3D position vector
+<span class="math inline">\((x, y, z)\)</span> has a size of 3.</li>
+<li><strong><code>type</code></strong>: The data type of each component
+in the array (e.g., <code>gl.FLOAT</code>,
+<code>gl.UNSIGNED_BYTE</code>).</li>
+<li><strong><code>normalized</code></strong>: A boolean indicating
+whether fixed-point integer data should be normalized to the range
+<code>[-1, 1]</code> (signed) or <code>[0, 1]</code> (unsigned). Usually
+set to <code>false</code> for floating-point data.</li>
+<li><strong><code>stride</code></strong>: The distance in bytes between
+the start of one vertex element and the start of the next vertex
+element. If set to <code>0</code>, the data is assumed to be tightly
+packed for that single attribute.</li>
+<li><strong><code>offset</code></strong>: The byte offset from the start
+of the currently bound buffer to the first occurrence of this
+attribute.</li>
+</ul>
+<p>After setting the pointer, you must activate the layout with
+<code>gl.enableVertexAttribArray(index)</code>.</p>
+<h3 id="defining-layout-structures">Defining Layout Structures</h3>
+<p>Vertex data is typically organized in one of two memory layouts:
+separate buffers or interleaved buffers.</p>
+<h4 id="1-separate-buffers-layout">1. Separate Buffers Layout</h4>
+<p>In this structure, each vertex attribute has its own dedicated buffer
+(e.g., one buffer for positions, another for UVs).</p>
+<ul>
+<li><strong>Positions:</strong>
+<code>[X, Y, Z, X, Y, Z, ...]</code></li>
+<li><strong>UVs:</strong> <code>[U, V, U, V, ...]</code></li>
+</ul>
+<p>When configuring pointers for separate buffers, you bind each buffer
+individually before calling <code>gl.vertexAttribPointer</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Position buffer setup</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">bindBuffer</span>(gl<span class="op">.</span><span class="at">ARRAY_BUFFER</span><span class="op">,</span> positionBuffer)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">vertexAttribPointer</span>(positionLoc<span class="op">,</span> <span class="dv">3</span><span class="op">,</span> gl<span class="op">.</span><span class="at">FLOAT</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Texture coordinate buffer setup</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">bindBuffer</span>(gl<span class="op">.</span><span class="at">ARRAY_BUFFER</span><span class="op">,</span> texCoordBuffer)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">vertexAttribPointer</span>(texCoordLoc<span class="op">,</span> <span class="dv">2</span><span class="op">,</span> gl<span class="op">.</span><span class="at">FLOAT</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span></code></pre></div>
+<p>Because each buffer contains only one attribute, both
+<code>stride</code> and <code>offset</code> are set to
+<code>0</code>.</p>
+<h4 id="2-interleaved-buffer-layout">2. Interleaved Buffer Layout</h4>
+<p>In modern JavaScript game engines, interleaving attributes into a
+single unified buffer is preferred for performance. Interleaving bundles
+all attributes of a single vertex together:</p>
+<ul>
+<li><strong>Interleaved Data:</strong>
+<code>[X, Y, Z, U, V, X, Y, Z, U, V, ...]</code></li>
+</ul>
+<p>Interleaving optimizes memory cache lines on the GPU because all
+properties for a single vertex are fetched together. Correct pointer
+configuration requires calculating exact stride and offset values based
+on byte sizes (e.g., a standard 32-bit <code>Float32</code> is 4
+bytes).</p>
+<p>Assuming a vertex with 3D positions (3 floats) and UVs (2
+floats):</p>
+<ul>
+<li>Total vertex size: <span class="math inline">\(5 \text{ floats}
+\times 4 \text{ bytes} = 20 \text{ bytes}\)</span>.</li>
+<li><strong>Position Pointer:</strong> <code>stride = 20</code>,
+<code>offset = 0</code>.</li>
+<li><strong>UV Pointer:</strong> <code>stride = 20</code>,
+<code>offset = 3 \text{ floats} \times 4 \text{ bytes} = 12</code>.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> BYTES_PER_FLOAT <span class="op">=</span> <span class="bu">Float32Array</span><span class="op">.</span><span class="at">BYTES_PER_ELEMENT</span><span class="op">;</span> <span class="co">// 4</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> stride <span class="op">=</span> <span class="dv">5</span> <span class="op">*</span> BYTES_PER_FLOAT<span class="op">;</span> <span class="co">// 20 bytes</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">bindBuffer</span>(gl<span class="op">.</span><span class="at">ARRAY_BUFFER</span><span class="op">,</span> interleavedBuffer)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Position: 3 floats starting at index 0</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">vertexAttribPointer</span>(positionLoc<span class="op">,</span> <span class="dv">3</span><span class="op">,</span> gl<span class="op">.</span><span class="at">FLOAT</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> stride<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">enableVertexAttribArray</span>(positionLoc)<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">// UV: 2 floats starting after the 3 position floats (12 bytes)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">vertexAttribPointer</span>(texCoordLoc<span class="op">,</span> <span class="dv">2</span><span class="op">,</span> gl<span class="op">.</span><span class="at">FLOAT</span><span class="op">,</span> <span class="kw">false</span><span class="op">,</span> stride<span class="op">,</span> <span class="dv">3</span> <span class="op">*</span> BYTES_PER_FLOAT)<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>gl<span class="op">.</span><span class="fu">enableVertexAttribArray</span>(texCoordLoc)<span class="op">;</span></span></code></pre></div>
+<h3
+id="encapsulating-layouts-with-vertex-array-objects-vaos">Encapsulating
+Layouts with Vertex Array Objects (VAOs)</h3>
+<p>Calling <code>gl.vertexAttribPointer</code> repeatedly before every
+draw call creates significant CPU overhead in JavaScript. WebGL 2 (and
+WebGL 1 via the <code>OES_vertex_array_object</code> extension) provides
+Vertex Array Objects (VAOs).</p>
+<p>A VAO records the state of all <code>vertexAttribPointer</code>
+bindings and <code>enableVertexAttribArray</code> calls. Once configured
+during engine initialization, the game loop only needs to bind the VAO
+(<code>gl.bindVertexArray(vao)</code>) before dispatching a draw call,
+minimizing API overhead and ensuring efficient rendering passes.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/web-gl-vertex-attribute-pointers-and-data-layout';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

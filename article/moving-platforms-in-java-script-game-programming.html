@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moving Platforms in JavaScript Game Programming - javascript</title>
+    <meta name="description" content="Carrying a standing player entity on a moving platform requires precise collision detection, position synchronization, and careful update ordering within the game loop. In 2D JavaScript game engines, developers commonly accomplish this by calculating the">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/moving-platforms-in-java-script-game-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Moving Platforms in JavaScript Game Programming - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/moving-platforms-in-java-script-game-programming" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Carrying a standing player entity on a moving platform requires precise collision detection, position synchronization, and careful update ordering within the game loop. In 2D JavaScript game engines, developers commonly accomplish this by calculating the" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="moving-platforms-in-javascript-game-programming">Moving
+Platforms in JavaScript Game Programming</h1>
+<p>Carrying a standing player entity on a moving platform requires
+precise collision detection, position synchronization, and careful
+update ordering within the game loop. In 2D JavaScript game engines,
+developers commonly accomplish this by calculating the platform's
+positional delta and applying it directly to any supported entities, or
+by parenting the player to the platform during physics resolution. This
+article breaks down the mechanics of platform riding, execution order,
+delta tracking, and edge-case handling in JavaScript.</p>
+<h2 id="the-core-concept-positional-delta-tracking">The Core Concept:
+Positional Delta Tracking</h2>
+<p>The most robust and decoupled method to move a player along with a
+platform is delta tracking. Instead of relying purely on friction
+physics, the game tracks how far the platform moved in a single frame
+and translates any entity standing on it by that exact amount.</p>
+<p>A platform’s delta is calculated as:</p>
+<p><span class="math display">\[\Delta X = X_{current} -
+X_{previous}\]</span> <span class="math display">\[\Delta Y =
+Y_{current} - Y_{previous}\]</span></p>
+<p>If the player entity is confirmed to be standing on the platform's
+top surface, add <span class="math inline">\(\Delta X\)</span> and <span
+class="math inline">\(\Delta Y\)</span> to the player’s coordinates
+before or during the player's movement phase.</p>
+<h2 id="detecting-when-the-player-is-standing">Detecting When the Player
+is Standing</h2>
+<p>Before applying motion, you must verify that the player is actually
+grounded on the platform rather than colliding with its sides or
+bottom.</p>
+<p>A standard Axis-Aligned Bounding Box (AABB) check is used with
+specific directional constraints:</p>
+<ol type="1">
+<li><strong>Horizontal Alignment:</strong> The player's horizontal
+bounds must overlap the platform's horizontal bounds (<span
+class="math inline">\(Player.right &gt; Platform.left\)</span> and <span
+class="math inline">\(Player.left &lt; Platform.right\)</span>).</li>
+<li><strong>Vertical Alignment:</strong> The bottom edge of the player
+must align with the top edge of the platform within a small tolerance
+threshold (often called an "epsilon" or skin width).</li>
+<li><strong>Downward Velocity:</strong> The player must be moving
+downward or stationary vertically (<span class="math inline">\(Player.vy
+\ge 0\)</span>). If the player is jumping upward, the platform should
+not pull them down.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">isPlayerOnPlatform</span>(player<span class="op">,</span> platform) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> skinWidth <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Tolerance in pixels</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> horizontalOverlap <span class="op">=</span> </span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        player<span class="op">.</span><span class="at">x</span> <span class="op">+</span> player<span class="op">.</span><span class="at">width</span> <span class="op">&gt;</span> platform<span class="op">.</span><span class="at">x</span> <span class="op">&amp;&amp;</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        player<span class="op">.</span><span class="at">x</span> <span class="op">&lt;</span> platform<span class="op">.</span><span class="at">x</span> <span class="op">+</span> platform<span class="op">.</span><span class="at">width</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> isStandingOnTop <span class="op">=</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>((player<span class="op">.</span><span class="at">y</span> <span class="op">+</span> player<span class="op">.</span><span class="at">height</span>) <span class="op">-</span> platform<span class="op">.</span><span class="at">y</span>) <span class="op">&lt;=</span> skinWidth<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> horizontalOverlap <span class="op">&amp;&amp;</span> isStandingOnTop <span class="op">&amp;&amp;</span> player<span class="op">.</span><span class="at">vy</span> <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="update-order-in-the-game-loop">Update Order in the Game
+Loop</h2>
+<p>One of the most common causes of visual jitter or tunneling (falling
+through the platform) is an incorrect execution order in the game loop.
+The ideal sequence for moving platforms is:</p>
+<ol type="1">
+<li><strong>Record Previous Positions:</strong> Save the current
+positions of moving platforms.</li>
+<li><strong>Move Platforms:</strong> Update platform positions based on
+their path, waypoints, or velocities.</li>
+<li><strong>Calculate Deltas:</strong> Determine the difference between
+new and old platform coordinates.</li>
+<li><strong>Move Supported Entities:</strong> For every entity resting
+on a platform, apply the platform's delta to the entity's position.</li>
+<li><strong>Update Player Physics:</strong> Process user input, gravity,
+and general velocity updates for the player.</li>
+<li><strong>Resolve Collisions:</strong> Perform general world collision
+checks to ensure the platform did not push the player into a solid wall
+or ceiling.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateGame</span>(deltaTime) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1 &amp; 2. Move platform and compute delta</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> oldX <span class="op">=</span> platform<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> oldY <span class="op">=</span> platform<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    platform<span class="op">.</span><span class="fu">update</span>(deltaTime)<span class="op">;</span> <span class="co">// Platform moves to new coordinate</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> deltaX <span class="op">=</span> platform<span class="op">.</span><span class="at">x</span> <span class="op">-</span> oldX<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> deltaY <span class="op">=</span> platform<span class="op">.</span><span class="at">y</span> <span class="op">-</span> oldY<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3 &amp; 4. Check support and translate player</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">isPlayerOnPlatform</span>(player<span class="op">,</span> platform)) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        player<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> deltaX<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        player<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> deltaY<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5. Normal player movement and gravity</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    player<span class="op">.</span><span class="fu">update</span>(deltaTime)<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 6. Resolve world collisions (walls, ceilings)</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">resolveCollisions</span>(player)<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="alternative-approach-entity-parenting">Alternative Approach:
+Entity Parenting</h2>
+<p>In scene-graph architectures or component-based systems, an
+alternative method is parenting. When a collision detects the player
+landing on a platform, the player is temporarily set as a child of that
+platform.</p>
+<ul>
+<li>The player's local coordinates become relative to the platform's
+origin.</li>
+<li>Any translation applied to the platform automatically translates the
+player.</li>
+<li>When the player jumps or walks off, they are detached back to world
+space, and their relative position is converted back to absolute world
+coordinates.</li>
+</ul>
+<p>While intuitive, parenting can introduce subtle bugs with nested
+rotations, scale inheritance, and multi-platform interactions. The delta
+tracking method is generally preferred for simple 2D physics.</p>
+<h2 id="handling-critical-edge-cases">Handling Critical Edge Cases</h2>
+<ul>
+<li><strong>Vertical Moving Platforms:</strong> When a platform moves
+downward faster than the player's gravity accelerates them, the player
+can rapidly alternate between grounded and falling states, causing
+stutter. To solve this, explicitly clamp the player's vertical position
+to the platform's top surface when grounded (<span
+class="math inline">\(Player.y = Platform.y -
+Player.height\)</span>).</li>
+<li><strong>Crushing and Squishing:</strong> If a platform moves the
+player into a static ceiling, the game must detect the overlap. You can
+either reverse/stop the platform, push the player off, or trigger a
+defeat state for the player entity.</li>
+<li><strong>Momentum Transfer:</strong> When the player jumps off a
+moving platform, they should retain the platform's horizontal velocity.
+Read the platform's current speed and add it to the player's initial
+jump velocity to produce realistic momentum.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/moving-platforms-in-java-script-game-programming';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

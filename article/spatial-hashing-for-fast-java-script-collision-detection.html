@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spatial Hashing for Fast JavaScript Collision Detection - javascript</title>
+    <meta name="description" content="Collision detection is often the most significant performance bottleneck in web-based game development. When hundreds or thousands of entities populate a game world, testing every object against every other object results in an impractical $O(n^2)$ comput">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/spatial-hashing-for-fast-java-script-collision-detection">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spatial Hashing for Fast JavaScript Collision Detection - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/spatial-hashing-for-fast-java-script-collision-detection" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Collision detection is often the most significant performance bottleneck in web-based game development. When hundreds or thousands of entities populate a game world, testing every object against every other object results in an impractical $O(n^2)$ comput" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="spatial-hashing-for-fast-javascript-collision-detection">Spatial
+Hashing for Fast JavaScript Collision Detection</h1>
+<p>Collision detection is often the most significant performance
+bottleneck in web-based game development. When hundreds or thousands of
+entities populate a game world, testing every object against every other
+object results in an impractical <span
+class="math inline">\(O(n^2)\)</span> computational complexity that
+drops frame rates. Spatial hashing solves this problem by partitioning
+two-dimensional or three-dimensional space into a grid of discrete
+cells, mapping coordinates to buckets via a hash function. This article
+explains how spatial hashing works, why it dramatically accelerates
+broad-phase collision detection, and how to implement it efficiently in
+JavaScript.</p>
+<h2 id="the-bottleneck-the-on2-problem">The Bottleneck: The <span
+class="math inline">\(O(n^2)\)</span> Problem</h2>
+<p>In a naive collision detection system, each entity checks for overlap
+against every other entity:</p>
+<pre><code>Total Checks = (n * (n - 1)) / 2</code></pre>
+<p>For 100 entities, this requires 4,950 checks per frame. For 2,000
+entities, that number spikes to nearly 2 million checks. Because
+JavaScript runs primarily on a single thread alongside rendering and
+input processing, this brute-force approach quickly causes dropped
+frames and sluggish gameplay.</p>
+<p>To maintain 60 frames per second (a 16.6ms budget per frame), games
+divide collision detection into two stages:</p>
+<ol type="1">
+<li><strong>Broad-phase:</strong> Quickly eliminates pairs of objects
+that are nowhere near each other.</li>
+<li><strong>Narrow-phase:</strong> Performs precise, computationally
+expensive geometric intersection tests only on candidate pairs
+identified in the broad-phase.</li>
+</ol>
+<p>Spatial hashing serves as a high-performance broad-phase
+algorithm.</p>
+<h2 id="how-spatial-hashing-works">How Spatial Hashing Works</h2>
+<p>Spatial hashing overlays a virtual, uniform grid across the game
+world. Each cell in this grid represents a defined spatial region (for
+example, 64x64 pixels).</p>
+<p>Instead of maintaining a dense two-dimensional array representing the
+entire world—which wastes memory on empty space—spatial hashing uses a
+hash table (or JavaScript <code>Map</code> / dynamic array).</p>
+<ol type="1">
+<li><p><strong>Space Discretization:</strong> The floating-point
+position of an entity is converted into integer cell coordinates by
+dividing the position by the cell size and rounding down:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cellX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(entity<span class="op">.</span><span class="at">x</span> <span class="op">/</span> cellSize)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cellY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(entity<span class="op">.</span><span class="at">y</span> <span class="op">/</span> cellSize)<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Hash Generation:</strong> The integer coordinates are
+converted into a unique lookup key, such as a string
+(<code>"cellX:cellY"</code>) or a combined 32-bit integer.</p></li>
+<li><p><strong>Bucket Storage:</strong> The entity reference is stored
+in the bucket corresponding to that key. If an entity spans multiple
+cells (due to its bounding box), it is registered in all cells it
+intersects.</p></li>
+<li><p><strong>Querying:</strong> When checking an entity for
+collisions, the game only queries the cells that the entity's bounding
+box touches. Only entities found within those specific buckets are
+passed to the narrow-phase collision test.</p></li>
+</ol>
+<p>By reducing the search space from the entire world to just
+neighboring cells, average lookup time drops from <span
+class="math inline">\(O(n)\)</span> per entity down to near <span
+class="math inline">\(O(1)\)</span>.</p>
+<h2 id="implementing-spatial-hashing-in-javascript">Implementing Spatial
+Hashing in JavaScript</h2>
+<p>Below is a clean, modern implementation of a 2D spatial hash grid in
+JavaScript.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SpatialHashGrid {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(cellSize) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span> <span class="op">=</span> cellSize<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">buckets</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Generate a key for a given grid coordinate</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">_key</span>(cellX<span class="op">,</span> cellY) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="vs">`</span><span class="sc">${</span>cellX<span class="sc">}</span><span class="vs">:</span><span class="sc">${</span>cellY<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Clear all buckets (usually called at the start of each frame)</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">clear</span>() {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">buckets</span><span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Insert an entity based on its axis-aligned bounding box (AABB)</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">insert</span>(entity) {</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> minX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(entity<span class="op">.</span><span class="at">x</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>((entity<span class="op">.</span><span class="at">x</span> <span class="op">+</span> entity<span class="op">.</span><span class="at">width</span>) <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> minY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(entity<span class="op">.</span><span class="at">y</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>((entity<span class="op">.</span><span class="at">y</span> <span class="op">+</span> entity<span class="op">.</span><span class="at">height</span>) <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> x <span class="op">=</span> minX<span class="op">;</span> x <span class="op">&lt;=</span> maxX<span class="op">;</span> x<span class="op">++</span>) {</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">let</span> y <span class="op">=</span> minY<span class="op">;</span> y <span class="op">&lt;=</span> maxY<span class="op">;</span> y<span class="op">++</span>) {</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> key <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">_key</span>(x<span class="op">,</span> y)<span class="op">;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">buckets</span><span class="op">.</span><span class="fu">has</span>(key)) {</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>          <span class="kw">this</span><span class="op">.</span><span class="at">buckets</span><span class="op">.</span><span class="fu">set</span>(key<span class="op">,</span> [])<span class="op">;</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="at">buckets</span><span class="op">.</span><span class="fu">get</span>(key)<span class="op">.</span><span class="fu">push</span>(entity)<span class="op">;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Query all unique entities that share cells with the target entity</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">query</span>(entity) {</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> minX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(entity<span class="op">.</span><span class="at">x</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>((entity<span class="op">.</span><span class="at">x</span> <span class="op">+</span> entity<span class="op">.</span><span class="at">width</span>) <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> minY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>(entity<span class="op">.</span><span class="at">y</span> <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxY <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">floor</span>((entity<span class="op">.</span><span class="at">y</span> <span class="op">+</span> entity<span class="op">.</span><span class="at">height</span>) <span class="op">/</span> <span class="kw">this</span><span class="op">.</span><span class="at">cellSize</span>)<span class="op">;</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> candidates <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>()<span class="op">;</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> x <span class="op">=</span> minX<span class="op">;</span> x <span class="op">&lt;=</span> maxX<span class="op">;</span> x<span class="op">++</span>) {</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (<span class="kw">let</span> y <span class="op">=</span> minY<span class="op">;</span> y <span class="op">&lt;=</span> maxY<span class="op">;</span> y<span class="op">++</span>) {</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> key <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">_key</span>(x<span class="op">,</span> y)<span class="op">;</span></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> cell <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="at">buckets</span><span class="op">.</span><span class="fu">get</span>(key)<span class="op">;</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (cell) {</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>          <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> cell<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>            <span class="kw">const</span> other <span class="op">=</span> cell[i]<span class="op">;</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (other <span class="op">!==</span> entity) {</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>              candidates<span class="op">.</span><span class="fu">add</span>(other)<span class="op">;</span></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>          }</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">Array</span><span class="op">.</span><span class="fu">from</span>(candidates)<span class="op">;</span></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="usage-pattern-in-the-game-loop">Usage Pattern in the Game
+Loop</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> grid <span class="op">=</span> <span class="kw">new</span> <span class="fu">SpatialHashGrid</span>(<span class="dv">64</span>)<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateGame</span>(entities) {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Reset the grid</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  grid<span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Populate the grid with updated entity positions</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> entities<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    grid<span class="op">.</span><span class="fu">insert</span>(entities[i])<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 3. Narrow-phase collision checks against localized candidates</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> entities<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> entity <span class="op">=</span> entities[i]<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> potentialColliders <span class="op">=</span> grid<span class="op">.</span><span class="fu">query</span>(entity)<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> j <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> j <span class="op">&lt;</span> potentialColliders<span class="op">.</span><span class="at">length</span><span class="op">;</span> j<span class="op">++</span>) {</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> target <span class="op">=</span> potentialColliders[j]<span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Perform precise AABB or circle check</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">checkIntersection</span>(entity<span class="op">,</span> target)) {</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="fu">resolveCollision</span>(entity<span class="op">,</span> target)<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="optimizing-spatial-hashing-for-javascript-engines">Optimizing
+Spatial Hashing for JavaScript Engines</h2>
+<p>To squeeze maximum performance out of JavaScript engines like V8,
+consider the following optimization strategies:</p>
+<h3 id="1-cell-size-selection">1. Cell Size Selection</h3>
+<p>The grid's cell dimensions dictate efficiency. If cells are too
+small, large entities will span dozens of cells, causing excessive
+insertion overhead. If cells are too large, each cell will contain too
+many objects, degrading performance back toward <span
+class="math inline">\(O(n^2)\)</span>. As a rule of thumb, set the cell
+size to <strong>one to two times the size of your average game
+entity</strong>.</p>
+<h3 id="2-reducing-garbage-collection-pressure">2. Reducing Garbage
+Collection Pressure</h3>
+<p>Creating new strings for keys (<code>${cellX}:${cellY}</code>) and
+instantiating <code>Set</code> objects on every frame triggers
+JavaScript's garbage collector, causing intermittent frame stutter (GC
+pauses).</p>
+<ul>
+<li><strong>Numeric Hashing:</strong> Replace string keys with a numeric
+bit-hash for 2D grids (e.g.,
+<code>(x * 73856093) ^ (y * 19349663)</code> or packing 16-bit integers
+into a single 32-bit signed integer using
+<code>(cellX &lt;&lt; 16) | (cellY &amp; 0xffff)</code>).</li>
+<li><strong>Object Pooling:</strong> Reuse query arrays and clear them
+(<code>array.length = 0</code>) instead of allocating new arrays or sets
+during every collision pass.</li>
+</ul>
+<h3 id="3-spatial-hashing-vs-quadtrees">3. Spatial Hashing vs.
+Quadtrees</h3>
+<p>While Quadtrees and BVH (Bounding Volume Hierarchies) recursively
+split space based on entity distribution, spatial hashing uses a flat
+lookup. Spatial hashing typically outperforms tree structures in dynamic
+games where almost all entities move every frame, because clearing and
+rebuilding a flat hash map is significantly faster than constantly
+rebalancing deep tree structures.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/spatial-hashing-for-fast-java-script-collision-detection';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

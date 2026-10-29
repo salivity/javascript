@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitwise Masking for JavaScript Collision Layers - javascript</title>
+    <meta name="description" content="In JavaScript game development, collision detection can quickly become a major performance bottleneck when handling dozens or hundreds of interacting entities simultaneously. Bitwise masking provides an ultra-fast, memory-efficient solution by representin">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/bitwise-masking-for-java-script-collision-layers">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Bitwise Masking for JavaScript Collision Layers - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/bitwise-masking-for-java-script-collision-layers" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In JavaScript game development, collision detection can quickly become a major performance bottleneck when handling dozens or hundreds of interacting entities simultaneously. Bitwise masking provides an ultra-fast, memory-efficient solution by representin" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="bitwise-masking-for-javascript-collision-layers">Bitwise Masking
+for JavaScript Collision Layers</h1>
+<p>In JavaScript game development, collision detection can quickly
+become a major performance bottleneck when handling dozens or hundreds
+of interacting entities simultaneously. Bitwise masking provides an
+ultra-fast, memory-efficient solution by representing collision
+categories and filtering rules as binary integers. By leveraging
+low-level bitwise operators, developers can determine whether two
+entities should interact in a single operation, eliminating unnecessary
+geometric calculations, keeping codebases clean, and maintaining
+consistent 60+ FPS performance.</p>
+<h3 id="the-problem-with-traditional-layer-filtering">The Problem with
+Traditional Layer Filtering</h3>
+<p>A typical game features various entity types: players, player
+projectiles, enemies, enemy projectiles, items, and environment
+obstacles. Evaluating physics and hitbox intersections for every
+potential pair leads to <span class="math inline">\(O(n^2)\)</span>
+complexity.</p>
+<p>Using traditional methods to filter these interactions—such as string
+comparisons (<code>entityA.type === 'enemy'</code>), arrays of target
+types, or long chains of <code>if/else</code> statements—introduces
+significant runtime overhead and creates bloated, unmaintainable logic
+as the number of game systems increases.</p>
+<h3 id="how-bitwise-masking-works">How Bitwise Masking Works</h3>
+<p>Bitwise masking uses binary place values (powers of two) to represent
+specific game layers, known as <strong>Categories</strong>. Each
+category occupies a single bit in a 32-bit integer. Along with its
+category, each entity carries a <strong>Mask</strong>, which defines
+which categories it is permitted to collide with.</p>
+<h4 id="1-defining-layers-categories">1. Defining Layers
+(Categories)</h4>
+<p>Each layer is assigned a bit using the bitwise left-shift operator
+(<code>&lt;&lt;</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> Layer <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">NONE</span><span class="op">:</span>       <span class="dv">0</span><span class="op">,</span>       <span class="co">// 00000000</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">PLAYER</span><span class="op">:</span>     <span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">0</span><span class="op">,</span>  <span class="co">// 00000001 (1)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">ENEMY</span><span class="op">:</span>      <span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">1</span><span class="op">,</span>  <span class="co">// 00000010 (2)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">BULLET</span><span class="op">:</span>     <span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">2</span><span class="op">,</span>  <span class="co">// 00000100 (4)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">OBSTACLE</span><span class="op">:</span>   <span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">3</span>   <span class="co">// 00001000 (8)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h4 id="2-combining-layers-with-bitwise-or-">2. Combining Layers with
+Bitwise OR (<code>|</code>)</h4>
+<p>An entity's collision mask defines everything it can touch by
+combining multiple categories using the bitwise OR operator:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// The player collides with enemies and obstacles, but not its own bullets</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> playerMask <span class="op">=</span> Layer<span class="op">.</span><span class="at">ENEMY</span> <span class="op">|</span> Layer<span class="op">.</span><span class="at">OBSTACLE</span><span class="op">;</span> <span class="co">// 00001010</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// A bullet collides only with enemies and obstacles</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> playerBulletMask <span class="op">=</span> Layer<span class="op">.</span><span class="at">ENEMY</span> <span class="op">|</span> Layer<span class="op">.</span><span class="at">OBSTACLE</span><span class="op">;</span> <span class="co">// 00001010</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// An enemy collides with the player, player bullets, and obstacles</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> enemyMask <span class="op">=</span> Layer<span class="op">.</span><span class="at">PLAYER</span> <span class="op">|</span> Layer<span class="op">.</span><span class="at">BULLET</span> <span class="op">|</span> Layer<span class="op">.</span><span class="at">OBSTACLE</span><span class="op">;</span> <span class="co">// 00001101</span></span></code></pre></div>
+<h4 id="3-filtering-collisions-with-bitwise-and-">3. Filtering
+Collisions with Bitwise AND (<code>&amp;</code>)</h4>
+<p>To evaluate whether Entity A and Entity B should run a full collision
+check, evaluate their categories against their respective masks using
+the bitwise AND operator:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">shouldCollide</span>(entityA<span class="op">,</span> entityB) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> aCanHitB <span class="op">=</span> (entityA<span class="op">.</span><span class="at">mask</span> <span class="op">&amp;</span> entityB<span class="op">.</span><span class="at">category</span>) <span class="op">!==</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> bCanHitA <span class="op">=</span> (entityB<span class="op">.</span><span class="at">mask</span> <span class="op">&amp;</span> entityA<span class="op">.</span><span class="at">category</span>) <span class="op">!==</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> aCanHitB <span class="op">&amp;&amp;</span> bCanHitA<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If the bitwise AND yields a non-zero value, at least one matching bit
+was found, indicating a valid collision layer pairing.</p>
+<h3 id="why-it-is-ideal-for-javascript-engines">Why It Is Ideal for
+JavaScript Engines</h3>
+<ol type="1">
+<li><strong>Near-Zero Latency:</strong> Bitwise operations execute
+directly at the processor instruction level. Modern V8 and other
+JavaScript engines optimize these operators into single CPU cycles,
+making this check virtually free compared to spatial partitioning or
+boundary math.</li>
+<li><strong>Reduced Garbage Collection:</strong> Because layers are
+stored as primitive 32-bit integers rather than arrays or object
+references, no memory allocations occur during the collision loop,
+preventing garbage collection stutter.</li>
+<li><strong>Decoupled Architecture:</strong> Adding new layers or
+altering collision rules only requires updating the bit definitions,
+leaving the core physics loop untouched.</li>
+</ol>
+<p>Bitwise masking acts as the primary gatekeeper in game loops,
+instantly discarding irrelevant entity checks before executing
+resource-heavy broadphase or narrowphase collision algorithms.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/bitwise-masking-for-java-script-collision-layers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

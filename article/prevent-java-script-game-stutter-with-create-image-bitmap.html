@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prevent JavaScript Game Stutter with createImageBitmap - javascript</title>
+    <meta name="description" content="In browser game development, frame drops and visual stutter—often referred to as jank—frequently occur when the browser decodes compressed image formats like PNG or JPEG on the main execution thread. The createImageBitmap() API eliminates this performance">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/prevent-java-script-game-stutter-with-create-image-bitmap">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Prevent JavaScript Game Stutter with createImageBitmap - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/prevent-java-script-game-stutter-with-create-image-bitmap" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In browser game development, frame drops and visual stutter—often referred to as jank—frequently occur when the browser decodes compressed image formats like PNG or JPEG on the main execution thread. The createImageBitmap() API eliminates this performance" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="prevent-javascript-game-stutter-with-createimagebitmap">Prevent
+JavaScript Game Stutter with createImageBitmap</h1>
+<p>In browser game development, frame drops and visual stutter—often
+referred to as jank—frequently occur when the browser decodes compressed
+image formats like PNG or JPEG on the main execution thread. The
+<code>createImageBitmap()</code> API eliminates this performance
+bottleneck by handling the computationally expensive task of image
+decoding asynchronously on background threads. This article explains the
+mechanics of main-thread image decoding bottlenecks and how adopting
+<code>createImageBitmap()</code> ensures your game maintains a
+consistent 60 or 120 frames per second.</p>
+<h3 id="the-main-thread-bottleneck-with-traditional-images">The Main
+Thread Bottleneck with Traditional Images</h3>
+<p>In a standard JavaScript environment, creating an image using
+<code>new Image()</code> and setting its <code>src</code> loads the
+image data over the network asynchronously. However, loading the file is
+only the first step. Before an image can be rendered to an HTML5 Canvas
+or uploaded as a WebGL texture, the compressed binary data (such as
+JPEG, PNG, or WebP) must be decompressed into an uncompressed raster
+bitmap of raw RGBA pixel values.</p>
+<p>Traditionally, browsers defer this decoding step until the asset is
+drawn for the first time using
+<code>CanvasRenderingContext2D.drawImage()</code> or
+<code>gl.texImage2D()</code>. Because drawing occurs during your game
+loop on the main thread, the synchronous decoding of a large texture or
+sprite sheet can easily freeze execution for 50 to 100 milliseconds or
+more. In a game targeting 60 frames per second, a single frame budget is
+roughly 16.67 milliseconds; exceeding this budget causes an immediate,
+noticeable stutter.</p>
+<h3 id="how-createimagebitmap-solves-image-jank">How
+<code>createImageBitmap</code> Solves Image Jank</h3>
+<p>The <code>createImageBitmap()</code> function is a global factory
+method available on the <code>window</code> and
+<code>WorkerGlobalScope</code> interfaces. It accepts various image
+sources—such as <code>Blob</code>, <code>ImageData</code>,
+<code>HTMLImageElement</code>, or <code>HTMLCanvasElement</code>—and
+returns a <code>Promise</code> that resolves to an
+<code>ImageBitmap</code>.</p>
+<p>It prevents stutter in three fundamental ways:</p>
+<h4 id="1-off-thread-asynchronous-decoding">1. Off-Thread Asynchronous
+Decoding</h4>
+<p>When you invoke <code>createImageBitmap()</code>, the browser
+offloads the CPU-heavy image decompression logic to background worker
+threads managed by the browser engine. The main thread continues running
+game loops, handling input, physics, and existing rendering tasks
+completely uninterrupted. The <code>Promise</code> resolves only after
+the raw pixel data is ready in memory.</p>
+<h4 id="2-pre-decoded-gpu-uploads">2. Pre-Decoded GPU Uploads</h4>
+<p>An <code>ImageBitmap</code> represents a ready-to-render, raw raster
+surface. When passing an <code>ImageBitmap</code> to
+<code>drawImage()</code> or WebGL texture upload methods, the engine
+skips decompression entirely. The transfer of the pre-decoded pixel
+array to the GPU takes a fraction of the time compared to synchronous
+on-the-fly decoding, fitting comfortably within the 16.67ms frame
+window.</p>
+<h4 id="3-sprite-sheet-manipulation-during-decode">3. Sprite Sheet
+Manipulation During Decode</h4>
+<p><code>createImageBitmap()</code> supports an optional clipping
+rectangle argument:
+<code>createImageBitmap(image, sx, sy, sw, sh)</code>. When working with
+sprite sheets, developers can crop and prepare individual animation
+frames directly during the background decoding phase. The cropped
+sprites can be cached as individual <code>ImageBitmap</code> objects
+without needing to perform clipping operations inside the active render
+loop.</p>
+<h3 id="web-worker-integration">Web Worker Integration</h3>
+<p>Unlike <code>HTMLImageElement</code>, <code>ImageBitmap</code>
+objects implement the <code>Transferable</code> interface. This allows
+games to fetch assets and generate bitmaps inside a Web Worker, then
+transfer ownership of the underlying pixel memory to the main thread or
+an <code>OffscreenCanvas</code> with zero memory-copying overhead. This
+architecture completely isolates network fetching, file parsing, and
+image decompression from the user-facing render pipeline.</p>
+<h3 id="summary">Summary</h3>
+<p>Using traditional image elements in JavaScript games introduces
+hidden decode overhead at the moment of first render, disrupting frame
+rates. Transitioning to <code>createImageBitmap()</code> ensures that
+image decoding takes place asynchronously off the main thread, directly
+preventing frame spikes and delivering smooth, stutter-free
+gameplay.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/prevent-java-script-game-stutter-with-create-image-bitmap';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

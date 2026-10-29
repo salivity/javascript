@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tick Rate Synchronization in JavaScript Games - javascript</title>
+    <meta name="description" content="In multiplayer JavaScript game development, achieving seamless gameplay depends heavily on tick rate synchronization between the client and the server. The tick rate—the frequency at which the game state updates per second—dictates how inputs, physics, an">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/tick-rate-synchronization-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tick Rate Synchronization in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/tick-rate-synchronization-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In multiplayer JavaScript game development, achieving seamless gameplay depends heavily on tick rate synchronization between the client and the server. The tick rate—the frequency at which the game state updates per second—dictates how inputs, physics, an" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="tick-rate-synchronization-in-javascript-games">Tick Rate
+Synchronization in JavaScript Games</h1>
+<p>In multiplayer JavaScript game development, achieving seamless
+gameplay depends heavily on tick rate synchronization between the client
+and the server. The tick rate—the frequency at which the game state
+updates per second—dictates how inputs, physics, and world states are
+calculated and reconciled. When client render loops and server
+simulation cycles fall out of alignment, players experience visual
+stutter, rubber-banding, and delayed responsiveness. This article
+examines how tick rate mismatches arise in JavaScript environments,
+their direct effects on perceived fluidity, and the synchronization
+architectures developers use to maintain real-time responsiveness.</p>
+<h3 id="the-mechanics-of-tick-rates-in-web-environments">The Mechanics
+of Tick Rates in Web Environments</h3>
+<p>A game's fluidity operates on two distinct clocks:</p>
+<ol type="1">
+<li><strong>The Client Loop:</strong> Driven by the browser's
+<code>requestAnimationFrame</code>, executing at the display’s refresh
+rate (typically 60Hz, 120Hz, or 144Hz) to handle input capture and
+rendering.</li>
+<li><strong>The Server Loop:</strong> Driven by backend runtimes like
+Node.js, executing a fixed simulation loop (commonly 20Hz to 60Hz) to
+validate actions, calculate physics, and broadcast authoritative game
+states.</li>
+</ol>
+<p>Because JavaScript is single-threaded, timing precision is subject to
+event loop latency. Functions like <code>setInterval</code> or
+<code>setTimeout</code> drift due to garbage collection and task
+scheduling. If the server updates at 30 ticks per second (every
+~33.33ms) and the client renders at 60 frames per second (every
+~16.66ms), the client renders twice as many frames as there are server
+updates. Without synchronization, the client either starves for data or
+processes erratic bursts of updates, destroying visual continuity.</p>
+<h3 id="effects-of-poor-synchronization-on-gameplay">Effects of Poor
+Synchronization on Gameplay</h3>
+<p>When client and server ticks diverge without compensation, three
+primary issues emerge:</p>
+<ul>
+<li><strong>Input Lag:</strong> If the client waits for the server to
+process an action before displaying it, players perceive a delay equal
+to the round-trip time (RTT) plus the server tick interval. At lower
+tick rates (e.g., 20Hz), this adds up to 50ms of engine delay on top of
+network latency.</li>
+<li><strong>Rubber-Banding:</strong> If the client calculates movement
+locally but the server resolves physics at a different tick boundary,
+positional discrepancies arise. When the server overrides the client
+with authoritative data, the player snaps back to a previous
+position.</li>
+<li><strong>Temporal Aliasing and Jitter:</strong> When network updates
+arrive unevenly, the client struggles to determine the exact timestamp
+of an entity's position. This causes non-player characters and other
+players to visually hitch or stutter across the screen, even if the
+client's frame rate remains high.</li>
+</ul>
+<h3 id="techniques-for-synchronizing-ticks-in-javascript">Techniques for
+Synchronizing Ticks in JavaScript</h3>
+<p>To bridge the gap between variable client rendering and fixed server
+simulation, developers implement standard synchronization architectures
+adapted for the browser.</p>
+<h4 id="1-deterministic-fixed-timesteps-with-accumulators">1.
+Deterministic Fixed Timesteps with Accumulators</h4>
+<p>To prevent engine drift, clients decouple rendering from simulation
+using a fixed timestep accumulator:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> accumulator <span class="op">=</span> <span class="fl">0.0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> step <span class="op">=</span> <span class="dv">1000</span> <span class="op">/</span> <span class="dv">60</span><span class="op">;</span> <span class="co">// 60 ticks per second</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> delta <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  accumulator <span class="op">+=</span> delta<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (accumulator <span class="op">&gt;=</span> step) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">physicsUpdate</span>(step)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    accumulator <span class="op">-=</span> step<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> alpha <span class="op">=</span> accumulator <span class="op">/</span> step<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>(alpha)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The <code>alpha</code> value represents the remaining fraction of
+time, allowing the renderer to blend between the previous physics state
+and the current physics state for perfectly smooth movement at any
+refresh rate.</p>
+<h4 id="2-client-side-prediction-and-server-reconciliation">2.
+Client-Side Prediction and Server Reconciliation</h4>
+<p>To eliminate perceived input latency, the client immediately executes
+user input locally without waiting for the server. The client tags each
+input with a local tick or sequence number. When the server processes
+the input, it broadcasts the authoritative state along with the last
+acknowledged input sequence.</p>
+<p>Upon receiving the server state, the client checks for
+discrepancies:</p>
+<ul>
+<li>If the prediction was accurate, execution continues smoothly.</li>
+<li>If a divergence occurred, the client resets its state to the
+server's authoritative state and rapidly re-applies all unacknowledged
+inputs from that point forward.</li>
+</ul>
+<h4 id="3-entity-interpolation">3. Entity Interpolation</h4>
+<p>Because the server broadcasts snapshots at a lower frequency than the
+client's rendering loop, the client maintains a buffer of past states
+for remote entities. Rather than rendering remote entities at the latest
+received tick, the client renders them slightly in the past (typically
+50ms to 100ms behind). By interpolating between the two most recent
+confirmed server states, remote objects move smoothly across frames
+without snapping, masking server tick boundaries entirely.</p>
+<h3 id="achieving-maximum-fluidity">Achieving Maximum Fluidity</h3>
+<p>In JavaScript game programming, high frame rates do not guarantee
+smooth gameplay. Fluidity requires decoupling rendering from game logic,
+maintaining a fixed-timestep simulation loop using
+<code>performance.now()</code>, predicting local actions ahead of server
+confirmation, and interpolating remote entities across server tick
+intervals. These synchronization techniques ensure that despite network
+fluctuations and browser execution quirks, the game remains responsive,
+fair, and visually cohesive.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/tick-rate-synchronization-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

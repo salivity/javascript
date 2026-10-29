@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Matchmaking on Game Server Clusters - javascript</title>
+    <meta name="description" content="Room matchmaking on distributed server clusters requires decoupling the matchmaking logic from the actual game session instances. In a modern JavaScript stack, this system coordinates player pools, provisions dynamic game rooms across multiple server node">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-matchmaking-on-game-server-clusters">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Matchmaking on Game Server Clusters - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-matchmaking-on-game-server-clusters" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Room matchmaking on distributed server clusters requires decoupling the matchmaking logic from the actual game session instances. In a modern JavaScript stack, this system coordinates player pools, provisions dynamic game rooms across multiple server node" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-matchmaking-on-game-server-clusters">JavaScript
+Matchmaking on Game Server Clusters</h1>
+<p>Room matchmaking on distributed server clusters requires decoupling
+the matchmaking logic from the actual game session instances. In a
+modern JavaScript stack, this system coordinates player pools,
+provisions dynamic game rooms across multiple server nodes, and smoothly
+transfers client connections from a central lobby to dedicated game
+servers. By utilizing technologies such as Node.js, Redis, WebSockets,
+and container orchestrators, developers can build scalable, low-latency
+infrastructure capable of routing thousands of concurrent players into
+synchronized multiplayer sessions.</p>
+<h3 id="the-decoupled-architecture">The Decoupled Architecture</h3>
+<p>A scalable matchmaking architecture avoids running match selection on
+the game servers themselves. Instead, the infrastructure is split into
+three primary tiers:</p>
+<ol type="1">
+<li><strong>The Matchmaker Service:</strong> A centralized Node.js
+service (or set of stateless workers) that handles queue ingress,
+evaluates matchmaking rules (e.g., latency, MMR, team size), and forms
+valid match groups.</li>
+<li><strong>The Cluster State Store:</strong> An in-memory data store,
+typically Redis, that acts as the single source of truth for player
+queues, active game server capacity, and cross-process pub/sub
+messaging.</li>
+<li><strong>The Game Server Cluster:</strong> A pool of lightweight
+Node.js processes or containerized game instances running on tools like
+Docker and Kubernetes (often managed via game-server orchestrators like
+Agones). Each process hosts one or more isolated game rooms.</li>
+</ol>
+<h3 id="managing-queues-and-state-with-redis">Managing Queues and State
+with Redis</h3>
+<p>When a player clicks "Find Match," the client opens a WebSocket
+connection to the Matchmaker Service. The matchmaker creates a "match
+ticket" containing the player’s ID, ping data, and skill rating, then
+pushes it into a Redis Sorted Set or a stream.</p>
+<p>Using Redis allows multiple instances of the matchmaker to poll the
+same queue without race conditions:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Pushing a player ticket into a matchmaking queue</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">await</span> redis<span class="op">.</span><span class="fu">zadd</span>(<span class="st">&#39;matchmaking:queue:na-east&#39;</span><span class="op">,</span> playerSkillRating<span class="op">,</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>({</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">playerId</span><span class="op">:</span> player<span class="op">.</span><span class="at">id</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">socketId</span><span class="op">:</span> player<span class="op">.</span><span class="at">socketId</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">region</span><span class="op">:</span> <span class="st">&#39;na-east&#39;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">joinedAt</span><span class="op">:</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}))<span class="op">;</span></span></code></pre></div>
+<p>Worker loops run at fixed tick rates (e.g., every 500ms) to scan
+these sets, group compatible tickets, and remove them atomically using
+Redis transactions or Lua scripts to ensure players are never placed
+into two matches simultaneously.</p>
+<h3 id="allocating-rooms-on-the-cluster">Allocating Rooms on the
+Cluster</h3>
+<p>Once a match group is formed, the matchmaker must assign it to a
+server. In a clustered environment, game instances report their status
+(e.g., <code>READY</code>, <code>ALLOCATED</code>,
+<code>AVAILABLE_CAPACITY</code>) via a heartbeat sent to Redis or an
+orchestration API.</p>
+<p>The allocation process proceeds as follows:</p>
+<ol type="1">
+<li><strong>Querying Available Capacity:</strong> The matchmaker checks
+for an idle game server instance within the region that minimizes ping
+for the group.</li>
+<li><strong>Reservation:</strong> The matchmaker flags the selected
+server as reserved, assigns it a unique <code>roomId</code>, and sends
+an internal signal (via Redis Pub/Sub or gRPC) to that game server with
+the list of authorized player IDs.</li>
+<li><strong>Provisioning On Demand:</strong> If all existing instances
+are at capacity, the matchmaker triggers an autoscaling event through
+the container API to spin up a new Node.js game server container.</li>
+</ol>
+<h3 id="the-connection-handoff">The Connection Handoff</h3>
+<p>Game clients should never connect directly to the game server until
+the matchmaker explicitly directs them to do so. The connection handoff
+works via a cryptographically signed ticket:</p>
+<ol type="1">
+<li>The matchmaker issues a short-lived JSON Web Token (JWT) containing
+the <code>roomId</code>, <code>playerId</code>, and the dedicated
+server's public IP address and port.</li>
+<li>The matchmaker transmits this connection payload back to the clients
+over their lobby WebSocket connections.</li>
+<li>The clients disconnect from the matchmaker and establish a new
+WebSocket or WebRTC DataChannel connection directly to the assigned game
+server port.</li>
+<li>Upon arrival, the client presents the JWT. The game server verifies
+the token signature locally without querying the database, validates the
+room assignment, and binds the socket to the game loop.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Game server handshake validation</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>gameSocket<span class="op">.</span><span class="fu">on</span>(<span class="st">&#39;connection&#39;</span><span class="op">,</span> (ws<span class="op">,</span> req) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> token <span class="op">=</span> <span class="kw">new</span> <span class="fu">URL</span>(req<span class="op">.</span><span class="at">url</span><span class="op">,</span> <span class="st">&#39;http://localhost&#39;</span>)<span class="op">.</span><span class="at">searchParams</span><span class="op">.</span><span class="fu">get</span>(<span class="st">&#39;token&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> payload <span class="op">=</span> jwt<span class="op">.</span><span class="fu">verify</span>(token<span class="op">,</span> SERVER_SECRET)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> room <span class="op">=</span> activeRooms<span class="op">.</span><span class="fu">get</span>(payload<span class="op">.</span><span class="at">roomId</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>room <span class="op">||</span> <span class="op">!</span>room<span class="op">.</span><span class="fu">isAuthorized</span>(payload<span class="op">.</span><span class="at">playerId</span>)) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> ws<span class="op">.</span><span class="fu">close</span>(<span class="dv">4001</span><span class="op">,</span> <span class="st">&#39;Unauthorized&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        room<span class="op">.</span><span class="fu">addPlayer</span>(payload<span class="op">.</span><span class="at">playerId</span><span class="op">,</span> ws)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">catch</span> (err) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        ws<span class="op">.</span><span class="fu">close</span>(<span class="dv">4003</span><span class="op">,</span> <span class="st">&#39;Invalid Token&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="lifecycle-and-server-deallocation">Lifecycle and Server
+Deallocation</h3>
+<p>When the game ends, the server notifies the central state store that
+the <code>roomId</code> is closed. The Node.js game instance either
+returns itself to the idle pool ready for the next allocation, or
+terminates cleanly, allowing the cluster orchestrator to reclaim memory
+and CPU resources across the host machines.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-matchmaking-on-game-server-clusters';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
