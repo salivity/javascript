@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inline Caching for Game Entity Objects in JavaScript - javascript</title>
+    <meta name="description" content="Inline caching is a critical runtime optimization used by modern JavaScript engines to dramatically accelerate property access on objects by remembering the memory offsets of previous lookups. In game development, where high-frequency update loops repeate">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/inline-caching-for-game-entity-objects-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inline Caching for Game Entity Objects in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/inline-caching-for-game-entity-objects-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Inline caching is a critical runtime optimization used by modern JavaScript engines to dramatically accelerate property access on objects by remembering the memory offsets of previous lookups. In game development, where high-frequency update loops repeate" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inline-caching-for-game-entity-objects-in-javascript">Inline
+Caching for Game Entity Objects in JavaScript</h1>
+<p>Inline caching is a critical runtime optimization used by modern
+JavaScript engines to dramatically accelerate property access on objects
+by remembering the memory offsets of previous lookups. In game
+development, where high-frequency update loops repeatedly read and
+mutate properties across thousands of game entities—such as coordinates,
+velocity vectors, and component data—standard dynamic dictionary lookups
+introduce massive CPU overhead. This article explains how inline caching
+works alongside hidden classes, breaks down the different caching
+states, and outlines how to structure entity objects to prevent cache
+misses and maintain a smooth 60 or 120 frames per second.</p>
+<h2 id="hidden-classes-the-foundation-of-inline-caching">Hidden Classes:
+The Foundation of Inline Caching</h2>
+<p>JavaScript does not have fixed class memory layouts at compile time
+like C++ or Rust; objects are dictionary-like structures by default. To
+make property access fast, engines such as V8, SpiderMonkey, and
+JavaScriptCore generate internal blueprints known as hidden classes (or
+"Shapes" and "Maps").</p>
+<p>When an entity object is created, the engine assigns it a base shape.
+Each time a property is added, the engine transitions the object to a
+new shape that records the property's name and its fixed offset in
+internal memory:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Base shape created</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> enemy <span class="op">=</span> {}<span class="op">;</span> </span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Transition to Shape A: { x: offset 0 }</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>enemy<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">100</span><span class="op">;</span> </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Transition to Shape B: { x: offset 0, y: offset 1 }</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>enemy<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">200</span><span class="op">;</span> </span></code></pre></div>
+<p>As long as objects share the exact same sequence of property
+additions, they share the same hidden class and the exact same memory
+layout.</p>
+<h2 id="the-mechanics-of-inline-caching-ic">The Mechanics of Inline
+Caching (IC)</h2>
+<p>Under normal circumstances, resolving <code>entity.x</code> requires
+checking the object's prototype chain, inspecting its shape descriptor,
+and calculating where <code>x</code> resides. Inline caching optimizes
+this by rewriting the call site during execution.</p>
+<ol type="1">
+<li><strong>Cold Access:</strong> When the engine first encounters a
+statement like <code>entity.x += entity.vx;</code> inside a game loop,
+it performs a standard, slow lookup.</li>
+<li><strong>Recording:</strong> The engine records the hidden class of
+<code>entity</code> and the byte offset of <code>x</code> directly at
+the call site in compiled bytecode or machine code.</li>
+<li><strong>Warm Access:</strong> On subsequent iterations, the engine
+checks if the incoming object has the same hidden class ID. If it
+matches, the engine bypasses the lookup routine entirely and reads or
+writes directly to the cached memory offset via a fast pointer
+dereference.</li>
+</ol>
+<h2 id="the-three-states-of-inline-caching">The Three States of Inline
+Caching</h2>
+<p>The performance of property access in your game loop depends on how
+many different shapes pass through a specific line of code.</p>
+<h3 id="1-monomorphic-fastest">1. Monomorphic (Fastest)</h3>
+<p>A call site is monomorphic if it only ever encounters objects sharing
+a single hidden class. The engine can generate a single pointer
+comparison check and directly inline the memory offset. This yields
+near-native execution speed.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updatePositions</span>(entities) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> entities<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Monomorphic if every entity has the identical hidden class</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    entities[i]<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> entities[i]<span class="op">.</span><span class="at">vx</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-polymorphic-moderate">2. Polymorphic (Moderate)</h3>
+<p>If a call site encounters between two and four different hidden
+classes (the threshold varies slightly by engine), it becomes
+polymorphic. The engine constructs a small internal lookup table:</p>
+<pre class="text"><code>if (shape === ShapeA) return offset_0;
+else if (shape === ShapeB) return offset_1;</code></pre>
+<p>While still fast, it introduces branching overhead compared to
+monomorphic calls.</p>
+<h3 id="3-megamorphic-slowest">3. Megamorphic (Slowest)</h3>
+<p>When five or more different shapes pass through the same call site,
+the engine abandons specialized inline caching. The call site becomes
+megamorphic, reverting to generic hash-table lookups. In a
+performance-critical game loop running every 16 milliseconds,
+megamorphic property access causes frame drops and degraded execution
+efficiency.</p>
+<h2 id="applying-inline-caching-to-game-entities">Applying Inline
+Caching to Game Entities</h2>
+<p>In component-based systems or Entity Component Systems (ECS), inline
+caching directly dictates how efficiently systems can process entities.
+Consider the following common pitfalls and solutions:</p>
+<h3 id="maintain-consistent-initialization-order">Maintain Consistent
+Initialization Order</h3>
+<p>Engines produce different shapes if properties are initialized in
+different orders, inadvertently triggering polymorphism or
+megamorphism.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Bad: Creates two distinct shapes</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createPlayer</span>() {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> p <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  p<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  p<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> p<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createBullet</span>() {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> b <span class="op">=</span> {}<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  b<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Inverted order</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  b<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> b<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">// Good: Use classes or consistent factory functions</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Entity {</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(x<span class="op">,</span> y<span class="op">,</span> vx<span class="op">,</span> vy) {</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">vx</span> <span class="op">=</span> vx<span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">vy</span> <span class="op">=</span> vy<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="avoid-dynamic-property-injection-and-deletion">Avoid Dynamic
+Property Injection and Deletion</h3>
+<p>Adding or removing properties during gameplay alters the shape of an
+entity at runtime.</p>
+<ul>
+<li><strong>Avoid <code>delete entity.property</code>:</strong> Deleting
+a property immediately forces the object into a "slow mode" (hash map
+representation), permanently disabling inline caching for that
+instance.</li>
+<li><strong>Pre-allocate Properties:</strong> Always initialize optional
+properties in the constructor with default values like <code>null</code>
+or <code>0</code>, rather than appending them when an event occurs:</li>
+</ul>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Actor {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">health</span> <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">shield</span> <span class="op">=</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// Defined early to lock the shape</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By ensuring that game entities conform to uniform, predictable shapes
+initialized in fixed orders, game developers enable the JavaScript
+engine's optimizing compiler to keep inline caches monomorphic,
+achieving maximum frame rates and low latency.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/inline-caching-for-game-entity-objects-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

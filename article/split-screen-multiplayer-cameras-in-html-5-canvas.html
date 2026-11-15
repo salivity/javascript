@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split-Screen Multiplayer Cameras in HTML5 Canvas - javascript</title>
+    <meta name="description" content="Split-screen multiplayer in JavaScript games allows two or more players to share a single display by partitioning an HTML5 &lt;canvas&gt; element into distinct viewports. This article explains how game developers achieve this effect through mathematical screen">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/split-screen-multiplayer-cameras-in-html-5-canvas">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Split-Screen Multiplayer Cameras in HTML5 Canvas - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/split-screen-multiplayer-cameras-in-html-5-canvas" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Split-screen multiplayer in JavaScript games allows two or more players to share a single display by partitioning an HTML5 &lt;canvas&gt; element into distinct viewports. This article explains how game developers achieve this effect through mathematical screen" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="split-screen-multiplayer-cameras-in-html5-canvas">Split-Screen
+Multiplayer Cameras in HTML5 Canvas</h1>
+<p>Split-screen multiplayer in JavaScript games allows two or more
+players to share a single display by partitioning an HTML5
+<code>&lt;canvas&gt;</code> element into distinct viewports. This
+article explains how game developers achieve this effect through
+mathematical screen division, state transformation and clipping using
+the 2D rendering context, multi-pass rendering loops, and performance
+optimizations like camera-specific frustum culling.</p>
+<h3 id="defining-viewport-boundaries">Defining Viewport Boundaries</h3>
+<p>To divide a canvas, you must calculate the bounding box for each
+player's view based on the canvas dimensions (<code>canvas.width</code>
+and <code>canvas.height</code>).</p>
+<ul>
+<li><strong>Two Players (Vertical Split):</strong> Each viewport
+receives the full height and half the width (<code>width / 2</code>,
+<code>height</code>).</li>
+<li><strong>Two Players (Horizontal Split):</strong> Each viewport
+receives the full width and half the height (<code>width</code>,
+<code>height / 2</code>).</li>
+<li><strong>Four Players (Grid Split):</strong> The canvas is split into
+quadrants, where each viewport is <code>width / 2</code> by
+<code>height / 2</code>.</li>
+</ul>
+<p>Each viewport is represented by an object storing its screen
+coordinates: an origin <code>(x, y)</code>, a <code>width</code>, and a
+<code>height</code>.</p>
+<h3 id="the-core-rendering-pipeline-save-clip-translate-restore">The
+Core Rendering Pipeline: Save, Clip, Translate, Restore</h3>
+<p>The standard approach to rendering multiple camera views onto a
+single canvas utilizes the 2D context
+(<code>CanvasRenderingContext2D</code>) transformation and clipping
+methods. For each player, the rendering pipeline executes the following
+sequence:</p>
+<ol type="1">
+<li><strong>Save Context State (<code>ctx.save()</code>):</strong>
+Preserves the default transformation matrix, clipping path, and styling
+settings.</li>
+<li><strong>Define the Clipping Region (<code>ctx.beginPath()</code>,
+<code>ctx.rect()</code>, <code>ctx.clip()</code>):</strong> Constrains
+all subsequent drawing operations strictly within the designated
+player's viewport bounds. Any graphics rendered outside this boundary
+are discarded.</li>
+<li><strong>Clear the Viewport (<code>ctx.clearRect()</code>):</strong>
+Clears only the active viewport area, preventing artifacts from the
+previous frame.</li>
+<li><strong>Apply Camera Translation
+(<code>ctx.translate()</code>):</strong> Offsets the canvas grid so the
+player's world position aligns with their camera center. The translation
+formula maps the world coordinates to the center of the viewport: <span
+class="math display">\[\text{offsetX} = \text{viewport.x} +
+(\text{viewport.width} / 2) - \text{player.x}\]</span> <span
+class="math display">\[\text{offsetY} = \text{viewport.y} +
+(\text{viewport.height} / 2) - \text{player.y}\]</span></li>
+<li><strong>Render World Entities:</strong> Draws the background,
+terrain, and game entities using world coordinates.</li>
+<li><strong>Restore Context State (<code>ctx.restore()</code>):</strong>
+Resets the canvas context to remove the clipping boundary and
+translation offsets before processing the next player.</li>
+</ol>
+<h3 id="rendering-hud-and-viewport-dividers">Rendering HUD and Viewport
+Dividers</h3>
+<p>User interfaces (health bars, ammo counts, minimaps) require a
+separate pass. You can render player-specific HUD elements while the
+context is still clipped to that player's viewport, but without the
+camera translation applied. Once all viewports and HUD elements are
+rendered, a final pass can draw dividing borders (solid lines) along the
+shared boundaries to visually distinguish each player's screen
+space.</p>
+<h3 id="alternative-approach-offscreen-canvases">Alternative Approach:
+Offscreen Canvases</h3>
+<p>Instead of clipping directly onto the main canvas, developers can
+render each camera view to an individual, invisible offscreen canvas
+(<code>document.createElement('canvas')</code> or
+<code>OffscreenCanvas</code>). During the final composite step, the main
+canvas draws each offscreen canvas onto its surface using
+<code>ctx.drawImage()</code>.</p>
+<p>This method simplifies complex post-processing effects (such as
+individual camera shaders or screen-shake) at the cost of higher memory
+allocation and additional pixel-copying overhead.</p>
+<h3 id="performance-and-frustum-culling">Performance and Frustum
+Culling</h3>
+<p>Split-screen rendering multiplies the number of draw calls per frame
+by the number of active cameras. To maintain 60 frames per second:</p>
+<ul>
+<li><strong>Frustum Culling:</strong> Calculate an Axis-Aligned Bounding
+Box (AABB) for each camera's visible world area. Before issuing a draw
+command, check if an entity's coordinates intersect that specific
+camera's bounding box. Skip rendering for entities outside the
+view.</li>
+<li><strong>Shared Asset Calculations:</strong> Update game physics,
+input, and AI states once per tick, independent of the render loop.
+Avoid running duplicate game logic inside the multi-pass camera
+routines.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/split-screen-multiplayer-cameras-in-html-5-canvas';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

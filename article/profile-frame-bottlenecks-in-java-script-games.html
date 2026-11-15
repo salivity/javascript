@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Frame Bottlenecks in JavaScript Games - javascript</title>
+    <meta name="description" content="Maintaining a steady 60 or 120 frames per second is essential for smooth JavaScript game experiences, yet unoptimized update logic, excessive rendering calls, and garbage collection can trigger sudden frame drops. Browser developer tools—such as Chrome De">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/profile-frame-bottlenecks-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Profile Frame Bottlenecks in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/profile-frame-bottlenecks-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Maintaining a steady 60 or 120 frames per second is essential for smooth JavaScript game experiences, yet unoptimized update logic, excessive rendering calls, and garbage collection can trigger sudden frame drops. Browser developer tools—such as Chrome De" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="profile-frame-bottlenecks-in-javascript-games">Profile Frame
+Bottlenecks in JavaScript Games</h1>
+<p>Maintaining a steady 60 or 120 frames per second is essential for
+smooth JavaScript game experiences, yet unoptimized update logic,
+excessive rendering calls, and garbage collection can trigger sudden
+frame drops. Browser developer tools—such as Chrome DevTools and Firefox
+Profiler—provide integrated profiling suites designed to capture
+execution timelines, visualize rendering pipelines, and isolate
+main-thread delays. By recording gameplay sessions and inspecting the
+resulting flame charts, developers can pinpoint exact microsecond
+bottlenecks in physics, rendering, and memory allocation to eliminate
+game stutter.</p>
+<h3 id="preparing-the-profiling-environment">Preparing the Profiling
+Environment</h3>
+<p>Before recording performance data, prepare the browser environment to
+prevent skewed metrics:</p>
+<ol type="1">
+<li><strong>Use an Incognito or Private Window:</strong> Browser
+extensions frequently inject scripts that consume main-thread time and
+contaminate profiling results.</li>
+<li><strong>Disable Non-Essential Features:</strong> Turn off
+unnecessary logging (<code>console.log</code>) in the game engine, as
+synchronous logging introduces significant overhead.</li>
+<li><strong>Simulate Target Hardware:</strong> In the Performance panel
+settings, use CPU throttling (such as 4x or 6x slowdown) to reproduce
+mobile or low-end desktop conditions on a high-spec development
+machine.</li>
+</ol>
+<h3 id="recording-a-gameplay-session">Recording a Gameplay Session</h3>
+<p>Open the browser's developer tools, navigate to the
+<strong>Performance</strong> tab, and prepare to capture:</p>
+<ol type="1">
+<li>Click the <strong>Record</strong> button (or press
+<code>Ctrl+E</code> / <code>Cmd+E</code>).</li>
+<li>Interact with the game, specifically triggering the actions,
+particle effects, or scenes where stutter or input latency occurs.</li>
+<li>Keep the capture short—typically 5 to 10 seconds—to avoid
+overwhelming the profiler with excessive event data.</li>
+<li>Stop the recording to generate the execution timeline.</li>
+</ol>
+<h3 id="inspecting-the-frames-track">Inspecting the Frames Track</h3>
+<p>At the top of the performance report, locate the
+<strong>Frames</strong> section:</p>
+<ul>
+<li>Each vertical bar represents a single rendered frame.</li>
+<li>Green bars denote frames that met the target frame budget (16.67
+milliseconds for 60 FPS, or 8.33 milliseconds for 120 FPS).</li>
+<li>Red or highlighted bars indicate dropped frames, where the browser
+took too long to complete work before the screen refreshed.</li>
+<li>Clicking a red frame selects its time window, focusing the panels
+below on that exact interval.</li>
+</ul>
+<h3 id="analyzing-the-flame-chart">Analyzing the Flame Chart</h3>
+<p>The <strong>Main</strong> section contains the flame chart,
+illustrating the complete JavaScript call stack over time. The
+horizontal axis represents elapsed time, while the vertical axis
+represents call depth:</p>
+<ul>
+<li><strong>Locate <code>requestAnimationFrame</code>:</strong> Find the
+primary tick function driving the game loop. If a single function
+execution stretches across the entire frame duration, look downward
+along the inverted stack to find which specific subroutine consumes the
+most time.</li>
+<li><strong>Identify Long Tasks:</strong> Tasks outlined with red
+corners exceed standard execution budgets. Expanding these tasks reveals
+whether heavy pathfinding, collision algorithms, or spatial partitioning
+loops are stalling the engine.</li>
+<li><strong>Differentiate Logic vs. Rendering:</strong> Determine
+whether the execution time is dominated by JavaScript computation
+(scripting) or by drawing commands (such as repeated 2D Canvas state
+alterations or WebGL uniform updates).</li>
+</ul>
+<h3 id="tracking-garbage-collection-pauses">Tracking Garbage Collection
+Pauses</h3>
+<p>Frequent allocation and deallocation of game entities causes the
+browser's JavaScript engine to trigger Garbage Collection (GC), causing
+micro-stutters:</p>
+<ul>
+<li>Check the <strong>Memory</strong> checkbox in the Performance panel
+before recording to track JS heap usage.</li>
+<li>A rapid "sawtooth" pattern—where memory climbs steadily and then
+drops sharply—indicates high allocation rates inside the update
+loop.</li>
+<li>In the flame chart, look for yellow or red blocks labeled
+<strong>Minor GC</strong> or <strong>Major GC</strong>. If a GC event
+falls within a dropped frame, refactor the surrounding code to use
+object pooling and reuse existing arrays, vectors, and objects rather
+than creating new ones inside the loop.</li>
+</ul>
+<h3 id="adding-user-timing-marks">Adding User Timing Marks</h3>
+<p>To make the flame chart easier to read, instrument game subsystems
+using the User Timing API:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(timestamp) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">performance</span><span class="op">.</span><span class="fu">mark</span>(<span class="st">&#39;update-start&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">updateSystems</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">performance</span><span class="op">.</span><span class="fu">mark</span>(<span class="st">&#39;update-end&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="bu">performance</span><span class="op">.</span><span class="fu">mark</span>(<span class="st">&#39;render-start&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">renderScene</span>()<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="bu">performance</span><span class="op">.</span><span class="fu">mark</span>(<span class="st">&#39;render-end&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="bu">performance</span><span class="op">.</span><span class="fu">measure</span>(<span class="st">&#39;Game Update&#39;</span><span class="op">,</span> <span class="st">&#39;update-start&#39;</span><span class="op">,</span> <span class="st">&#39;update-end&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="bu">performance</span><span class="op">.</span><span class="fu">measure</span>(<span class="st">&#39;Game Render&#39;</span><span class="op">,</span> <span class="st">&#39;render-start&#39;</span><span class="op">,</span> <span class="st">&#39;render-end&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>These named measurements automatically appear in the
+<strong>Timings</strong> section of the Performance panel, allowing
+developers to immediately isolate whether bottlenecks originate in game
+state updates, physics calculations, or rendering passes without digging
+through deeply nested engine functions.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/profile-frame-bottlenecks-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

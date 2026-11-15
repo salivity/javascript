@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnosing JS Game Stutter with Frame Rate Graphs - javascript</title>
+    <meta name="description" content="Frame rate variance graphs provide a high-resolution view of execution timing in JavaScript games, exposing performance anomalies that standard frames-per-second (FPS) counters obscure. While an average metric of 60 FPS can easily hide single-frame drops,">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/diagnosing-js-game-stutter-with-frame-rate-graphs">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Diagnosing JS Game Stutter with Frame Rate Graphs - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/diagnosing-js-game-stutter-with-frame-rate-graphs" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Frame rate variance graphs provide a high-resolution view of execution timing in JavaScript games, exposing performance anomalies that standard frames-per-second (FPS) counters obscure. While an average metric of 60 FPS can easily hide single-frame drops," />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="diagnosing-js-game-stutter-with-frame-rate-graphs">Diagnosing JS
+Game Stutter with Frame Rate Graphs</h1>
+<p>Frame rate variance graphs provide a high-resolution view of
+execution timing in JavaScript games, exposing performance anomalies
+that standard frames-per-second (FPS) counters obscure. While an average
+metric of 60 FPS can easily hide single-frame drops, a variance graph
+maps the exact duration of every frame against a target
+threshold—typically 16.67 milliseconds for standard refresh displays. By
+analyzing the visual signatures, frequency, and scale of frametime
+spikes, developers can pinpoint whether stutter stems from garbage
+collection sweeps, V-Sync misses, main thread blocking, or layout
+thrashing.</p>
+<h3 id="the-failure-of-average-fps-metrics">The Failure of Average FPS
+Metrics</h3>
+<p>Traditional FPS counters aggregate frame counts over a sliding window
+(often 500ms to 1000ms). If a browser experiences 59 frames that execute
+in 10ms each, followed by a single freeze lasting 200ms, the average FPS
+reading may still report a smooth 50+ FPS despite a visible, jarring
+hitch.</p>
+<p>Frame rate variance graphs (frametime graphs) plot time per frame
+along the Y-axis against chronological frame numbers on the X-axis. This
+converts raw performance into a continuous waveform. Any deviation above
+the 16.67ms (60 Hz) or 8.33ms (120 Hz) target line immediately signifies
+an undrawn frame, presenting a precise diagnostic trail.</p>
+<h3 id="identifying-garbage-collection-pauses">Identifying Garbage
+Collection Pauses</h3>
+<p>In JavaScript game engines, unmanaged object allocations—such as
+creating temporary vectors, particles, or closures inside the
+<code>requestAnimationFrame</code> loop—force the browser's JavaScript
+engine (e.g., V8) to execute garbage collection (GC).</p>
+<p>On a variance graph, GC-induced stutter exhibits a distinct rhythmic
+signature:</p>
+<ul>
+<li><strong>The Pattern:</strong> A flat, consistent baseline at 16.67ms
+punctuated by periodic, sharp vertical spikes that reach 30ms to 80ms at
+regular intervals.</li>
+<li><strong>The Cause:</strong> The browser runs out of available
+nursery memory in the young generation heap, triggering an ephemeral
+scavenge or a major mark-sweep phase that halts main-thread
+execution.</li>
+</ul>
+<h3 id="detecting-v-sync-misses-and-budget-overruns">Detecting V-Sync
+Misses and Budget Overruns</h3>
+<p>When a game's combined update and render loop takes slightly longer
+than the allotted frame budget, the display engine misses the vertical
+synchronization (V-Sync) signal.</p>
+<ul>
+<li><strong>The Pattern:</strong> The graph cleanly "bounces" between
+16.67ms and 33.33ms (or 50ms for a double drop), creating a square-wave
+or stair-step pattern rather than a sporadic spike.</li>
+<li><strong>The Cause:</strong> The CPU work did not fail
+catastrophically; it merely finished at 17.1ms instead of 16.6ms. The
+browser is forced to hold the previous frame for an entire additional
+display refresh cycle. This reveals that the logic is fundamentally
+sound but running dangerously close to budget, requiring marginal
+optimization.</li>
+</ul>
+<h3 id="exposing-heavy-main-thread-tasks">Exposing Heavy Main Thread
+Tasks</h3>
+<p>JavaScript runs on a single main thread shared by rendering, event
+dispatching, and script execution. Long-running synchronous calculations
+directly freeze the frame pipeline.</p>
+<ul>
+<li><strong>The Pattern:</strong> Extended plateaus or erratic, jagged
+peaks extending over multiple consecutive frames.</li>
+<li><strong>The Cause:</strong> Spikes that span multiple frames usually
+point to non-rendering operations running synchronously, such as complex
+A* pathfinding passes, unoptimized spatial partitioning queries,
+procedural generation runs, or processing heavy network payloads.</li>
+</ul>
+<h3
+id="differentiating-cpu-scripting-from-gpu-and-layout-thrashing">Differentiating
+CPU Scripting from GPU and Layout Thrashing</h3>
+<p>Variance graphs can be captured via custom in-game meters using
+<code>performance.now()</code> or through browser profiling tools (like
+Chrome DevTools' Performance panel). Comparing script execution time
+against total frame latency exposes browser-level rendering
+bottlenecks:</p>
+<ul>
+<li><strong>Forced Synchronous Layouts:</strong> If script duration is
+short but frametime spikes, reading DOM properties (e.g.,
+<code>offsetWidth</code>, <code>getBoundingClientRect</code>) right
+after modifying them forces the browser to recalculate styles
+mid-frame.</li>
+<li><strong>GPU Bottlenecks:</strong> If both script execution and GC
+are negligible, but the frametime variance graph records persistent
+baseline inflation (e.g., hovering around 22ms continuously), the
+bottleneck sits in the WebGL/WebGPU pipeline due to overdraw, excessive
+draw calls, or unoptimized shaders.</li>
+</ul>
+<h3 id="implementing-frame-variance-profiling">Implementing Frame
+Variance Profiling</h3>
+<p>Developers can implement low-overhead variance tracking directly into
+their loop to log or render a real-time histogram:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> lastTime <span class="op">=</span> <span class="bu">performance</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> frameHistory <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(<span class="dv">100</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> historyIndex <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(currentTime) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> delta <span class="op">=</span> currentTime <span class="op">-</span> lastTime<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  lastTime <span class="op">=</span> currentTime<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  frameHistory[historyIndex] <span class="op">=</span> delta<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  historyIndex <span class="op">=</span> (historyIndex <span class="op">+</span> <span class="dv">1</span>) <span class="op">%</span> frameHistory<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Normal game updates and rendering occur here</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span></code></pre></div>
+<p>By visualizing the <code>frameHistory</code> array as a dynamic line
+or bar chart, developers can observe stutter events the exact moment
+they occur in gameplay, match the spike to current game state actions
+(such as firing a weapon or spawning enemies), and resolve the
+underlying architectural bottleneck.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/diagnosing-js-game-stutter-with-frame-rate-graphs';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

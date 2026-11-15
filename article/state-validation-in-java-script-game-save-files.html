@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>State Validation in JavaScript Game Save Files - javascript</title>
+    <meta name="description" content="State validation during save file loading is a defensive programming practice in JavaScript game development that verifies the integrity, structure, and values of serialized data before applying it to the active game loop. This article explores how valida">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/state-validation-in-java-script-game-save-files">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="State Validation in JavaScript Game Save Files - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/state-validation-in-java-script-game-save-files" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="State validation during save file loading is a defensive programming practice in JavaScript game development that verifies the integrity, structure, and values of serialized data before applying it to the active game loop. This article explores how valida" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="state-validation-in-javascript-game-save-files">State Validation
+in JavaScript Game Save Files</h1>
+<p>State validation during save file loading is a defensive programming
+practice in JavaScript game development that verifies the integrity,
+structure, and values of serialized data before applying it to the
+active game loop. This article explores how validating save states
+protects games from crashes caused by corrupted files, outdated data
+structures, and user tampering, detailing the primary
+mechanisms—including schema validation, range checking, version
+migration, and fallback routines—required to maintain engine
+stability.</p>
+<h2 id="the-danger-of-direct-state-hydration">The Danger of Direct State
+Hydration</h2>
+<p>Most JavaScript games serialize their game state into JSON strings
+and store them in <code>localStorage</code>, <code>IndexedDB</code>, or
+cloud databases. When loading, developers often parse this string using
+<code>JSON.parse()</code> and directly assign the resulting object to
+the game's internal state.</p>
+<p>This approach poses severe risks. If a user manually edits the save
+file, if a network transfer drops packets, or if browser storage
+encounters partial writes, the parsed object may contain
+<code>null</code>, <code>undefined</code>, or unexpected types. When the
+game loop attempts to access missing properties or execute operations on
+malformed data (such as calling an array method on an
+<code>undefined</code> inventory slot), the engine will throw unhandled
+exceptions, breaking rendering loops and permanently corrupting the
+player's session.</p>
+<h2 id="structural-and-type-validation">Structural and Type
+Validation</h2>
+<p>The first defense layer inspects the loaded object's shape and types.
+The validation routine must ensure that every critical property exists
+and conforms to its expected JavaScript primitive:</p>
+<ul>
+<li><strong>Type Checking:</strong> Ensure numbers remain numbers,
+arrays remain arrays, and nested objects exist. For example, verifying
+<code>typeof save.player.level === 'number'</code>.</li>
+<li><strong>Structural Integrity:</strong> Confirm nested references,
+such as player inventories or quest trees, retain their expected
+keys.</li>
+<li><strong>Schema Libraries:</strong> While custom assertion functions
+work for smaller games, larger projects benefit from lightweight schema
+validation libraries like Zod, Valibot, or Superstruct. These allow
+developers to define a strict contract and parse external objects
+safely:</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">validateSave</span>(data) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">typeof</span> data <span class="op">!==</span> <span class="st">&#39;object&#39;</span> <span class="op">||</span> data <span class="op">===</span> <span class="kw">null</span>) <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="kw">typeof</span> data<span class="op">.</span><span class="at">health</span> <span class="op">!==</span> <span class="st">&#39;number&#39;</span> <span class="op">||</span> <span class="pp">isNaN</span>(data<span class="op">.</span><span class="at">health</span>)) <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="op">!</span><span class="bu">Array</span><span class="op">.</span><span class="fu">isArray</span>(data<span class="op">.</span><span class="at">inventory</span>)) <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="logical-and-boundary-validation">Logical and Boundary
+Validation</h2>
+<p>Type safety alone does not prevent game-breaking states. Logical
+validation evaluates whether valid types contain sensible,
+rule-compliant values:</p>
+<ul>
+<li><strong>Clamping and Ranges:</strong> A player's current health must
+not be negative or exceed <code>maxHealth</code>. Position coordinates
+<span class="math inline">\((x, y, z)\)</span> must fall within playable
+map boundaries to prevent entities from falling into geometry
+voids.</li>
+<li><strong>Entity and Asset Verification:</strong> Save files
+frequently reference items, abilities, or stages by ID strings.
+Validation must verify that these IDs exist within the game's static
+registry. If an item was removed during a patch, the validator must
+catch the dangling reference and discard it rather than passing an
+invalid reference to the renderer.</li>
+</ul>
+<h2 id="save-migration-and-versioning">Save Migration and
+Versioning</h2>
+<p>Games evolve over time, introducing new features and deprecating old
+data structures. A major cause of state corruption occurs when a game
+running version 1.2 attempts to load a save file generated by version
+1.0.</p>
+<p>State validation resolves this by attaching a <code>version</code>
+integer to the save payload. During the load phase, a migration pipeline
+runs sequentially before deep validation:</p>
+<ol type="1">
+<li>Read <code>saveData.version</code>.</li>
+<li>Pass the data through sequential migration functions (e.g.,
+<code>v1_to_v2(data)</code>, <code>v2_to_v3(data)</code>).</li>
+<li>Populate newly introduced properties with sensible defaults.</li>
+<li>Update the version marker to match the active game build.</li>
+</ol>
+<h2 id="integrity-checks-using-hashing">Integrity Checks Using
+Hashing</h2>
+<p>In browser environments, users can easily access and modify storage
+data. To prevent accidental corruption from manual edits, games employ
+integrity checks using cryptographic hashes or checksums.</p>
+<p>Before saving, the game computes a hash (such as SHA-256 or an HMAC
+using an obfuscated salt) of the serialized payload and appends it to
+the file. Upon loading, the game recalculates the hash of the payload
+and compares it against the stored signature. If the signatures do not
+match, the game flags the file as corrupted or modified before the
+runtime attempts to parse it.</p>
+<h2 id="graceful-fallback-strategies">Graceful Fallback Strategies</h2>
+<p>When validation fails, the game should never crash or leave the
+player on a frozen loading screen. Robust validation pipelines implement
+deterministic recovery:</p>
+<ul>
+<li><strong>Sanitization:</strong> If non-critical data fails validation
+(such as UI settings or cosmetics), reset only those fields to default
+values while preserving core progression data.</li>
+<li><strong>Secondary Backups:</strong> Maintain rolling backup saves
+(e.g., <code>save_backup.dat</code>). If the primary file fails
+structural validation, the engine discards it and attempts to load the
+backup.</li>
+<li><strong>User Notification:</strong> If a save is irreparably broken,
+notify the player clearly, offer the choice to start a new game, and
+archive the corrupted file for debugging rather than silently
+failing.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/state-validation-in-java-script-game-save-files';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

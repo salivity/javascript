@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inverted Hull Cel Shading in JavaScript - javascript</title>
+    <meta name="description" content="This article explores the inverted hull technique for generating toon outlines alongside cel shading in JavaScript game development. You will learn the core mechanics behind toon rendering, how the inverted hull method produces clean outlines using vertex">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/inverted-hull-cel-shading-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inverted Hull Cel Shading in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/inverted-hull-cel-shading-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the inverted hull technique for generating toon outlines alongside cel shading in JavaScript game development. You will learn the core mechanics behind toon rendering, how the inverted hull method produces clean outlines using vertex" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inverted-hull-cel-shading-in-javascript">Inverted Hull Cel
+Shading in JavaScript</h1>
+<p>This article explores the inverted hull technique for generating toon
+outlines alongside cel shading in JavaScript game development. You will
+learn the core mechanics behind toon rendering, how the inverted hull
+method produces clean outlines using vertex extrusion and back-face
+rendering, and how to implement this approach effectively using WebGL
+libraries such as Three.js.</p>
+<h2 id="understanding-cel-shading">Understanding Cel Shading</h2>
+<p>Cel shading, or toon shading, is a non-photorealistic rendering (NPR)
+technique designed to make 3D graphics mimic the flat, hand-drawn look
+of comic books and traditional animation.</p>
+<p>In standard rendering (such as Phong or PBR), the lighting across a
+surface is calculated as a smooth gradient based on the dot product
+between the surface normal and the light direction. Cel shading replaces
+this continuous gradient with discrete steps or bands of color. In a
+GLSL fragment shader, this is achieved by quantizing the light intensity
+value into defined thresholds:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> NdotL <span class="op">=</span> <span class="bu">max</span><span class="op">(</span><span class="bu">dot</span><span class="op">(</span>normal<span class="op">,</span> lightDir<span class="op">),</span> <span class="fl">0.0</span><span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> lightIntensity<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">if</span> <span class="op">(</span>NdotL <span class="op">&gt;</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    lightIntensity <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="kw">else</span> <span class="kw">if</span> <span class="op">(</span>NdotL <span class="op">&gt;</span> <span class="fl">0.4</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    lightIntensity <span class="op">=</span> <span class="fl">0.6</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    lightIntensity <span class="op">=</span> <span class="fl">0.2</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="dt">vec3</span> finalColor <span class="op">=</span> diffuseColor <span class="op">*</span> lightIntensity<span class="op">;</span></span></code></pre></div>
+<p>While stepped lighting creates the characteristic flat tones of
+animation, cartoon art typically relies on bold black outlines to define
+silhouettes and feature boundaries.</p>
+<h2 id="the-inverted-hull-technique-explained">The Inverted Hull
+Technique Explained</h2>
+<p>The inverted hull method—also known as back-face extrusion—is an
+object-space technique used to render real-time outlines around 3D
+geometry. Unlike screen-space edge detection (which operates on depth
+and normal buffers in a post-processing pass), the inverted hull method
+operates entirely within the mesh pipeline through a two-pass rendering
+strategy.</p>
+<h3 id="the-mechanics">The Mechanics</h3>
+<ol type="1">
+<li><strong>Base Pass:</strong> Render the original 3D mesh normally
+using your cel-shading material, writing both color and depth to the
+frame buffer.</li>
+<li><strong>Hull Pass:</strong> Render a second, modified version of the
+same mesh with two critical changes:
+<ul>
+<li><strong>Vertex Extrusion:</strong> In the vertex shader, push each
+vertex outward along its normal vector by a fixed thickness value.</li>
+<li><strong>Inverted Culling:</strong> Reverse the polygon winding or
+set the face culling to cull front faces instead of back faces
+(<code>THREE.BackSide</code> in Three.js).</li>
+<li><strong>Solid Color:</strong> Paint this extruded mesh with an
+unlit, flat outline color (typically black).</li>
+</ul></li>
+</ol>
+<p>Because the back faces are scaled outward past the boundaries of the
+original front-facing mesh, they peek out around the edges from the
+camera's perspective. The original mesh (rendered in the base pass or
+occluding the back faces via standard depth testing) covers the
+interior, leaving only the outer rim visible as a continuous
+outline.</p>
+<h2 id="implementation-in-javascript-and-webgl">Implementation in
+JavaScript and WebGL</h2>
+<p>In JavaScript game engines such as Three.js, Babylon.js, or raw
+WebGL, the inverted hull can be implemented either as an additional
+material pass or as a duplicate mesh parented to the original.</p>
+<h3 id="vertex-shader-extrusion">Vertex Shader Extrusion</h3>
+<p>To keep the outline thickness consistent across different screen
+resolutions and camera distances, the extrusion should occur in view
+space or clip space rather than local object space.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Inverted Hull Vertex Shader</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">float</span> outlineThickness<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="fu">main</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Transform normal to view space</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec3</span> transformedNormal <span class="op">=</span> <span class="bu">normalize</span><span class="op">(</span>normalMatrix <span class="op">*</span> normal<span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Transform position to view space</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vec4</span> mvPosition <span class="op">=</span> modelViewMatrix <span class="op">*</span> <span class="dt">vec4</span><span class="op">(</span>position<span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Extrude vertex along the normal in view space</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    mvPosition<span class="op">.</span><span class="fu">xyz</span> <span class="op">+=</span> transformedNormal <span class="op">*</span> outlineThickness<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">gl_Position</span> <span class="op">=</span> projectionMatrix <span class="op">*</span> mvPosition<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode glsl"><code class="sourceCode glsl"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Inverted Hull Fragment Shader</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">uniform</span> <span class="dt">vec3</span> outlineColor<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="fu">main</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="va">gl_FragColor</span> <span class="op">=</span> <span class="dt">vec4</span><span class="op">(</span>outlineColor<span class="op">,</span> <span class="fl">1.0</span><span class="op">);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="threejs-scene-setup">Three.js Scene Setup</h3>
+<p>In Three.js, you can construct an inverted hull mesh and link it to
+the base mesh:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="op">*</span> <span class="im">as</span> THREE <span class="im">from</span> <span class="st">&#39;three&#39;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">// 1. Base Mesh with Cel Shading</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> baseMaterial <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">ShaderMaterial</span>({</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vertexShader</span><span class="op">:</span> celVertexShader<span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">fragmentShader</span><span class="op">:</span> celFragmentShader<span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uniforms</span><span class="op">:</span> { <span class="co">/* lighting uniforms */</span> }</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> characterMesh <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Mesh</span>(geometry<span class="op">,</span> baseMaterial)<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>scene<span class="op">.</span><span class="fu">add</span>(characterMesh)<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">// 2. Outline Material using Inverted Hull</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> outlineMaterial <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">ShaderMaterial</span>({</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">vertexShader</span><span class="op">:</span> outlineVertexShader<span class="op">,</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">fragmentShader</span><span class="op">:</span> outlineFragmentShader<span class="op">,</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uniforms</span><span class="op">:</span> {</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="dt">outlineThickness</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="fl">0.03</span> }<span class="op">,</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="dt">outlineColor</span><span class="op">:</span> { <span class="dt">value</span><span class="op">:</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Color</span>(<span class="bn">0x000000</span>) }</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">side</span><span class="op">:</span> THREE<span class="op">.</span><span class="at">BackSide</span> <span class="co">// Render only back faces</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="co">// 3. Attach Hull Mesh</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> outlineMesh <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Mesh</span>(geometry<span class="op">,</span> outlineMaterial)<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>characterMesh<span class="op">.</span><span class="fu">add</span>(outlineMesh)<span class="op">;</span></span></code></pre></div>
+<h2 id="advantages-and-disadvantages">Advantages and Disadvantages</h2>
+<h3 id="advantages">Advantages</h3>
+<ul>
+<li><strong>Performance:</strong> Inverted hulls are computationally
+inexpensive and run efficiently on mobile WebGL contexts because they
+avoid costly post-processing passes and multi-target framebuffers.</li>
+<li><strong>Selective Application:</strong> You can apply outlines
+strictly to chosen entities (e.g., dynamic characters) while leaving
+terrain or UI elements untouched.</li>
+<li><strong>Stylistic Control:</strong> Outline thickness and color can
+be adjusted independently per object or dynamically scaled via uniforms
+based on distance.</li>
+</ul>
+<h3 id="disadvantages">Disadvantages</h3>
+<ul>
+<li><strong>Geometry Requirements:</strong> Meshes must be smooth and
+manifold. Hard surface edges with split normals will "tear" or break
+apart when extruded, exposing gaps in the outline. To fix this,
+hard-surface models often require pre-smoothed vertex normals
+specifically authored for the outline pass.</li>
+<li><strong>Interior Edges:</strong> The inverted hull technique only
+creates silhouettes. It cannot detect interior creases, such as the line
+defining a character's nose or fingers crossing in front of a torso.
+Interior lines must be drawn into the texture map or combined with
+screen-space depth detection.</li>
+<li><strong>Draw Call Overhead:</strong> Doubling the mesh to create the
+outline doubles both the vertex count and the number of draw calls for
+that object.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/inverted-hull-cel-shading-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

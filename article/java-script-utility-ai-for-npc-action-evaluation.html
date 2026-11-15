@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Utility AI for NPC Action Evaluation - javascript</title>
+    <meta name="description" content="This article explores how Utility Artificial Intelligence (Utility AI) systems calculate, weigh, and select Non-Player Character (NPC) actions dynamically in JavaScript game development. You will learn the mathematical principles behind utility scoring, h">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-utility-ai-for-npc-action-evaluation">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Utility AI for NPC Action Evaluation - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-utility-ai-for-npc-action-evaluation" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how Utility Artificial Intelligence (Utility AI) systems calculate, weigh, and select Non-Player Character (NPC) actions dynamically in JavaScript game development. You will learn the mathematical principles behind utility scoring, h" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-utility-ai-for-npc-action-evaluation">JavaScript
+Utility AI for NPC Action Evaluation</h1>
+<p>This article explores how Utility Artificial Intelligence (Utility
+AI) systems calculate, weigh, and select Non-Player Character (NPC)
+actions dynamically in JavaScript game development. You will learn the
+mathematical principles behind utility scoring, how to transform raw
+game state metrics using response curves, methods for combining multiple
+weighted considerations, and how to implement a clean, performant
+evaluation loop in JavaScript.</p>
+<hr />
+<h3 id="understanding-the-core-concept-of-utility-ai">Understanding the
+Core Concept of Utility AI</h3>
+<p>Unlike Finite State Machines (FSMs) or Behavior Trees that rely on
+rigid transitions, a Utility AI scores every potential action based on
+the NPC's current environment and internal state. Each possible behavior
+(such as "Attack," "Take Cover," "Heal," or "Flee") is treated as an
+independent candidate.</p>
+<p>The system scores each candidate between <code>0.0</code> (completely
+useless) and <code>1.0</code> (critically important). The action with
+the highest aggregate score—or a choice picked via weighted random
+selection—is executed for that game tick.</p>
+<hr />
+<h3 id="normalization-and-consideration-curves">Normalization and
+Consideration Curves</h3>
+<p>The first step in evaluating choices is converting arbitrary game
+values (e.g., player distance in pixels, remaining health percentage,
+available ammo) into a normalized float between <code>0.0</code> and
+<code>1.0</code>.</p>
+<p>Linear mappings are rarely natural in games. Instead, developers use
+mathematical response curves to model behavioral urgency:</p>
+<ul>
+<li><strong>Linear:</strong> Utility increases proportionally with input
+(<span class="math inline">\(y = x\)</span>). Useful for simple meters
+like remaining stamina.</li>
+<li><strong>Quadratic/Exponential (<span class="math inline">\(y =
+x^k\)</span>):</strong> Utility remains low until a critical threshold
+is reached, then spikes. Ideal for low-health panic states.</li>
+<li><strong>Logistic/Sigmoid:</strong> Produces an S-curve, providing
+smooth transitions at both extremes with rapid change in the middle.
+Useful for threat proximity.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example response curve functions</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ResponseCurves <span class="op">=</span> {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">linear</span><span class="op">:</span> (x) <span class="kw">=&gt;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="dv">1</span><span class="op">,</span> x))<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">quadratic</span><span class="op">:</span> (x) <span class="kw">=&gt;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="dv">1</span><span class="op">,</span> x))<span class="op">,</span> <span class="dv">2</span>)<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">logistic</span><span class="op">:</span> (x) <span class="kw">=&gt;</span> <span class="dv">1</span> <span class="op">/</span> (<span class="dv">1</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">exp</span>(<span class="op">-</span><span class="dv">10</span> <span class="op">*</span> (x <span class="op">-</span> <span class="fl">0.5</span>)))</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="combining-multiple-considerations">Combining Multiple
+Considerations</h3>
+<p>A single action often requires analyzing several factors. For an NPC
+deciding whether to use a healing potion, considerations might
+include:</p>
+<ol type="1">
+<li>Current health (lower health = higher utility).</li>
+<li>Potion inventory count (fewer potions = lower utility to preserve
+resources).</li>
+<li>Distance to the nearest enemy (closer enemy = lower utility due to
+interruption risk).</li>
+</ol>
+<p>To combine these considerations into a single score, developers
+typically multiply them together. Multiplying ensures that if any single
+consideration drops to zero (e.g., having zero potions left), the
+overall utility for that action becomes zero instantly.</p>
+<p>To prevent an increasing number of considerations from mathematically
+deflating the score toward zero, developers often apply a compensation
+factor or use a weighted geometric mean:</p>
+<p><span class="math display">\[\text{Final Score} = \left(
+\prod_{i=1}^{n} s_i \right) \times \text{Action Weight}\]</span></p>
+<hr />
+<h3 id="implementing-the-evaluator-in-javascript">Implementing the
+Evaluator in JavaScript</h3>
+<p>Here is a modular pattern for defining actions, evaluating their
+considerations, and selecting the optimal behavior in vanilla
+JavaScript:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Action {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(name<span class="op">,</span> weight <span class="op">=</span> <span class="fl">1.0</span><span class="op">,</span> considerations <span class="op">=</span> []) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">name</span> <span class="op">=</span> name<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">weight</span> <span class="op">=</span> weight<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">considerations</span> <span class="op">=</span> considerations<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">evaluate</span>(context) {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="kw">this</span><span class="op">.</span><span class="at">considerations</span><span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> finalScore <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> consideration <span class="kw">of</span> <span class="kw">this</span><span class="op">.</span><span class="at">considerations</span>) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> score <span class="op">=</span> <span class="fu">consideration</span>(context)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>      <span class="co">// If any consideration is invalid, the action cannot be performed</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (score <span class="op">&lt;=</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>      finalScore <span class="op">*=</span> score<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> finalScore <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">weight</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co">// Sample considerations</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> healthConsideration <span class="op">=</span> (ctx) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Lower health returns higher utility</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> healthRatio <span class="op">=</span> ctx<span class="op">.</span><span class="at">npc</span><span class="op">.</span><span class="at">health</span> <span class="op">/</span> ctx<span class="op">.</span><span class="at">npc</span><span class="op">.</span><span class="at">maxHealth</span><span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> ResponseCurves<span class="op">.</span><span class="fu">quadratic</span>(<span class="dv">1</span> <span class="op">-</span> healthRatio)<span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> enemyDistanceConsideration <span class="op">=</span> (ctx) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Normalize distance to a range of 0 to 500 units</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> maxDistance <span class="op">=</span> <span class="dv">500</span><span class="op">;</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> normalizedDistance <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(ctx<span class="op">.</span><span class="at">distanceToEnemy</span> <span class="op">/</span> maxDistance<span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> ResponseCurves<span class="op">.</span><span class="fu">linear</span>(normalizedDistance)<span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="co">// Define an Action</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> healAction <span class="op">=</span> <span class="kw">new</span> <span class="fu">Action</span>(<span class="st">&#39;Heal&#39;</span><span class="op">,</span> <span class="fl">1.2</span><span class="op">,</span> [</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>  healthConsideration<span class="op">,</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>  enemyDistanceConsideration</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>])<span class="op">;</span></span></code></pre></div>
+<hr />
+<h3 id="selecting-the-winning-action">Selecting the Winning Action</h3>
+<p>Once all actions receive an evaluation score, the system decides
+which action to execute. There are two primary strategies for
+execution:</p>
+<h4 id="1-absolute-highest-score-winner-takes-all">1. Absolute Highest
+Score (Winner-Takes-All)</h4>
+<p>The simplest approach is iterating over the evaluated actions and
+selecting the one with the highest numerical value.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getBestAction</span>(actions<span class="op">,</span> context) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> bestScore <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> bestAction <span class="op">=</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> action <span class="kw">of</span> actions) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> score <span class="op">=</span> action<span class="op">.</span><span class="fu">evaluate</span>(context)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (score <span class="op">&gt;</span> bestScore) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      bestScore <span class="op">=</span> score<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>      bestAction <span class="op">=</span> action<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> bestAction<span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="2-weighted-random-softmax--roulette-wheel">2. Weighted Random
+(Softmax / Roulette Wheel)</h4>
+<p>To prevent NPCs from acting completely deterministically, developers
+use a weighted random algorithm. Scores are treated as probabilities,
+allowing lower-scoring but viable actions to occasionally be
+selected:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getWeightedRandomAction</span>(actions<span class="op">,</span> context) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> scoredActions <span class="op">=</span> actions<span class="op">.</span><span class="fu">map</span>(action <span class="kw">=&gt;</span> ({</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    action<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">score</span><span class="op">:</span> action<span class="op">.</span><span class="fu">evaluate</span>(context)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  }))<span class="op">.</span><span class="fu">filter</span>(item <span class="kw">=&gt;</span> item<span class="op">.</span><span class="at">score</span> <span class="op">&gt;</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> totalScore <span class="op">=</span> scoredActions<span class="op">.</span><span class="fu">reduce</span>((sum<span class="op">,</span> item) <span class="kw">=&gt;</span> sum <span class="op">+</span> item<span class="op">.</span><span class="at">score</span><span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (totalScore <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> randomPoint <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">random</span>() <span class="op">*</span> totalScore<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> item <span class="kw">of</span> scoredActions) {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (randomPoint <span class="op">&lt;</span> item<span class="op">.</span><span class="at">score</span>) {</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> item<span class="op">.</span><span class="at">action</span><span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    randomPoint <span class="op">-=</span> item<span class="op">.</span><span class="at">score</span><span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> scoredActions[<span class="dv">0</span>]<span class="op">.</span><span class="at">action</span><span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<hr />
+<h3 id="performance-considerations-for-javascript">Performance
+Considerations for JavaScript</h3>
+<ol type="1">
+<li><strong>Avoid Object Allocation in the Loop:</strong> Recreating
+arrays, contexts, or closures inside the <code>evaluate()</code> cycle
+every frame leads to garbage collection spikes. Reuse flat context
+objects.</li>
+<li><strong>Evaluation Frequency:</strong> Do not evaluate utility on
+every frame (<span class="math inline">\(60\text{Hz}\)</span>). Instead,
+throttle the decision loop using timers (e.g., every <span
+class="math inline">\(100\text{ms}\)</span>–<span
+class="math inline">\(250\text{ms}\)</span>) or stagger evaluations
+across different frames for different NPC instances.</li>
+<li><strong>Early Exits:</strong> Sort considerations so that
+computationally cheap conditions (like boolean inventory checks) run
+before costly checks (like pathfinding raycasts). If a cheap check
+returns <code>0</code>, the evaluation halts immediately.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-utility-ai-for-npc-action-evaluation';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

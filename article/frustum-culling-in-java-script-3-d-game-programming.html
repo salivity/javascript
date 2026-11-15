@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frustum Culling in JavaScript 3D Game Programming - javascript</title>
+    <meta name="description" content="Frustum culling is a crucial 3D graphics optimization technique that prevents the GPU from rendering objects situated outside the camera&#39;s field of view. In JavaScript-based game development, where browser performance and frame rates are heavily constrain">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/frustum-culling-in-java-script-3-d-game-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Frustum Culling in JavaScript 3D Game Programming - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/frustum-culling-in-java-script-3-d-game-programming" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Frustum culling is a crucial 3D graphics optimization technique that prevents the GPU from rendering objects situated outside the camera&#39;s field of view. In JavaScript-based game development, where browser performance and frame rates are heavily constrain" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="frustum-culling-in-javascript-3d-game-programming">Frustum
+Culling in JavaScript 3D Game Programming</h1>
+<p>Frustum culling is a crucial 3D graphics optimization technique that
+prevents the GPU from rendering objects situated outside the camera's
+field of view. In JavaScript-based game development, where browser
+performance and frame rates are heavily constrained by single-threaded
+execution and WebGL overhead, frustum culling ensures resources are
+dedicated only to what the player can actually see. This article
+explores the mechanics of the viewing frustum, the mathematical checks
+used to discard invisible geometry, and how this technique is
+implemented in JavaScript environments.</p>
+<h3 id="the-viewing-frustum-explained">The Viewing Frustum
+Explained</h3>
+<p>The viewing frustum is the three-dimensional geometric volume
+representing the field of vision of a virtual camera. In a perspective
+projection, this shape is a truncated pyramid (a pyramid with its top
+sliced off). It is bounded by six clipping planes:</p>
+<ul>
+<li><strong>Near plane:</strong> The closest distance at which objects
+are rendered.</li>
+<li><strong>Far plane:</strong> The furthest distance at which objects
+are rendered.</li>
+<li><strong>Top, Bottom, Left, and Right planes:</strong> The boundaries
+defining the camera's vertical and horizontal fields of view.</li>
+</ul>
+<p>Any 3D object located entirely outside these six planes cannot appear
+on the screen. Rendering them wastes processor cycles on vertex
+transformations and draw calls.</p>
+<h3 id="how-frustum-culling-works">How Frustum Culling Works</h3>
+<p>Frustum culling works by performing spatial intersection tests
+between the camera's six boundary planes and the objects within the 3D
+scene before sending render commands to the GPU via WebGL.</p>
+<p>Testing every individual polygon of a complex 3D model against the
+frustum is computationally expensive and defeats the purpose of the
+optimization. Instead, engines wrap 3D meshes in simplified proxy
+geometries known as bounding volumes:</p>
+<ul>
+<li><strong>Bounding Spheres:</strong> Defined by a center point and a
+radius. They are computationally cheap to test using distance
+formulas.</li>
+<li><strong>Axis-Aligned Bounding Boxes (AABBs):</strong> Rectangular
+boxes aligned with the coordinate axes, offering a tighter fit than
+spheres with minimal extra calculation.</li>
+</ul>
+<p>During the culling pass, the algorithm calculates the signed distance
+from the center of the bounding volume to each of the six frustum planes
+using vector dot products. If the bounding volume sits entirely on the
+negative (outside) side of any single plane, the entire object is
+flagged as invisible and skipped for that frame.</p>
+<h3 id="implementation-in-javascript-and-threejs">Implementation in
+JavaScript and Three.js</h3>
+<p>Modern JavaScript 3D libraries like Three.js handle frustum culling
+automatically, but understanding the underlying code allows developers
+to optimize custom rendering loops.</p>
+<p>In Three.js, every <code>Mesh</code> has a <code>frustumCulled</code>
+property set to <code>true</code> by default. Under the hood, the engine
+extracts the frustum planes from the camera’s combined view-projection
+matrix:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> frustum <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Frustum</span>()<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> cameraViewProjectionMatrix <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">Matrix4</span>()<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Update matrices</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>camera<span class="op">.</span><span class="fu">updateMatrixWorld</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>camera<span class="op">.</span><span class="at">matrixWorldInverse</span><span class="op">.</span><span class="fu">copy</span>(camera<span class="op">.</span><span class="at">matrixWorld</span>)<span class="op">.</span><span class="fu">invert</span>()<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>cameraViewProjectionMatrix<span class="op">.</span><span class="fu">multiplyMatrices</span>(camera<span class="op">.</span><span class="at">projectionMatrix</span><span class="op">,</span> camera<span class="op">.</span><span class="at">matrixWorldInverse</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Set frustum planes from the camera matrix</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>frustum<span class="op">.</span><span class="fu">setFromProjectionMatrix</span>(cameraViewProjectionMatrix)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Check if an object should be rendered</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>scene<span class="op">.</span><span class="fu">traverse</span>((object) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (object<span class="op">.</span><span class="at">isMesh</span>) {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Ensure the geometry has an updated bounding sphere</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (<span class="op">!</span>object<span class="op">.</span><span class="at">geometry</span><span class="op">.</span><span class="at">boundingSphere</span>) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>            object<span class="op">.</span><span class="at">geometry</span><span class="op">.</span><span class="fu">computeBoundingSphere</span>()<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> sphere <span class="op">=</span> object<span class="op">.</span><span class="at">geometry</span><span class="op">.</span><span class="at">boundingSphere</span><span class="op">.</span><span class="fu">clone</span>()<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        sphere<span class="op">.</span><span class="fu">applyMatrix4</span>(object<span class="op">.</span><span class="at">matrixWorld</span>)<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Discard or render based on intersection</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (frustum<span class="op">.</span><span class="fu">intersectsSphere</span>(sphere)) {</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>            object<span class="op">.</span><span class="at">visible</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>            object<span class="op">.</span><span class="at">visible</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="performance-impact-in-the-browser">Performance Impact in the
+Browser</h3>
+<p>JavaScript interacts with the GPU via the WebGL API. Each
+<code>drawArrays</code> or <code>drawElements</code> call introduces
+CPU-to-GPU communication overhead. In dense game scenes containing
+thousands of entities:</p>
+<ol type="1">
+<li><strong>Draw Call Reduction:</strong> By setting culled objects to
+invisible, the engine avoids dispatching redundant draw calls to the
+WebGL context.</li>
+<li><strong>GPU Pipeline Relief:</strong> The GPU's vertex shader does
+not have to process vertices that end up being clipped later in the
+rasterization pipeline.</li>
+<li><strong>Memory Bandwidth Savings:</strong> Textures and materials
+bound to culled objects do not need to be swapped into active GPU memory
+for that frame.</li>
+</ol>
+<p>When combined with spatial partitioning structures such as Octrees or
+BVH (Bounding Volume Hierarchies), frustum culling allows JavaScript
+games to scale from rendering small scenes to rendering expansive, open
+worlds at a stable 60 or 120 frames per second.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/frustum-culling-in-java-script-3-d-game-programming';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

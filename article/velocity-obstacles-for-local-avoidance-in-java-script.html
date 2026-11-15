@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velocity Obstacles for Local Avoidance in JavaScript - javascript</title>
+    <meta name="description" content="This article provides a comprehensive guide to understanding and implementing local avoidance in multi-agent simulations using Velocity Obstacles (VO) within JavaScript game programming. It breaks down the fundamental distinction between global pathfindin">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/velocity-obstacles-for-local-avoidance-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Velocity Obstacles for Local Avoidance in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/velocity-obstacles-for-local-avoidance-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive guide to understanding and implementing local avoidance in multi-agent simulations using Velocity Obstacles (VO) within JavaScript game programming. It breaks down the fundamental distinction between global pathfindin" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="velocity-obstacles-for-local-avoidance-in-javascript">Velocity
+Obstacles for Local Avoidance in JavaScript</h1>
+<p>This article provides a comprehensive guide to understanding and
+implementing local avoidance in multi-agent simulations using Velocity
+Obstacles (VO) within JavaScript game programming. It breaks down the
+fundamental distinction between global pathfinding and local navigation,
+explores the geometric mathematics behind Velocity Obstacles and
+Reciprocal Velocity Obstacles (RVO), and outlines how to translate these
+concepts into clean, high-performance JavaScript code for real-time
+browser games.</p>
+<h2
+id="understanding-local-avoidance-vs-global-navigation">Understanding
+Local Avoidance vs. Global Navigation</h2>
+<p>In game development, multi-agent navigation is typically divided into
+two distinct layers:</p>
+<ol type="1">
+<li><strong>Global Pathfinding:</strong> Algorithms such as A* or
+Dijkstra calculate a static route around immovable terrain (e.g., walls,
+buildings) from a start point to a destination, producing a sequence of
+waypoints.</li>
+<li><strong>Local Avoidance:</strong> A reactive, frame-by-frame
+steering mechanism that allows agents to bypass dynamic obstacles and
+other moving agents while still progressing toward their next global
+waypoint.</li>
+</ol>
+<p>Without local avoidance, agents moving along intersecting global
+paths collide, overlap, or enter deadlocks. Velocity Obstacles solve
+this by operating in velocity space rather than coordinate space,
+predicting potential future collisions and altering the agent’s velocity
+vector proactively.</p>
+<h2 id="the-velocity-obstacle-vo-concept">The Velocity Obstacle (VO)
+Concept</h2>
+<p>A Velocity Obstacle is the set of all relative velocities between two
+agents that will result in a collision at some future point in time,
+assuming both agents maintain their current course and speed.</p>
+<p>Given two circular agents, Agent <span
+class="math inline">\(A\)</span> and Agent <span
+class="math inline">\(B\)</span>, with positions <span
+class="math inline">\(p_A, p_B\)</span>, radii <span
+class="math inline">\(r_A, r_B\)</span>, and current velocities <span
+class="math inline">\(v_A, v_B\)</span>:</p>
+<ul>
+<li><strong>Minkowski Sum:</strong> Agent <span
+class="math inline">\(B\)</span> is treated as an enlarged stationary
+disc centered at <span class="math inline">\(p_B\)</span> with a
+combined radius of <span class="math inline">\(r_A + r_B\)</span>, while
+Agent <span class="math inline">\(A\)</span> is reduced to a single
+point at <span class="math inline">\(p_A\)</span>.</li>
+<li><strong>Collision Cone:</strong> A cone is projected from <span
+class="math inline">\(p_A\)</span> tangent to the enlarged boundary of
+Agent <span class="math inline">\(B\)</span>. Any relative velocity
+vector (<span class="math inline">\(v_A - v_B\)</span>) falling inside
+this cone guarantees a collision.</li>
+<li><strong>Velocity Obstacle (<span
+class="math inline">\(VO_{A|B}\)</span>):</strong> By translating this
+cone by Agent <span class="math inline">\(B\)</span>'s current velocity
+(<span class="math inline">\(v_B\)</span>), the absolute velocities that
+Agent <span class="math inline">\(A\)</span> must avoid are
+defined.</li>
+</ul>
+<p>If Agent <span class="math inline">\(A\)</span> chooses a velocity
+vector <span class="math inline">\(v_A\)</span> that lies outside <span
+class="math inline">\(VO_{A|B}\)</span>, no collision will occur within
+the defined time horizon.</p>
+<h2 id="the-reciprocal-velocity-obstacle-rvo-improvement">The Reciprocal
+Velocity Obstacle (RVO) Improvement</h2>
+<p>When standard Velocity Obstacles are applied symmetrically to two
+active agents, both agents see the other as a passive obstacle. Both
+rapidly adjust their velocities to opposite sides, leading to unnatural
+oscillations ("jitter") because each agent's correction invalidates the
+other's prediction.</p>
+<p>Reciprocal Velocity Obstacles (RVO) resolve this by assuming that
+both agents share equal responsibility for avoiding collision. Instead
+of Agent <span class="math inline">\(A\)</span> taking 100% of the
+evasive action, Agent <span class="math inline">\(A\)</span> adjusts its
+velocity by half of the required correction:</p>
+<p><span class="math display">\[v_{new} = \frac{v_{pref} +
+v_{avoid}}{2}\]</span></p>
+<p>This cooperative model yields smooth, human-like passing trajectories
+without requiring inter-agent network communication, making it ideal for
+decentralized simulations.</p>
+<h2 id="implementing-velocity-obstacles-in-javascript">Implementing
+Velocity Obstacles in JavaScript</h2>
+<p>To implement a VO or RVO system in a JavaScript game loop, developers
+use a multi-step process involving vector math, cone calculation, and
+velocity selection.</p>
+<h3 id="1-vector-math-foundation">1. Vector Math Foundation</h3>
+<p>A lightweight 2D vector class is essential for computing dot
+products, projections, and distances:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Vector2 {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(x <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> y <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add</span>(v) { <span class="cf">return</span> <span class="kw">new</span> <span class="fu">Vector2</span>(<span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> v<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">+</span> v<span class="op">.</span><span class="at">y</span>)<span class="op">;</span> }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sub</span>(v) { <span class="cf">return</span> <span class="kw">new</span> <span class="fu">Vector2</span>(<span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">-</span> v<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">-</span> v<span class="op">.</span><span class="at">y</span>)<span class="op">;</span> }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mult</span>(n) { <span class="cf">return</span> <span class="kw">new</span> <span class="fu">Vector2</span>(<span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> n<span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> n)<span class="op">;</span> }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">magSq</span>() { <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">+</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span><span class="op">;</span> }</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mag</span>() { <span class="cf">return</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sqrt</span>(<span class="kw">this</span><span class="op">.</span><span class="fu">magSq</span>())<span class="op">;</span> }</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">normalize</span>() {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> m <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">mag</span>()<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> m <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">?</span> <span class="kw">this</span><span class="op">.</span><span class="fu">mult</span>(<span class="dv">1</span> <span class="op">/</span> m) <span class="op">:</span> <span class="kw">new</span> <span class="fu">Vector2</span>()<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dot</span>(v) { <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">*</span> v<span class="op">.</span><span class="at">x</span> <span class="op">+</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">*</span> v<span class="op">.</span><span class="at">y</span><span class="op">;</span> }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dist</span>(v) { <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="fu">sub</span>(v)<span class="op">.</span><span class="fu">mag</span>()<span class="op">;</span> }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-candidate-velocity-sampling">2. Candidate Velocity
+Sampling</h3>
+<p>While complex solutions like Optimal Reciprocal Collision Avoidance
+(ORCA) use linear programming to find the optimal velocity, JavaScript
+game engines often use a performant <strong>sampling-based
+approach</strong>:</p>
+<ol type="1">
+<li><strong>Calculate Preferred Velocity (<span
+class="math inline">\(v_{pref}\)</span>):</strong> Direct the agent
+toward its target at its maximum speed.</li>
+<li><strong>Generate Candidates:</strong> Generate a set of candidate
+velocity vectors radially around <span
+class="math inline">\(v_{pref}\)</span>, varying in direction and
+magnitude.</li>
+<li><strong>Filter and Score:</strong> For each candidate velocity:
+<ul>
+<li>Check if the velocity falls inside any nearby agent's Velocity
+Obstacle within a time window (<span
+class="math inline">\(\tau\)</span>).</li>
+<li>Assign a penalty based on how far the candidate deviates from <span
+class="math inline">\(v_{pref}\)</span>.</li>
+</ul></li>
+<li><strong>Select Best Velocity:</strong> Choose the candidate with the
+lowest penalty that does not produce an imminent collision.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">selectVelocity</span>(agent<span class="op">,</span> neighbors<span class="op">,</span> timeHorizon <span class="op">=</span> <span class="fl">2.0</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> preferredVelocity <span class="op">=</span> agent<span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="fu">sub</span>(agent<span class="op">.</span><span class="at">position</span>)<span class="op">.</span><span class="fu">normalize</span>()<span class="op">.</span><span class="fu">mult</span>(agent<span class="op">.</span><span class="at">maxSpeed</span>)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> bestVelocity <span class="op">=</span> preferredVelocity<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> minPenalty <span class="op">=</span> <span class="kw">Infinity</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Generate candidate velocities (concentric rings and angles)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> candidateVelocities <span class="op">=</span> [preferredVelocity]<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> numAngles <span class="op">=</span> <span class="dv">16</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> numSpeeds <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> s <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> s <span class="op">&lt;=</span> numSpeeds<span class="op">;</span> s<span class="op">++</span>) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> speed <span class="op">=</span> (agent<span class="op">.</span><span class="at">maxSpeed</span> <span class="op">/</span> numSpeeds) <span class="op">*</span> s<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> a <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> a <span class="op">&lt;</span> numAngles<span class="op">;</span> a<span class="op">++</span>) {</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> angle <span class="op">=</span> (<span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> <span class="dv">2</span> <span class="op">/</span> numAngles) <span class="op">*</span> a<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      candidateVelocities<span class="op">.</span><span class="fu">push</span>(<span class="kw">new</span> <span class="fu">Vector2</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">cos</span>(angle) <span class="op">*</span> speed<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(angle) <span class="op">*</span> speed))<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> v <span class="kw">of</span> candidateVelocities) {</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> collides <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> other <span class="kw">of</span> neighbors) {</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (other <span class="op">===</span> agent) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Relative calculations for RVO</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> combinedRadius <span class="op">=</span> agent<span class="op">.</span><span class="at">radius</span> <span class="op">+</span> other<span class="op">.</span><span class="at">radius</span><span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> relativePosition <span class="op">=</span> other<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">sub</span>(agent<span class="op">.</span><span class="at">position</span>)<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> relativeVelocity <span class="op">=</span> v<span class="op">.</span><span class="fu">mult</span>(<span class="dv">2</span>)<span class="op">.</span><span class="fu">sub</span>(agent<span class="op">.</span><span class="at">velocity</span>)<span class="op">.</span><span class="fu">sub</span>(other<span class="op">.</span><span class="at">velocity</span>)<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Ray-sphere intersection check within timeHorizon</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> timeToClosestPoint <span class="op">=</span> relativePosition<span class="op">.</span><span class="fu">dot</span>(relativeVelocity) <span class="op">/</span> relativeVelocity<span class="op">.</span><span class="fu">magSq</span>()<span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (timeToClosestPoint <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> timeToClosestPoint <span class="op">&lt;</span> timeHorizon) {</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> closestPoint <span class="op">=</span> relativeVelocity<span class="op">.</span><span class="fu">mult</span>(timeToClosestPoint)<span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (relativePosition<span class="op">.</span><span class="fu">dist</span>(closestPoint) <span class="op">&lt;</span> combinedRadius) {</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>          collides <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>          <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="op">!</span>collides) {</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> penalty <span class="op">=</span> v<span class="op">.</span><span class="fu">dist</span>(preferredVelocity)<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (penalty <span class="op">&lt;</span> minPenalty) {</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>        minPenalty <span class="op">=</span> penalty<span class="op">;</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        bestVelocity <span class="op">=</span> v<span class="op">;</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> bestVelocity<span class="op">;</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-integrating-with-the-game-loop">3. Integrating with the Game
+Loop</h3>
+<p>In standard 2D canvas or WebGL game loops, update positions using the
+calculated velocities:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">gameLoop</span>(deltaTime) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Spatial partitioning (e.g., Quadtree or Grid) to query neighbors efficiently</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> agent <span class="kw">of</span> agents) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> neighbors <span class="op">=</span> spatialGrid<span class="op">.</span><span class="fu">query</span>(agent<span class="op">.</span><span class="at">position</span><span class="op">,</span> agent<span class="op">.</span><span class="at">sensorRadius</span>)<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    agent<span class="op">.</span><span class="at">nextVelocity</span> <span class="op">=</span> <span class="fu">selectVelocity</span>(agent<span class="op">,</span> neighbors)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Apply movement updates</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">const</span> agent <span class="kw">of</span> agents) {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    agent<span class="op">.</span><span class="at">velocity</span> <span class="op">=</span> agent<span class="op">.</span><span class="at">nextVelocity</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    agent<span class="op">.</span><span class="at">position</span> <span class="op">=</span> agent<span class="op">.</span><span class="at">position</span><span class="op">.</span><span class="fu">add</span>(agent<span class="op">.</span><span class="at">velocity</span><span class="op">.</span><span class="fu">mult</span>(deltaTime))<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">render</span>()<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">requestAnimationFrame</span>(gameLoop)<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="performance-considerations-in-javascript">Performance
+Considerations in JavaScript</h2>
+<ul>
+<li><strong>Spatial Partitioning:</strong> Avoid checking all agent
+pairs (<span class="math inline">\(O(n^2)\)</span> complexity). Use a
+spatial hash grid or quadtree to limit collision checks strictly to
+nearby agents within a local radius.</li>
+<li><strong>Garbage Collection Optimization:</strong> Avoid
+instantiating temporary vector objects inside tight sampling loops. Use
+pre-allocated vector pools or primitive arrays (<span
+class="math inline">\(x, y\)</span> coordinates) to prevent memory
+allocation spikes and garbage collection frame drops.</li>
+<li><strong>Adaptive Time Horizon:</strong> Reduce the time horizon
+(<span class="math inline">\(\tau\)</span>) in dense crowds to prevent
+agents from becoming overly cautious and freezing when surrounded.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/velocity-obstacles-for-local-avoidance-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

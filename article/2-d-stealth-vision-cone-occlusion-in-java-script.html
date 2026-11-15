@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Stealth Vision Cone Occlusion in JavaScript - javascript</title>
+    <meta name="description" content="This article explains how stealth vision cones calculate obstacle occlusion in 2D JavaScript games using raycasting and computational geometry. It covers the core mathematical principles behind field-of-view limits, segment intersection detection, edge-of">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/2-d-stealth-vision-cone-occlusion-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="2D Stealth Vision Cone Occlusion in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/2-d-stealth-vision-cone-occlusion-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how stealth vision cones calculate obstacle occlusion in 2D JavaScript games using raycasting and computational geometry. It covers the core mathematical principles behind field-of-view limits, segment intersection detection, edge-of" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="2d-stealth-vision-cone-occlusion-in-javascript">2D Stealth
+Vision Cone Occlusion in JavaScript</h1>
+<p>This article explains how stealth vision cones calculate obstacle
+occlusion in 2D JavaScript games using raycasting and computational
+geometry. It covers the core mathematical principles behind
+field-of-view limits, segment intersection detection, edge-offset ray
+generation, and the assembly of sorted hit points into a rendered
+visibility polygon on the HTML5 Canvas.</p>
+<h2 id="defining-the-vision-cone-parameters">Defining the Vision Cone
+Parameters</h2>
+<p>A stealth vision cone represents an entity's optical perception area.
+In a 2D coordinate system, the cone requires four fundamental
+values:</p>
+<ul>
+<li><strong>Origin <span class="math inline">\((x, y)\)</span>:</strong>
+The viewer's spatial position.</li>
+<li><strong>Direction Angle (<span
+class="math inline">\(\theta\)</span>):</strong> The facing direction in
+radians.</li>
+<li><strong>Field of View (<span
+class="math inline">\(FOV\)</span>):</strong> The total angle of
+visibility (e.g., <span class="math inline">\(60^\circ\)</span> or <span
+class="math inline">\(\frac{\pi}{3}\)</span> radians).</li>
+<li><strong>View Distance (<span
+class="math inline">\(R\)</span>):</strong> The maximum radius the
+entity can see.</li>
+</ul>
+<p>The cone's angular boundaries are defined as <span
+class="math inline">\(\theta_{min} = \theta - \frac{FOV}{2}\)</span> and
+<span class="math inline">\(\theta_{max} = \theta +
+\frac{FOV}{2}\)</span>. Any area outside these angles or beyond radius
+<span class="math inline">\(R\)</span> is discarded from occlusion
+calculations.</p>
+<h2 id="the-vertex-raycasting-technique">The Vertex-Raycasting
+Technique</h2>
+<p>While uniform raycasting (casting hundreds of equidistant rays across
+the arc) produces jagged approximations and wastes CPU cycles, the
+standard approach casts rays directly at the corners (endpoints) of all
+obstacle line segments within range.</p>
+<p>Because an obstacle corner allows light to pass directly beside it,
+casting a single ray at a corner produces ambiguous results. Instead,
+the engine casts three rays for every vertex:</p>
+<ol type="1">
+<li>Directly at the vertex angle <span
+class="math inline">\(\alpha\)</span>.</li>
+<li>At an offset of <span class="math inline">\(\alpha - 0.0001\)</span>
+radians.</li>
+<li>At an offset of <span class="math inline">\(\alpha + 0.0001\)</span>
+radians.</li>
+</ol>
+<p>These small offsets ensure that one ray hits the obstacle corner,
+while another slips past it to hit whatever surface lies behind,
+properly resolving shadow silhouettes. Additionally, rays must be cast
+at the cone's hard boundaries: <span
+class="math inline">\(\theta_{min}\)</span> and <span
+class="math inline">\(\theta_{max}\)</span>.</p>
+<h2 id="calculating-line-segment-intersections">Calculating Line-Segment
+Intersections</h2>
+<p>To determine where a ray stops, it must be tested against all active
+obstacle segments in the scene. A ray starting at origin <span
+class="math inline">\(P\)</span> extending in direction vector <span
+class="math inline">\(R\)</span> intersects a segment from <span
+class="math inline">\(Q\)</span> to <span class="math inline">\(Q +
+S\)</span> using the 2D parametric vector cross-product:</p>
+<p><span class="math display">\[P + tR = Q + uS\]</span></p>
+<p>Where:</p>
+<ul>
+<li><span class="math inline">\(t\)</span> is the distance along the ray
+vector where the intersection occurs.</li>
+<li><span class="math inline">\(u\)</span> is the position along the
+obstacle segment (<span class="math inline">\(0 \le u \le
+1\)</span>).</li>
+</ul>
+<p>In JavaScript, this formula is calculated as follows:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getIntersection</span>(rayOrigin<span class="op">,</span> rayDir<span class="op">,</span> segA<span class="op">,</span> segB) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_px <span class="op">=</span> rayOrigin<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_py <span class="op">=</span> rayOrigin<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_dx <span class="op">=</span> rayDir<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_dy <span class="op">=</span> rayDir<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_px <span class="op">=</span> segA<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_py <span class="op">=</span> segA<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_dx <span class="op">=</span> segB<span class="op">.</span><span class="at">x</span> <span class="op">-</span> segA<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_dy <span class="op">=</span> segB<span class="op">.</span><span class="at">y</span> <span class="op">-</span> segA<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> r_mag <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(r_dx<span class="op">,</span> r_dy)<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> s_mag <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">hypot</span>(s_dx<span class="op">,</span> s_dy)<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> ((r_dx <span class="op">/</span> r_mag <span class="op">===</span> s_dx <span class="op">/</span> s_mag) <span class="op">&amp;&amp;</span> (r_dy <span class="op">/</span> r_mag <span class="op">===</span> s_dy <span class="op">/</span> s_mag)) {</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// Parallel vectors do not intersect</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> denominator <span class="op">=</span> s_dx <span class="op">*</span> r_dy <span class="op">-</span> s_dy <span class="op">*</span> r_dx<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (denominator <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> t2 <span class="op">=</span> (r_dx <span class="op">*</span> (s_py <span class="op">-</span> r_py) <span class="op">+</span> r_dy <span class="op">*</span> (r_px <span class="op">-</span> s_px)) <span class="op">/</span> denominator<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> t1 <span class="op">=</span> (s_px <span class="op">+</span> s_dx <span class="op">*</span> t2 <span class="op">-</span> r_px) <span class="op">/</span> r_dx<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Intersects if t1 &gt; 0 (forward on ray) and 0 &lt;= t2 &lt;= 1 (on segment)</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (t1 <span class="op">&gt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> t2 <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> t2 <span class="op">&lt;=</span> <span class="dv">1</span>) {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> r_px <span class="op">+</span> r_dx <span class="op">*</span> t1<span class="op">,</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>      <span class="dt">y</span><span class="op">:</span> r_py <span class="op">+</span> r_dy <span class="op">*</span> t1<span class="op">,</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>      <span class="dt">distance</span><span class="op">:</span> t1</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    }<span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>For each ray, iterate over every candidate obstacle segment, evaluate
+<code>getIntersection</code>, and store the intersection with the
+smallest <code>distance</code>. If no segment is struck within the
+maximum view radius, the ray terminates at the vision cone's outer
+perimeter.</p>
+<h2
+id="sorting-hit-points-and-constructing-the-visibility-polygon">Sorting
+Hit Points and Constructing the Visibility Polygon</h2>
+<p>Once the closest intersection point for every valid ray is
+identified, the points must be assembled into a closed polygon.</p>
+<ol type="1">
+<li><strong>Filter points:</strong> Discard any points that fall outside
+the angle range between <span
+class="math inline">\(\theta_{min}\)</span> and <span
+class="math inline">\(\theta_{max}\)</span>, or clamp rays to these
+boundaries.</li>
+<li><strong>Sort by Angle:</strong> Calculate the absolute angle of each
+collision point relative to the origin using
+<code>Math.atan2(hit.y - origin.y, hit.x - origin.x)</code>. Sort the
+array of points in ascending order.</li>
+<li><strong>Form the Polygon:</strong> Begin the polygon path at the
+observer’s origin <span class="math inline">\((x, y)\)</span>, sequence
+through each sorted intersection point, and close the path back to the
+origin.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>points<span class="op">.</span><span class="fu">sort</span>((a<span class="op">,</span> b) <span class="kw">=&gt;</span> a<span class="op">.</span><span class="at">angle</span> <span class="op">-</span> b<span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="fu">beginPath</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="fu">moveTo</span>(origin<span class="op">.</span><span class="at">x</span><span class="op">,</span> origin<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (<span class="kw">const</span> point <span class="kw">of</span> points) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">lineTo</span>(point<span class="op">.</span><span class="at">x</span><span class="op">,</span> point<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="fu">closePath</span>()<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&quot;rgba(255, 255, 0, 0.25)&quot;</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="fu">fill</span>()<span class="op">;</span></span></code></pre></div>
+<h2 id="performance-optimizations">Performance Optimizations</h2>
+<p>Testing every ray against every line segment creates an <span
+class="math inline">\(\mathcal{O}(R \cdot S)\)</span> computational
+bottleneck, where <span class="math inline">\(R\)</span> is the ray
+count and <span class="math inline">\(S\)</span> is the segment
+count.</p>
+<p>To maintain 60 FPS in JavaScript:</p>
+<ul>
+<li><strong>Spatial Partitioning:</strong> Use a grid or Quadtree to
+discard segments outside the vision cone’s circular bounding box before
+running intersection algorithms.</li>
+<li><strong>Arc Approximation:</strong> Insert intermediate points along
+the vision cone's curved perimeter between obstacles to preserve the
+curved appearance of the light cone.</li>
+<li><strong>Backface Culling:</strong> Ignore obstacle edges facing away
+from the entity origin to reduce the number of candidate segments by
+half.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/2-d-stealth-vision-cone-occlusion-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

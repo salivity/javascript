@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serializing ECS Graphs to JSON in JavaScript - javascript</title>
+    <meta name="description" content="Serializing complex entity-component system (ECS) graphs into JSON strings requires transforming interconnected objects, circular references, and dynamic runtime logic into flat, reconstructible data structures. Standard native methods like JSON.stringify">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/serializing-ecs-graphs-to-json-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Serializing ECS Graphs to JSON in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/serializing-ecs-graphs-to-json-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Serializing complex entity-component system (ECS) graphs into JSON strings requires transforming interconnected objects, circular references, and dynamic runtime logic into flat, reconstructible data structures. Standard native methods like JSON.stringify" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="serializing-ecs-graphs-to-json-in-javascript">Serializing ECS
+Graphs to JSON in JavaScript</h1>
+<p>Serializing complex entity-component system (ECS) graphs into JSON
+strings requires transforming interconnected objects, circular
+references, and dynamic runtime logic into flat, reconstructible data
+structures. Standard native methods like <code>JSON.stringify()</code>
+break when encountering circular dependencies or class methods typical
+of game engines. This guide outlines how JavaScript game developers
+decouple entity relationships, normalize state graphs, handle component
+schemas, and safely reconstruct live entities from serialized JSON
+data.</p>
+<h3 id="the-challenge-of-native-json-serialization">The Challenge of
+Native JSON Serialization</h3>
+<p>JavaScript's <code>JSON.stringify()</code> operates under two
+critical constraints: it throws a <code>TypeError</code> when
+encountering circular references, and it discards non-enumerable
+properties, prototypes, and functions. In an ECS architecture, entities
+often reference components, components reference other entities (such as
+targets, parents, or inventory items), and entities may reference child
+entities. Direct serialization of these cyclic object references without
+preprocessing is impossible.</p>
+<h3 id="normalizing-the-entity-component-graph">Normalizing the
+Entity-Component Graph</h3>
+<p>To make an entity graph serializable, you must normalize it into flat
+collections, similar to a relational database schema. Instead of storing
+memory references to other objects, use unique identifier numbers or
+strings (Entity IDs).</p>
+<p>A normalized save state generally contains three core
+collections:</p>
+<ol type="1">
+<li><strong>Entities:</strong> An array of entity IDs and their active
+component types.</li>
+<li><strong>Components:</strong> A mapped collection grouped by
+component type, indexed by entity ID.</li>
+<li><strong>Relationships:</strong> Explicit parent-child or relational
+mappings stored strictly as ID pairs (e.g.,
+<code>{ parentId: 4, childId: 12 }</code>).</li>
+</ol>
+<p>By replacing active object references with IDs, all circular links
+are converted into primitive value lookups, completely eliminating
+circular reference errors during stringification.</p>
+<h3 id="schema-whitelisting-and-transient-state">Schema Whitelisting and
+Transient State</h3>
+<p>Not all component data belongs in a save file. Storing
+runtime-computed values such as animation frame counters, particle
+positions, physics velocities, or pathfinding nodes leads to bloated
+file sizes and state desynchronization.</p>
+<p>Implement a serialization contract for your components. This can be
+achieved through:</p>
+<ul>
+<li><strong>Explicit <code>serialize()</code> Methods:</strong> Each
+component defines a method that returns only persistent fields.</li>
+<li><strong>Component Schemas:</strong> Define static metadata for each
+component type that lists which fields should be saved (e.g.,
+<code>health</code>, <code>maxHealth</code>) and which should be omitted
+(e.g., <code>timeSinceLastDamage</code>).</li>
+<li><strong>The <code>toJSON()</code> Hook:</strong> JavaScript
+automatically calls an object's <code>toJSON()</code> method during
+<code>JSON.stringify()</code>. Adding a <code>toJSON()</code> method to
+your component base class allows components to prune transient state
+cleanly.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TransformComponent {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(x <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> y <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> vx <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> vy <span class="op">=</span> <span class="dv">0</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">x</span> <span class="op">=</span> x<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">y</span> <span class="op">=</span> y<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">vx</span> <span class="op">=</span> vx<span class="op">;</span> <span class="co">// Transient physics state</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">vy</span> <span class="op">=</span> vy<span class="op">;</span> <span class="co">// Transient physics state</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">toJSON</span>() {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> { <span class="dt">x</span><span class="op">:</span> <span class="kw">this</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span> }<span class="op">;</span> <span class="co">// Only persist position</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="serializing-relationships-and-entity-references">Serializing
+Relationships and Entity References</h3>
+<p>When a component points to another entity—such as an
+<code>EquippedWeaponComponent</code> holding a reference to a weapon
+entity—the reference must be flattened before writing to the JSON
+string.</p>
+<ol type="1">
+<li><strong>Before Serialization:</strong> Iterate through all
+components. If a property references another entity, extract the
+target's unique ID.</li>
+<li><strong>Structural Mapping:</strong> Replace the direct reference
+with an ID structure (e.g., <code>{ targetEntityId: 42 }</code>).</li>
+<li><strong>Execution:</strong> Pass the root snapshot object containing
+the normalized tables directly into <code>JSON.stringify()</code>.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> savePayload <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">version</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timestamp</span><span class="op">:</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">entities</span><span class="op">:</span> [<span class="dv">1</span><span class="op">,</span> <span class="dv">2</span>]<span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">components</span><span class="op">:</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Transform</span><span class="op">:</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>      <span class="dv">1</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">150</span> }<span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="dv">2</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">105</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">150</span> }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">FollowTarget</span><span class="op">:</span> {</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="dv">2</span><span class="op">:</span> { <span class="dt">targetId</span><span class="op">:</span> <span class="dv">1</span> } <span class="co">// Normalized reference</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> jsonString <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(savePayload)<span class="op">;</span></span></code></pre></div>
+<h3 id="deserialization-and-graph-hydration">Deserialization and Graph
+Hydration</h3>
+<p>Reversing the JSON string back into a functional ECS world requires a
+multi-pass hydration process:</p>
+<ol type="1">
+<li><strong>Parse:</strong> Call <code>JSON.parse(jsonString)</code> to
+obtain the raw data tables.</li>
+<li><strong>Entity Allocation:</strong> Create blank entities in the
+engine matching the saved entity IDs, registering them in the world
+registry.</li>
+<li><strong>Component Instantiation:</strong> Read component tables,
+instantiate real component classes via an engine factory matching the
+component type name, and assign the parsed data to restore prototypes
+and methods.</li>
+<li><strong>Reference Resolution (Relinking):</strong> Iterate through
+components that track other entities by ID. Replace those IDs with the
+actual live entity object references created in step 2.</li>
+<li><strong>System Reinitialization:</strong> Notify physics, rendering,
+and spatial indexing systems to re-register the newly hydrated
+entities.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/serializing-ecs-graphs-to-json-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

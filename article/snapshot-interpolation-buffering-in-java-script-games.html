@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snapshot Interpolation Buffering in JavaScript Games - javascript</title>
+    <meta name="description" content="In multiplayer JavaScript game development, network latency and variable packet delivery times make rendering remote entities smoothly a significant challenge. Snapshot interpolation solves this by storing incoming server updates in a chronological buffer">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/snapshot-interpolation-buffering-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Snapshot Interpolation Buffering in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/snapshot-interpolation-buffering-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In multiplayer JavaScript game development, network latency and variable packet delivery times make rendering remote entities smoothly a significant challenge. Snapshot interpolation solves this by storing incoming server updates in a chronological buffer" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="snapshot-interpolation-buffering-in-javascript-games">Snapshot
+Interpolation Buffering in JavaScript Games</h1>
+<p>In multiplayer JavaScript game development, network latency and
+variable packet delivery times make rendering remote entities smoothly a
+significant challenge. Snapshot interpolation solves this by storing
+incoming server updates in a chronological buffer on the client and
+rendering the game slightly behind real-time. By continuously blending
+entity transforms between two buffered states, the client achieves
+smooth, jitter-free visual updates despite irregular network
+conditions.</p>
+<h3 id="the-need-for-a-snapshot-buffer">The Need for a Snapshot
+Buffer</h3>
+<p>Real-time multiplayer games running on JavaScript environments
+commonly use WebSockets or WebRTC DataChannels to receive periodic game
+state updates (snapshots) from the server. Because network packets
+arrive at inconsistent intervals (jitter), applying updates directly to
+entity positions causes visible stutter and snapping.</p>
+<p>A snapshot buffer acts as a temporary holding queue that absorbs this
+network jitter. Instead of acting immediately on each packet, the client
+stores updates and delays rendering by a fixed interval, ensuring there
+are always past snapshots available to calculate smooth transitions.</p>
+<h3 id="anatomy-of-an-incoming-snapshot">Anatomy of an Incoming
+Snapshot</h3>
+<p>A server snapshot typically contains a server-side timestamp and an
+array of entity data. When a packet arrives on the client, it is parsed
+and assigned a local reception timestamp if a reliable server timestamp
+is unavailable:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> snapshot <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">timestamp</span><span class="op">:</span> <span class="dv">1672531198450</span><span class="op">,</span> <span class="co">// Server timestamp in milliseconds</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">entities</span><span class="op">:</span> {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;player-1&quot;</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">150</span> }<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;player-2&quot;</span><span class="op">:</span> { <span class="dt">x</span><span class="op">:</span> <span class="dv">240</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">310</span> }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="how-the-buffer-works">How the Buffer Works</h3>
+<ol type="1">
+<li><p><strong>Ingestion and Ordering:</strong> As snapshots arrive via
+network callbacks, they are pushed into a buffer (usually an array or a
+ring buffer). Because network packets may arrive out of order, the
+client inserts the snapshot according to its timestamp or discards it if
+it is older than the most recently rendered frame.</p></li>
+<li><p><strong>Establishing the Interpolation Delay:</strong> The client
+defines an interpolation delay, often set between 50ms and 150ms (or
+roughly two to three times the server tick rate). The client calculates
+its target rendering time:
+<code>renderTime = currentTime - interpolationDelay</code></p></li>
+<li><p><strong>Selecting the Surrounding Snapshots:</strong> On every
+tick of <code>requestAnimationFrame()</code>, the client traverses the
+buffer to find two specific snapshots:</p>
+<ul>
+<li><strong>Snapshot A (Past):</strong> The most recent snapshot with a
+timestamp less than or equal to <code>renderTime</code>.</li>
+<li><strong>Snapshot B (Future):</strong> The oldest snapshot with a
+timestamp greater than <code>renderTime</code>.</li>
+</ul></li>
+<li><p><strong>Calculating the Alpha Factor:</strong> Once the two
+snapshots are located, the client calculates the normalized time ratio
+(<span class="math inline">\(t\)</span>) between them:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> totalDuration <span class="op">=</span> snapshotB<span class="op">.</span><span class="at">timestamp</span> <span class="op">-</span> snapshotA<span class="op">.</span><span class="at">timestamp</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> progress <span class="op">=</span> renderTime <span class="op">-</span> snapshotA<span class="op">.</span><span class="at">timestamp</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> t <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="dv">1</span><span class="op">,</span> progress <span class="op">/</span> totalDuration))<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Applying Linear Interpolation (LERP):</strong> The client
+computes the intermediate transform for each entity using linear
+interpolation:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> currentX <span class="op">=</span> snapshotA<span class="op">.</span><span class="at">x</span> <span class="op">+</span> (snapshotB<span class="op">.</span><span class="at">x</span> <span class="op">-</span> snapshotA<span class="op">.</span><span class="at">x</span>) <span class="op">*</span> t<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> currentY <span class="op">=</span> snapshotA<span class="op">.</span><span class="at">y</span> <span class="op">+</span> (snapshotB<span class="op">.</span><span class="at">y</span> <span class="op">-</span> snapshotA<span class="op">.</span><span class="at">y</span>) <span class="op">*</span> t<span class="op">;</span></span></code></pre></div></li>
+</ol>
+<h3 id="managing-buffer-memory">Managing Buffer Memory</h3>
+<p>Because JavaScript is garbage-collected, allowing the buffer array to
+grow unbounded causes memory leaks and performance degradation. Once
+<code>renderTime</code> passes beyond <code>snapshotA</code>, any
+snapshots older than <code>snapshotA</code> are no longer needed for
+interpolation.</p>
+<p>The client continuously prunes the buffer by removing obsolete
+entries. For higher performance, developers often replace dynamic array
+operations like <code>splice()</code> or <code>shift()</code> with a
+fixed-size circular buffer to avoid recurring object allocations.</p>
+<h3 id="handling-edge-cases">Handling Edge Cases</h3>
+<ul>
+<li><strong>Buffer Underrun (Starvation):</strong> If a lag spike delays
+packets longer than the interpolation window, the client will lack a
+"future" snapshot. The client can either freeze the entity at the last
+known position or use client-side dead reckoning (extrapolation) based
+on the entity's last known velocity until the next packet arrives.</li>
+<li><strong>Clock Synchronization:</strong> Because client and server
+clocks drift, multiplayer engines typically track a moving average of
+network latency to maintain an accurate estimate of server time relative
+to client time, keeping the interpolation delay consistent.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/snapshot-interpolation-buffering-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

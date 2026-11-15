@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client-Side Prediction in JavaScript Multiplayer Games - javascript</title>
+    <meta name="description" content="Client-side prediction is a multiplayer game development technique designed to eliminate the perception of network latency for players. By allowing the client to execute player actions locally before receiving confirmation from the authoritative game serv">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/client-side-prediction-in-java-script-multiplayer-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Client-Side Prediction in JavaScript Multiplayer Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/client-side-prediction-in-java-script-multiplayer-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Client-side prediction is a multiplayer game development technique designed to eliminate the perception of network latency for players. By allowing the client to execute player actions locally before receiving confirmation from the authoritative game serv" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="client-side-prediction-in-javascript-multiplayer-games">Client-Side
+Prediction in JavaScript Multiplayer Games</h1>
+<p>Client-side prediction is a multiplayer game development technique
+designed to eliminate the perception of network latency for players. By
+allowing the client to execute player actions locally before receiving
+confirmation from the authoritative game server, developers can provide
+instant visual feedback. This article explains the fundamentals of
+client-side prediction, how it masks round-trip network delays, and how
+to implement it alongside server reconciliation in browser-based
+JavaScript games.</p>
+<h2 id="the-latency-problem-in-web-gaming">The Latency Problem in Web
+Gaming</h2>
+<p>In an authoritative server architecture, the server manages the true
+state of the game world to prevent cheating and state desynchronization.
+In a naive implementation:</p>
+<ol type="1">
+<li>The player presses a key to move right.</li>
+<li>The browser sends this input over a network protocol (such as
+WebSockets or WebRTC) to the server.</li>
+<li>The server processes the input, updates the player's position, and
+sends the new state back.</li>
+<li>The browser receives the update and renders the player in the new
+position.</li>
+</ol>
+<p>If a player has a 100ms round-trip time (RTT), they experience a
+tenth of a second of input delay. In fast-paced browser games, this
+delay makes controls feel unresponsive and sluggish.</p>
+<h2 id="how-client-side-prediction-masks-latency">How Client-Side
+Prediction Masks Latency</h2>
+<p>Client-side prediction eliminates this delay by assuming the server
+will approve the player's inputs. Instead of waiting for a network round
+trip:</p>
+<ol type="1">
+<li><strong>Immediate Execution:</strong> When an input event occurs
+(e.g., <code>keydown</code>), the local client immediately updates the
+local player's character state on the next frame of the rendering
+loop.</li>
+<li><strong>Parallel Transmission:</strong> Concurrently, the client
+transmits the input—tagged with an incremental sequence number or
+timestamp—to the server.</li>
+<li><strong>Seamless Illusion:</strong> Because the character moves
+instantly on the screen, the player perceives zero latency, even on
+high-ping connections.</li>
+</ol>
+<h2 id="implementing-the-input-pipeline-in-javascript">Implementing the
+Input Pipeline in JavaScript</h2>
+<p>In a JavaScript environment, client-side prediction relies on
+combining browser input handling, a fixed-timestep game loop, and an
+input history buffer.</p>
+<h3 id="1-recording-and-applying-input-locally">1. Recording and
+Applying Input Locally</h3>
+<p>The client maintains an array of unacknowledged inputs. During the
+local update step:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Local update loop</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">update</span>(deltaTime) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> input <span class="op">=</span> <span class="fu">captureInput</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    input<span class="op">.</span><span class="at">sequenceNumber</span> <span class="op">=</span> currentSequenceNumber<span class="op">++;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Store input for future reconciliation</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    pendingInputs<span class="op">.</span><span class="fu">push</span>(input)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Predict movement immediately on the client</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">applyInputToEntity</span>(localPlayer<span class="op">,</span> input<span class="op">,</span> deltaTime)<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Send input to the authoritative server</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    socket<span class="op">.</span><span class="fu">send</span>(<span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>({ <span class="dt">type</span><span class="op">:</span> <span class="st">&#39;INPUT&#39;</span><span class="op">,</span> <span class="dt">data</span><span class="op">:</span> input }))<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="2-server-processing">2. Server Processing</h3>
+<p>The authoritative server processes the received inputs at its own
+tick rate (e.g., 30 or 60 Hz). It updates the canonical game state and
+includes the last processed <code>sequenceNumber</code> in its periodic
+state broadcast back to the clients.</p>
+<h2 id="server-reconciliation-handling-inconsistencies">Server
+Reconciliation: Handling Inconsistencies</h2>
+<p>Because the server is authoritative, its state always overrides the
+client. If a client predicts movement through a space that an opponent
+just blocked, the client's prediction will be wrong. Without correction,
+the client and server drift out of sync.</p>
+<p>Server reconciliation solves this by:</p>
+<ol type="1">
+<li>Receiving the authoritative position and the latest processed
+<code>sequenceNumber</code> from the server.</li>
+<li>Discarding all inputs from <code>pendingInputs</code> that have a
+sequence number less than or equal to the acknowledged sequence
+number.</li>
+<li>Overriding the local player's position with the server's
+authoritative position.</li>
+<li>Replaying all remaining unacknowledged inputs on top of this
+authoritative state.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Handling the server update on the client</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">onServerUpdate</span>(serverState) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Reset client position to authoritative server position</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    localPlayer<span class="op">.</span><span class="at">x</span> <span class="op">=</span> serverState<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    localPlayer<span class="op">.</span><span class="at">y</span> <span class="op">=</span> serverState<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Clear inputs already acknowledged by the server</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    pendingInputs <span class="op">=</span> pendingInputs<span class="op">.</span><span class="fu">filter</span>(input <span class="kw">=&gt;</span> input<span class="op">.</span><span class="at">sequenceNumber</span> <span class="op">&gt;</span> serverState<span class="op">.</span><span class="at">lastProcessedInput</span>)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Re-apply remaining inputs to re-predict the present state</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> input <span class="kw">of</span> pendingInputs) {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="fu">applyInputToEntity</span>(localPlayer<span class="op">,</span> input<span class="op">,</span> input<span class="op">.</span><span class="at">deltaTime</span>)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If the prediction was correct, the replayed inputs place the
+character exactly where it was already rendered, resulting in smooth
+motion. If the prediction was incorrect, the player snaps to the
+corrected position. To prevent visual "teleporting" during corrections,
+developers often interpolate the character smoothly toward the corrected
+path.</p>
+<h2
+id="determinism-and-floating-point-challenges-in-javascript">Determinism
+and Floating-Point Challenges in JavaScript</h2>
+<p>Implementing prediction in JavaScript introduces specific technical
+challenges:</p>
+<ul>
+<li><strong>Variable Frame Rates:</strong> Browsers run render loops via
+<code>requestAnimationFrame</code>, which varies based on monitor
+refresh rates and hardware load. Game physics must be computed using a
+fixed timestep rather than variable delta time to ensure that the client
+and server simulate identical outcomes.</li>
+<li><strong>Deterministic Calculations:</strong> JavaScript utilizes
+IEEE 754 double-precision floating-point numbers. While standard
+operations are largely consistent, micro-differences in calculations or
+timing between Node.js on the server and various browser JavaScript
+engines can cause divergence over time. Keeping physics calculations
+simple and integer-based helps maintain synchronization.</li>
+</ul>
+<h2 id="summary">Summary</h2>
+<p>Client-side prediction turns the web browser from a passive display
+terminal into an active simulation engine. By executing inputs instantly
+and relying on server reconciliation to quietly correct mistakes,
+JavaScript multiplayer games can deliver the responsiveness of an
+offline title while maintaining the integrity of an authoritative
+server.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/client-side-prediction-in-java-script-multiplayer-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

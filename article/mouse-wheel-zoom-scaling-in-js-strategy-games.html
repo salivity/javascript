@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mouse Wheel Zoom Scaling in JS Strategy Games - javascript</title>
+    <meta name="description" content="In strategy game development with JavaScript, mouse wheel event scaling manages zoom levels by translating raw scroll input into precise camera transformations. This process involves normalizing browser-dependent wheel deltas, applying exponential or prop">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/mouse-wheel-zoom-scaling-in-js-strategy-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mouse Wheel Zoom Scaling in JS Strategy Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/mouse-wheel-zoom-scaling-in-js-strategy-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In strategy game development with JavaScript, mouse wheel event scaling manages zoom levels by translating raw scroll input into precise camera transformations. This process involves normalizing browser-dependent wheel deltas, applying exponential or prop" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="mouse-wheel-zoom-scaling-in-js-strategy-games">Mouse Wheel Zoom
+Scaling in JS Strategy Games</h1>
+<p>In strategy game development with JavaScript, mouse wheel event
+scaling manages zoom levels by translating raw scroll input into precise
+camera transformations. This process involves normalizing
+browser-dependent wheel deltas, applying exponential or proportional
+scale factors, clamping the zoom boundaries to prevent visual clipping,
+and recalculating world-space coordinates around the cursor. Properly
+handling these calculations ensures that the game camera smoothly
+focuses on designated map points without distorting the tactical view or
+disorienting the player.</p>
+<h3 id="normalizing-the-wheel-event">Normalizing the Wheel Event</h3>
+<p>Modern browsers register mouse wheel interactions through the
+standard <code>wheel</code> event, populating properties like
+<code>event.deltaY</code> and <code>event.deltaMode</code>. Because
+different input hardware and operating systems report delta values
+differently—such as per-pixel, per-line, or per-page scrolling—game
+engines must normalize this input before applying it to the game
+loop.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">getNormalizedDelta</span>(<span class="bu">event</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> delta <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">deltaY</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">deltaMode</span> <span class="op">===</span> <span class="bu">WheelEvent</span><span class="op">.</span><span class="at">DOM_DELTA_LINE</span>) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        delta <span class="op">*=</span> <span class="dv">20</span><span class="op">;</span> <span class="co">// Normalize line scrolling to pixels</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">deltaMode</span> <span class="op">===</span> <span class="bu">WheelEvent</span><span class="op">.</span><span class="at">DOM_DELTA_PAGE</span>) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        delta <span class="op">*=</span> <span class="dv">600</span><span class="op">;</span> <span class="co">// Normalize page scrolling to pixels</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> delta<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="multiplicative-scaling-vs-additive-scaling">Multiplicative
+Scaling vs. Additive Scaling</h3>
+<p>Strategy games typically represent large 2D or 3D terrain grids.
+Applying linear (additive) zoom adjustments causes the visual scale
+change to feel sluggish when zoomed out and jarringly fast when zoomed
+in. To maintain a consistent visual rate of change, developers use
+multiplicative (exponential) scaling.</p>
+<p>Instead of adding or subtracting a static amount, the new zoom level
+is calculated by multiplying or dividing the current scale by a fixed
+factor:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ZOOM_SENSITIVITY <span class="op">=</span> <span class="fl">0.001</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> zoomFactor <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">exp</span>(<span class="op">-</span>normalizedDelta <span class="op">*</span> ZOOM_SENSITIVITY)<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> newZoom <span class="op">=</span> currentZoom <span class="op">*</span> zoomFactor<span class="op">;</span></span></code></pre></div>
+<p>This creates a uniform perceptual change regardless of whether the
+camera is close to individual units or elevated for high-level tactical
+overviews.</p>
+<h3 id="clamping-zoom-limits">Clamping Zoom Limits</h3>
+<p>Unrestricted zooming causes rendering glitches, such as
+division-by-zero errors, scene inversion, or severe performance drops
+from rendering excessively large regions. Strategy engines enforce
+strict minimum and maximum zoom constraints to keep the tactical map
+within functional boundaries.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MIN_ZOOM <span class="op">=</span> <span class="fl">0.25</span><span class="op">;</span> <span class="co">// Broad overview</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> MAX_ZOOM <span class="op">=</span> <span class="fl">3.0</span><span class="op">;</span>  <span class="co">// Close-up micro-management</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>newZoom <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(MIN_ZOOM<span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(MAX_ZOOM<span class="op">,</span> newZoom))<span class="op">;</span></span></code></pre></div>
+<h3 id="cursor-centric-focal-point-calculation">Cursor-Centric Focal
+Point Calculation</h3>
+<p>The primary expectation in top-down strategy games is that the map
+zooms into or away from the current mouse cursor location rather than
+the center of the viewport or the canvas origin <code>(0, 0)</code>.
+Achieving this requires calculating the mouse's position in world space
+before the zoom, scaling the camera, and then recalculating the camera's
+offset so the mouse maintains the same world coordinates.</p>
+<p>The mathematical workflow is as follows:</p>
+<ol type="1">
+<li><p><strong>Calculate the cursor position in world space before
+zooming:</strong> <span class="math display">\[\text{worldX} =
+\frac{\text{screenX} - \text{cameraX}}{\text{currentZoom}}\]</span>
+<span class="math display">\[\text{worldY} = \frac{\text{screenY} -
+\text{cameraY}}{\text{currentZoom}}\]</span></p></li>
+<li><p><strong>Apply the clamped zoom:</strong> <span
+class="math display">\[\text{currentZoom} =
+\text{newZoom}\]</span></p></li>
+<li><p><strong>Adjust the camera offset to keep the world position
+anchored under the cursor:</strong> <span
+class="math display">\[\text{cameraX} = \text{screenX} - (\text{worldX}
+\times \text{currentZoom})\]</span> <span
+class="math display">\[\text{cameraY} = \text{screenY} - (\text{worldY}
+\times \text{currentZoom})\]</span></p></li>
+</ol>
+<h3 id="complete-implementation-example">Complete Implementation
+Example</h3>
+<p>Below is a self-contained handler demonstrating cursor-targeted mouse
+wheel scaling for a 2D strategy canvas:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> camera <span class="op">=</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">zoom</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">minZoom</span><span class="op">:</span> <span class="fl">0.2</span><span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">maxZoom</span><span class="op">:</span> <span class="fl">2.5</span><span class="op">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">sensitivity</span><span class="op">:</span> <span class="fl">0.0015</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="bu">window</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;wheel&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">event</span><span class="op">.</span><span class="fu">preventDefault</span>()<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> rect <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getBoundingClientRect</span>()<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mouseX <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientX</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">left</span><span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> mouseY <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">clientY</span> <span class="op">-</span> rect<span class="op">.</span><span class="at">top</span><span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Determine world position before zoom</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> worldX <span class="op">=</span> (mouseX <span class="op">-</span> camera<span class="op">.</span><span class="at">x</span>) <span class="op">/</span> camera<span class="op">.</span><span class="at">zoom</span><span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> worldY <span class="op">=</span> (mouseY <span class="op">-</span> camera<span class="op">.</span><span class="at">y</span>) <span class="op">/</span> camera<span class="op">.</span><span class="at">zoom</span><span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Compute and clamp new scale</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> zoomFactor <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">exp</span>(<span class="op">-</span><span class="bu">event</span><span class="op">.</span><span class="at">deltaY</span> <span class="op">*</span> camera<span class="op">.</span><span class="at">sensitivity</span>)<span class="op">;</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> targetZoom <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(camera<span class="op">.</span><span class="at">zoom</span> <span class="op">*</span> zoomFactor<span class="op">,</span> camera<span class="op">.</span><span class="at">minZoom</span>)<span class="op">,</span> camera<span class="op">.</span><span class="at">maxZoom</span>)<span class="op">;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Update zoom level</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    camera<span class="op">.</span><span class="at">zoom</span> <span class="op">=</span> targetZoom<span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Reposition camera offset</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    camera<span class="op">.</span><span class="at">x</span> <span class="op">=</span> mouseX <span class="op">-</span> (worldX <span class="op">*</span> camera<span class="op">.</span><span class="at">zoom</span>)<span class="op">;</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    camera<span class="op">.</span><span class="at">y</span> <span class="op">=</span> mouseY <span class="op">-</span> (worldY <span class="op">*</span> camera<span class="op">.</span><span class="at">zoom</span>)<span class="op">;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>}<span class="op">,</span> { <span class="dt">passive</span><span class="op">:</span> <span class="kw">false</span> })<span class="op">;</span></span></code></pre></div>
+<h3 id="smoothing-zoom-transitions">Smoothing Zoom Transitions</h3>
+<p>While direct modification updates the view immediately, strategy
+games often employ linear interpolation (<code>lerp</code>) inside the
+main game loop to smooth the transition. Instead of setting
+<code>camera.zoom</code> directly inside the wheel callback, the
+callback updates a <code>targetZoom</code> and <code>targetCamera</code>
+position. The rendering loop then continuously steps toward those
+targets using a damping factor, eliminating abrupt jumps and providing
+fluid tactical navigation.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/mouse-wheel-zoom-scaling-in-js-strategy-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

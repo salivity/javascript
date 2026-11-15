@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Managing Inactive Player Sessions in JS Game Lobbies - javascript</title>
+    <meta name="description" content="In multiplayer JavaScript game development, inactive players in game lobbies consume valuable server memory, stall matchmaking countdowns, and degrade the experience for active participants. Room lobby timeout handlers solve this by tracking player activi">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/managing-inactive-player-sessions-in-js-game-lobbies">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Managing Inactive Player Sessions in JS Game Lobbies - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/managing-inactive-player-sessions-in-js-game-lobbies" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In multiplayer JavaScript game development, inactive players in game lobbies consume valuable server memory, stall matchmaking countdowns, and degrade the experience for active participants. Room lobby timeout handlers solve this by tracking player activi" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="managing-inactive-player-sessions-in-js-game-lobbies">Managing
+Inactive Player Sessions in JS Game Lobbies</h1>
+<p>In multiplayer JavaScript game development, inactive players in game
+lobbies consume valuable server memory, stall matchmaking countdowns,
+and degrade the experience for active participants. Room lobby timeout
+handlers solve this by tracking player activity, managing countdown
+cycles, and safely disconnecting or relocating idle sockets. This guide
+explores the architecture and implementation patterns used to detect
+player dormancy, manage heartbeat cycles, and purge inactive sessions in
+Node.js-based game servers.</p>
+<h2 id="inactivity-detection-mechanisms">Inactivity Detection
+Mechanisms</h2>
+<p>Game servers generally track two types of inactivity: network
+dormancy (disconnects or lost packets) and input dormancy (a connected
+player who is not interacting).</p>
+<ol type="1">
+<li><strong>Heartbeat / Ping-Pong:</strong> Built into protocols like
+WebSockets (<code>ws</code> library). The server emits a periodic
+<code>ping</code>, expecting a <code>pong</code> response within a
+configured duration. If the client fails to respond, the connection is
+terminated.</li>
+<li><strong>Action-Based Timestamps:</strong> Every valid lobby action
+(toggling a ready state, sending chat, changing a character loadout)
+updates a <code>lastActiveAt</code> timestamp stored on the player
+session object.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> LobbyPlayer {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(socket<span class="op">,</span> playerId) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">socket</span> <span class="op">=</span> socket<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">playerId</span> <span class="op">=</span> playerId<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">lastActiveAt</span> <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">isReady</span> <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">touch</span>() {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">lastActiveAt</span> <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="architecting-the-timeout-handler">Architecting the Timeout
+Handler</h2>
+<p>Developers typically choose between two approaches for managing
+timeouts: isolated per-player timers or a centralized room sweep.</p>
+<h3 id="1-isolated-settimeout-approach">1. Isolated
+<code>setTimeout</code> Approach</h3>
+<p>Each player has an associated timer that resets upon receiving valid
+network packets.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">resetPlayerTimeout</span>(player<span class="op">,</span> room<span class="op">,</span> timeoutMs <span class="op">=</span> <span class="dv">60000</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (player<span class="op">.</span><span class="at">timeoutId</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="pp">clearTimeout</span>(player<span class="op">.</span><span class="at">timeoutId</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  player<span class="op">.</span><span class="at">timeoutId</span> <span class="op">=</span> <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">handlePlayerEviction</span>(player<span class="op">,</span> room<span class="op">,</span> <span class="st">&#39;INACTIVITY&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span> timeoutMs)<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<ul>
+<li><strong>Pros:</strong> Immediate execution when an individual
+reaches the timeout threshold.</li>
+<li><strong>Cons:</strong> Allocating thousands of individual timers
+under heavy server load creates overhead and complicates garbage
+collection if references are not cleanly cleared.</li>
+</ul>
+<h3 id="2-centralized-lobby-tick-loop-recommended">2. Centralized Lobby
+Tick Loop (Recommended)</h3>
+<p>Instead of assigning a timer to every player, the lobby runs an
+interval that periodically scans the player map and checks
+<code>Date.now() - player.lastActiveAt</code>.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> GameRoom {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(roomId<span class="op">,</span> inactivityLimitMs <span class="op">=</span> <span class="dv">45000</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">roomId</span> <span class="op">=</span> roomId<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">players</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">inactivityLimitMs</span> <span class="op">=</span> inactivityLimitMs<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">sweepInterval</span> <span class="op">=</span> <span class="pp">setInterval</span>(() <span class="kw">=&gt;</span> <span class="kw">this</span><span class="op">.</span><span class="fu">sweepInactivePlayers</span>()<span class="op">,</span> <span class="dv">5000</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sweepInactivePlayers</span>() {</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> now <span class="op">=</span> <span class="bu">Date</span><span class="op">.</span><span class="fu">now</span>()<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> [playerId<span class="op">,</span> player] <span class="kw">of</span> <span class="kw">this</span><span class="op">.</span><span class="at">players</span><span class="op">.</span><span class="fu">entries</span>()) {</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (now <span class="op">-</span> player<span class="op">.</span><span class="at">lastActiveAt</span> <span class="op">&gt;</span> <span class="kw">this</span><span class="op">.</span><span class="at">inactivityLimitMs</span>) {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">evictPlayer</span>(playerId<span class="op">,</span> <span class="st">&#39;Lobby timeout: inactive too long&#39;</span>)<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">destroy</span>() {</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="pp">clearInterval</span>(<span class="kw">this</span><span class="op">.</span><span class="at">sweepInterval</span>)<span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">players</span><span class="op">.</span><span class="fu">clear</span>()<span class="op">;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<ul>
+<li><strong>Pros:</strong> Constant memory footprint; runs on a
+predictable tick cadence.</li>
+<li><strong>Cons:</strong> Evictions occur on tick intervals rather than
+the exact millisecond of timeout expiration.</li>
+</ul>
+<h2 id="managing-state-transitions">Managing State Transitions</h2>
+<p>Before ejecting a player, robust timeout handlers implement
+intermediate states:</p>
+<ul>
+<li><strong>Warning Phase:</strong> When a player reaches 75% of their
+allowable idle time, the server pushes a warning packet
+(<code>TIMEOUT_WARNING</code>). The client UI displays an interactive
+modal (e.g., "Are you still there?") that prompts the user to reset
+their timer.</li>
+<li><strong>Ready-State Reset:</strong> In lobbies requiring an explicit
+"Ready" state before starting a match, a player who goes idle can have
+their status automatically toggled to <code>unready</code> to prevent
+launching a match with an absent participant.</li>
+<li><strong>Disconnection Grace Period:</strong> If a player drops
+connection abruptly, the timeout handler can mark the session as
+<code>disconnected</code> rather than immediately deleting it. This
+allows a 30- to 60-second window to reconnect to the lobby before their
+slot is reclaimed.</li>
+</ul>
+<h2 id="cleanup-and-state-synchronization">Cleanup and State
+Synchronization</h2>
+<p>When the timeout handler confirms an eviction, the server must
+execute complete teardown operations to avoid ghost sessions and memory
+leaks:</p>
+<ol type="1">
+<li><strong>Socket Termination:</strong> Notify the client with an
+explicit disconnect reason, then close the underlying socket.</li>
+<li><strong>Collection Cleanup:</strong> Remove the player reference
+from room arrays, active socket maps, and lookup tables.</li>
+<li><strong>Broadcasting Updates:</strong> Broadcast the updated lobby
+state to remaining players to reflect the newly available slot and
+recalculate match-readiness checks.</li>
+<li><strong>Room Teardown:</strong> If the evicted player was the lobby
+host or the last remaining occupant, assign host status to another
+player or invoke the room's cleanup lifecycle to free server memory
+entirely.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/managing-inactive-player-sessions-in-js-game-lobbies';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

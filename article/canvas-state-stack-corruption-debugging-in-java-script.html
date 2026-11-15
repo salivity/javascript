@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas State Stack Corruption Debugging in JavaScript - javascript</title>
+    <meta name="description" content="This article provides a comprehensive guide to understanding, identifying, and resolving canvas rendering context state stack corruption in JavaScript game programming. When developing 2D canvas games, maintaining a clean rendering pipeline is critical fo">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/canvas-state-stack-corruption-debugging-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Canvas State Stack Corruption Debugging in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/canvas-state-stack-corruption-debugging-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive guide to understanding, identifying, and resolving canvas rendering context state stack corruption in JavaScript game programming. When developing 2D canvas games, maintaining a clean rendering pipeline is critical fo" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="canvas-state-stack-corruption-debugging-in-javascript">Canvas
+State Stack Corruption Debugging in JavaScript</h1>
+<p>This article provides a comprehensive guide to understanding,
+identifying, and resolving canvas rendering context state stack
+corruption in JavaScript game programming. When developing 2D canvas
+games, maintaining a clean rendering pipeline is critical for stability
+and visual correctness. Below, we break down what the 2D canvas state
+stack is, how corruption occurs through mismatched state operations, the
+visual and performance symptoms to watch for, and practical debugging
+patterns to track down and eliminate these elusive bugs from your game
+loop.</p>
+<h2 id="what-is-the-canvas-state-stack">What is the Canvas State
+Stack?</h2>
+<p>The HTML5 Canvas 2D rendering context
+(<code>CanvasRenderingContext2D</code>) utilizes an internal drawing
+state stack managed primarily through two methods:
+<code>ctx.save()</code> and <code>ctx.restore()</code>.</p>
+<p>Calling <code>ctx.save()</code> pushes a snapshot of the current
+drawing state onto an internal LIFO (Last-In, First-Out) stack. Calling
+<code>ctx.restore()</code> pops the most recent state from the stack and
+re-applies it to the context. A saved state includes:</p>
+<ul>
+<li>Current transformation matrix (translation, rotation, scaling)</li>
+<li>Clipping path (<code>ctx.clip()</code>)</li>
+<li>Styling properties (<code>fillStyle</code>,
+<code>strokeStyle</code>, <code>globalAlpha</code>,
+<code>globalCompositeOperation</code>, <code>lineWidth</code>,
+etc.)</li>
+<li>Shadow attributes and image smoothing settings</li>
+</ul>
+<h2 id="understanding-state-stack-corruption">Understanding State Stack
+Corruption</h2>
+<p>State stack corruption occurs when the balance between
+<code>save()</code> and <code>restore()</code> calls is broken within
+the game loop. Because games execute rendering routines dozens of times
+per second across hundreds of individual game objects, any discrepancy
+compounds rapidly.</p>
+<p>Stack corruption manifests in two primary ways:</p>
+<ol type="1">
+<li><strong>Stack Overflow (Leaking Saves):</strong> More
+<code>save()</code> calls are made than <code>restore()</code> calls.
+Over time, the browser allocates memory to store indefinitely growing
+state frames. Furthermore, accumulated transformations cause game
+elements to scale, rotate, or translate out of view.</li>
+<li><strong>Stack Underflow (Excess Restores):</strong> More
+<code>restore()</code> calls are made than <code>save()</code> calls.
+When <code>restore()</code> is called on an empty stack, the browser
+typically ignores it silently without throwing an error. However,
+subsequent rendering operations lose their isolation, causing properties
+set by one entity to bleed into subsequent entities.</li>
+</ol>
+<h2 id="common-causes-in-game-programming">Common Causes in Game
+Programming</h2>
+<ul>
+<li><strong>Early Returns:</strong> An entity's draw method calls
+<code>ctx.save()</code>, encounters a conditional check (such as
+off-screen culling), and returns early before reaching
+<code>ctx.restore()</code>.</li>
+<li><strong>Unhandled Exceptions:</strong> An error thrown mid-render
+halts execution before <code>ctx.restore()</code> runs, leaving the
+stack unbalanced for all subsequent frames.</li>
+<li><strong>Complex Scene Graphs:</strong> Hierarchical entity systems
+(e.g., a character holding a weapon that emits particles) often nest
+transformations. An error in a child component's lifecycle frequently
+breaks the parent component's restoration.</li>
+<li><strong>Conditional Branching Discrepancies:</strong> A
+<code>save()</code> occurs inside an <code>if</code> block, but the
+matching <code>restore()</code> is either omitted or placed inside an
+improperly matched condition.</li>
+</ul>
+<h2 id="symptoms-of-stack-corruption">Symptoms of Stack Corruption</h2>
+<ul>
+<li><strong>Coordinate Drift:</strong> Sprites, UI elements, or entire
+scenes progressively stretch, spin, or fly off the screen due to
+compounding transformations.</li>
+<li><strong>Style Bleeding:</strong> Entities unexpectedly inherit
+colors, alpha values, or line widths from unrelated objects rendered
+earlier in the frame.</li>
+<li><strong>Vanishing Graphics:</strong> A stray clipping path or a
+<code>globalAlpha</code> set to <code>0</code> persists into subsequent
+draw calls, making the rest of the game world invisible.</li>
+<li><strong>Progressive Performance Degradation:</strong> An unchecked
+stack leak consumes memory and degrades frame rates over extended play
+sessions.</li>
+</ul>
+<h2 id="debugging-techniques-and-solutions">Debugging Techniques and
+Solutions</h2>
+<h3 id="1-monkey-patching-for-stack-depth-tracking">1. Monkey-Patching
+for Stack Depth Tracking</h3>
+<p>Because the native Canvas API does not expose the current depth of
+its state stack, you can instrument the context during development to
+track and log stack mismatches.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">instrumentContext</span>(ctx) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> stackDepth <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> originalSave <span class="op">=</span> ctx<span class="op">.</span><span class="at">save</span><span class="op">.</span><span class="fu">bind</span>(ctx)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> originalRestore <span class="op">=</span> ctx<span class="op">.</span><span class="at">restore</span><span class="op">.</span><span class="fu">bind</span>(ctx)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">save</span> <span class="op">=</span> <span class="kw">function</span>() {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    stackDepth<span class="op">++;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">originalSave</span>()<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">restore</span> <span class="op">=</span> <span class="kw">function</span>() {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (stackDepth <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&quot;Stack Underflow: ctx.restore() called on an empty stack.&quot;</span><span class="op">,</span> <span class="kw">new</span> <span class="bu">Error</span>()<span class="op">.</span><span class="at">stack</span>)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    stackDepth<span class="op">--;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">originalRestore</span>()<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">getStackDepth</span> <span class="op">=</span> <span class="kw">function</span>() {</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> stackDepth<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="at">assertCleanStack</span> <span class="op">=</span> <span class="kw">function</span>() {</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (stackDepth <span class="op">!==</span> <span class="dv">0</span>) {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="vs">`Stack Corruption Detected: Frame ended with a stack depth of </span><span class="sc">${</span>stackDepth<span class="sc">}</span><span class="vs">.`</span>)<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Call <code>ctx.assertCleanStack()</code> at the very end of your main
+game loop render function. If the stack is not zero, the assertion
+immediately alerts you that a leak occurred within that frame.</p>
+<h3 id="2-trace-call-sites-using-error-stacks">2. Trace Call Sites Using
+Error Stacks</h3>
+<p>To isolate exactly which entity fails to close its state, store call
+stacks during each <code>save()</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> saveTraces <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="at">save</span> <span class="op">=</span> <span class="kw">function</span>() {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  saveTraces<span class="op">.</span><span class="fu">push</span>(<span class="kw">new</span> <span class="bu">Error</span>()<span class="op">.</span><span class="at">stack</span>)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">originalSave</span>()<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>ctx<span class="op">.</span><span class="at">restore</span> <span class="op">=</span> <span class="kw">function</span>() {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (saveTraces<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&quot;Unmatched restore call!&quot;</span>)<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  saveTraces<span class="op">.</span><span class="fu">pop</span>()<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">originalRestore</span>()<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Check remaining traces at the end of the frame:</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (saveTraces<span class="op">.</span><span class="at">length</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="st">&quot;Unrestored save origins:&quot;</span><span class="op">,</span> saveTraces)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="3-enforcing-safe-context-isolation-via-tryfinally">3. Enforcing
+Safe Context Isolation via <code>try...finally</code></h3>
+<p>Prevent early returns and runtime exceptions from corrupting the
+stack by wrapping isolated rendering logic in <code>try...finally</code>
+blocks:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> RenderableEntity {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">draw</span>(ctx) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">save</span>()<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>      ctx<span class="op">.</span><span class="fu">translate</span>(<span class="kw">this</span><span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="kw">this</span><span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      ctx<span class="op">.</span><span class="fu">rotate</span>(<span class="kw">this</span><span class="op">.</span><span class="at">angle</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span><span class="kw">this</span><span class="op">.</span><span class="at">isVisible</span>) {</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span> <span class="co">// Safe to return early; finally will still execute</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="fu">renderGraphics</span>(ctx)<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">finally</span> {</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>      ctx<span class="op">.</span><span class="fu">restore</span>()<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="4-functional-scope-wrappers">4. Functional Scope Wrappers</h3>
+<p>Encapsulate state mutation within higher-order functions to eliminate
+manual <code>save</code> and <code>restore</code> calls entirely:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">withContext</span>(ctx<span class="op">,</span> renderCallback) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  ctx<span class="op">.</span><span class="fu">save</span>()<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">try</span> {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">renderCallback</span>(ctx)<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">finally</span> {</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    ctx<span class="op">.</span><span class="fu">restore</span>()<span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage in render loop</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="fu">withContext</span>(ctx<span class="op">,</span> (c) <span class="kw">=&gt;</span> {</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  c<span class="op">.</span><span class="fu">translate</span>(player<span class="op">.</span><span class="at">x</span><span class="op">,</span> player<span class="op">.</span><span class="at">y</span>)<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  c<span class="op">.</span><span class="at">fillStyle</span> <span class="op">=</span> <span class="st">&quot;blue&quot;</span><span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  c<span class="op">.</span><span class="fu">fillRect</span>(<span class="op">-</span><span class="dv">10</span><span class="op">,</span> <span class="op">-</span><span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">20</span>)<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<p>Using this pattern, canvas state changes remain strictly scoped to
+the provided callback, ensuring the stack returns to its previous state
+regardless of execution flow.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/canvas-state-stack-corruption-debugging-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

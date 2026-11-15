@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Game Memory Heap Growth Analysis - javascript</title>
+    <meta name="description" content="Memory heap growth analysis is the process of tracking, diagnosing, and controlling memory consumption over extended gameplay sessions in JavaScript game development. Because web-based games rely on dynamic memory allocation and automated garbage collecti">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-game-memory-heap-growth-analysis">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Game Memory Heap Growth Analysis - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-game-memory-heap-growth-analysis" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Memory heap growth analysis is the process of tracking, diagnosing, and controlling memory consumption over extended gameplay sessions in JavaScript game development. Because web-based games rely on dynamic memory allocation and automated garbage collecti" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-game-memory-heap-growth-analysis">JavaScript Game
+Memory Heap Growth Analysis</h1>
+<p>Memory heap growth analysis is the process of tracking, diagnosing,
+and controlling memory consumption over extended gameplay sessions in
+JavaScript game development. Because web-based games rely on dynamic
+memory allocation and automated garbage collection, prolonged play often
+exposes gradual memory leaks, increased garbage collection pauses, and
+performance degradation. This article examines how the JavaScript heap
+behaves during runtime, the mechanics of diagnosing sustained heap
+growth, common architectural leak vectors, and best practices to ensure
+rock-solid stability during marathon play sessions.</p>
+<h2 id="the-javascript-memory-heap-in-game-engines">The JavaScript
+Memory Heap in Game Engines</h2>
+<p>JavaScript manages memory dynamically through an automated heap. The
+heap stores reference types such as objects, arrays, closures, and class
+instances. During each frame—typically executing at 60 or 120 Hz—the
+engine processes game logic, updates entity component systems (ECS),
+calculates physics, and issues render commands.</p>
+<p>When dynamic data is created within these loops, the JavaScript
+runtime allocates space on the heap. When data is no longer referenced,
+the engine's Garbage Collector (GC) frees that space.</p>
+<p>In short gaming sessions, inefficient memory allocation might go
+unnoticed. However, during extended sessions lasting thirty minutes or
+several hours, even tiny memory retention issues accumulate. This leads
+to runaway heap expansion, causing the garbage collector to execute
+longer, blocking "stop-the-world" sweeps that cause frame drops,
+stutter, and eventual browser tab termination.</p>
+<h2 id="identifying-healthy-vs-pathological-heap-patterns">Identifying
+Healthy vs. Pathological Heap Patterns</h2>
+<p>Analyzing heap growth requires understanding the shape of memory
+metrics over time:</p>
+<ul>
+<li><strong>The Sawtooth Pattern (Healthy):</strong> A stable game
+exhibits a distinct "sawtooth" memory curve. As dynamic allocations
+occur, the heap line rises. When a GC cycle triggers, the line drops
+back to a consistent baseline. The baseline represents permanent,
+non-leaking state (loaded assets, core singletons, active scenes).</li>
+<li><strong>The Ascending Staircase (Pathological):</strong> When an
+engine suffers from memory leaks, the baseline post-GC memory value
+increases monotonically with each cycle. Despite GC sweeps, the runtime
+cannot reclaim unreachable or unintentionally referenced objects,
+pushing total heap usage closer to browser limits.</li>
+</ul>
+<h2 id="common-causes-of-heap-leaks-in-long-play-sessions">Common Causes
+of Heap Leaks in Long Play Sessions</h2>
+<p>Runaway heap growth in JavaScript games almost always stems from
+lingering references that prevent the GC from reclaiming dead
+memory:</p>
+<h3 id="1-per-frame-object-allocation">1. Per-Frame Object
+Allocation</h3>
+<p>Creating objects inside update or render loops—such as
+<code>new Vector2()</code>, temporary transformation matrices, or
+dynamic arrays—creates excessive "garbage." While the GC eventually
+collects these, the rate of allocation can outpace GC cycles,
+artificially bloating the heap and inducing severe frame pacing
+spikes.</p>
+<h3 id="2-orphaned-event-listeners-and-callbacks">2. Orphaned Event
+Listeners and Callbacks</h3>
+<p>When game entities (enemies, projectiles, particles) are destroyed,
+failing to detach event listeners leaves references alive in dispatcher
+registries or the DOM. Because the listener callback retains the entity
+scope, the entire entity and its properties remain pinned in memory.</p>
+<h3 id="3-unbounded-caches-and-spatial-partitioning">3. Unbounded Caches
+and Spatial Partitioning</h3>
+<p>Spatial hashes, collision grids, and pathfinding graphs frequently
+cache temporary traversal data. If grids expand dynamically as players
+explore without pruning unvisited or out-of-bounds cells, memory climbs
+continuously.</p>
+<h3 id="4-closures-retaining-outer-scopes">4. Closures Retaining Outer
+Scopes</h3>
+<p>Functions generated on the fly or long-lived asynchronous promises
+often unintentionally retain outer variables. If a closure references an
+entire scene or manager to access a single value, the GC cannot collect
+the larger object until the closure resolves or dereferences.</p>
+<h2 id="methodologies-for-heap-growth-analysis">Methodologies for Heap
+Growth Analysis</h2>
+<h3 id="heap-profiling-with-chrome-devtools">Heap Profiling with Chrome
+DevTools</h3>
+<ol type="1">
+<li><strong>Heap Snapshots:</strong> Capture an initial baseline
+snapshot after the game loads into an active state. Play for a set
+duration (e.g., 15 minutes), and take a second snapshot. Repeat after 30
+minutes. Use the <strong>Comparison</strong> view to inspect objects
+created between snapshots. Sort by <code># Delta</code> and
+<code>Size Delta</code> to pinpoint runaway constructors.</li>
+<li><strong>Allocation Instrumentation on Timeline:</strong> Use the
+timeline recorder to watch memory spikes mapped to specific gameplay
+actions (spawning waves of enemies, moving between map sectors). Gray
+bars show retained allocations, while blue bars show memory that was
+successfully collected.</li>
+<li><strong>Retaining Paths Analysis:</strong> When an object fails to
+dereference, inspect its <strong>Retainer Tree</strong> in the DevTools
+Memory panel. This displays the chain of references holding the object
+to the <code>window</code> or root context.</li>
+</ol>
+<h3 id="in-game-telemetry-via-the-performance-api">In-Game Telemetry via
+the Performance API</h3>
+<p>For production or continuous automated playtesting, integrate
+real-time memory monitoring directly into development builds:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">monitorHeap</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">performance</span><span class="op">.</span><span class="at">memory</span>) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> used <span class="op">=</span> (<span class="bu">performance</span><span class="op">.</span><span class="at">memory</span><span class="op">.</span><span class="at">usedJSHeapSize</span> <span class="op">/</span> <span class="dv">1048576</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> total <span class="op">=</span> (<span class="bu">performance</span><span class="op">.</span><span class="at">memory</span><span class="op">.</span><span class="at">totalJSHeapSize</span> <span class="op">/</span> <span class="dv">1048576</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> limit <span class="op">=</span> (<span class="bu">performance</span><span class="op">.</span><span class="at">memory</span><span class="op">.</span><span class="at">jsHeapSizeLimit</span> <span class="op">/</span> <span class="dv">1048576</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">2</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">console</span><span class="op">.</span><span class="fu">log</span>(<span class="vs">`Heap: </span><span class="sc">${</span>used<span class="sc">}</span><span class="vs"> MB / </span><span class="sc">${</span>total<span class="sc">}</span><span class="vs"> MB (Limit: </span><span class="sc">${</span>limit<span class="sc">}</span><span class="vs"> MB)`</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p><em>Note: <code>performance.memory</code> is a non-standard API
+supported primarily in Chromium browsers, ideal for internal performance
+suites and debug overlays.</em></p>
+<h2 id="strategies-for-mitigating-heap-growth">Strategies for Mitigating
+Heap Growth</h2>
+<ul>
+<li><strong>Object Pooling:</strong> Pre-allocate static arrays of
+reusable entities (bullets, particles, damage numbers). Reset properties
+instead of instantiating new objects via <code>new</code> or discarding
+old ones to GC.</li>
+<li><strong>Explicit Lifecycle Hooks:</strong> Implement rigid
+<code>destroy()</code> or <code>dispose()</code> patterns across all
+game entities. Explicitly set inner references to <code>null</code>,
+clear arrays by setting <code>.length = 0</code>, and unsubscribe all
+listeners.</li>
+<li><strong>Static Math Objects:</strong> Allocate scratchpad variables
+(matrices, vectors, colors) outside loops and mutate them in place
+rather than returning new mathematical instances.</li>
+<li><strong>Use WeakReferences:</strong> When caching metadata against
+entities, leverage <code>WeakMap</code> or <code>WeakSet</code>. These
+structures allow keys to be garbage-collected if no other references
+exist, preventing the cache itself from being a source of leaks.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-game-memory-heap-growth-analysis';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transparency Sorting in 3D JavaScript Engines - javascript</title>
+    <meta name="description" content="Rendering transparent objects in 3D JavaScript game development requires coordinating material blend modes with depth buffer operations and draw-order sorting to prevent visual artifacts. When using WebGL-based libraries like Three.js or Babylon.js, opaqu">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/transparency-sorting-in-3-d-java-script-engines">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Transparency Sorting in 3D JavaScript Engines - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/transparency-sorting-in-3-d-java-script-engines" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Rendering transparent objects in 3D JavaScript game development requires coordinating material blend modes with depth buffer operations and draw-order sorting to prevent visual artifacts. When using WebGL-based libraries like Three.js or Babylon.js, opaqu" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="transparency-sorting-in-3d-javascript-engines">Transparency
+Sorting in 3D JavaScript Engines</h1>
+<p>Rendering transparent objects in 3D JavaScript game development
+requires coordinating material blend modes with depth buffer operations
+and draw-order sorting to prevent visual artifacts. When using
+WebGL-based libraries like Three.js or Babylon.js, opaque objects rely
+entirely on the depth buffer (Z-buffer) to manage occlusion, but
+transparent surfaces break this pipeline because their final color
+depends on the colors behind them. This article explains how blend modes
+interact with the depth buffer, why rendering engines sort transparent
+geometry, and the techniques used to resolve common transparency
+artifacts.</p>
+<h3 id="the-conflict-between-depth-testing-and-blending">The Conflict
+Between Depth Testing and Blending</h3>
+<p>In standard WebGL rendering, opaque meshes use depth testing
+(<code>gl.enable(gl.DEPTH_TEST)</code>) and depth writing
+(<code>gl.depthMask(true)</code>). When a fragment passes the depth
+test, it overwrites the pixel in the color buffer and updates the depth
+buffer.</p>
+<p>Transparent materials, however, calculate output color using a blend
+equation, most commonly standard alpha blending:</p>
+<p><code>Result = (SourceColor * SourceAlpha) + (DestinationColor * (1 - SourceAlpha))</code></p>
+<p>If a transparent mesh writes to the depth buffer, it reserves that
+depth value. Any geometry rendered afterward that sits behind this
+transparent surface will fail the depth test and be discarded entirely,
+creating a transparent "window" that mistakenly clips background
+objects. To resolve this, JavaScript engines conventionally disable
+depth writes (<code>depthWrite: false</code>) for transparent materials
+while keeping depth testing enabled (<code>depthTest: true</code>).</p>
+<h3 id="how-blend-modes-influence-sorting-requirements">How Blend Modes
+Influence Sorting Requirements</h3>
+<p>The blend mode applied to a material dictates whether the rendering
+order matters:</p>
+<ul>
+<li><strong>Normal / Alpha Blending:</strong> This mode is
+non-commutative (<span class="math inline">\(A \text{ over } B \neq B
+\text{ over } A\)</span>). Objects must be drawn in a strict
+back-to-front sequence relative to the camera. If a foreground
+transparent object is rendered before a background transparent object,
+the background object will not be properly blended.</li>
+<li><strong>Additive Blending:</strong> Typically configured as
+<code>gl.blendFunc(gl.ONE, gl.ONE)</code>. Because addition is
+commutative (<span class="math inline">\(A + B = B + A\)</span>), the
+draw order does not alter the mathematical result. Additive
+materials—frequently used for fire, light beams, sparks, and particle
+effects—can bypass back-to-front sorting entirely.</li>
+<li><strong>Multiply Blending:</strong> Darkens the background based on
+source color. Like alpha blending, multiply operations depend on
+execution order when mixed with other transparent surfaces,
+necessitating precise sorting.</li>
+</ul>
+<h3 id="cpu-side-sorting-in-javascript-engines">CPU-Side Sorting in
+JavaScript Engines</h3>
+<p>JavaScript 3D engines manage the rendering pipeline in distinct
+stages:</p>
+<ol type="1">
+<li><strong>Opaque Pass:</strong> All opaque objects are rendered first.
+Often, engines sort these front-to-back to maximize hardware "early-Z"
+rejection, which skips pixel shading for occluded surfaces.</li>
+<li><strong>Transparent Sorting:</strong> Engines gather all transparent
+objects, calculate their distances to the camera plane (usually using
+the center of the bounding box or sphere), and sort the draw queue in
+descending order (furthest to nearest).</li>
+<li><strong>Transparent Pass:</strong> The sorted transparent objects
+are drawn back-to-front with depth writing disabled, allowing each
+successive layer to blend over the previously written pixels.</li>
+</ol>
+<p>Engines like Three.js and Babylon.js provide hooks to manage this
+behavior manually. In Three.js, setting an integer value on
+<code>object.renderOrder</code> forces an explicit draw sequence,
+bypassing automatic camera-distance calculations. Babylon.js offers
+<code>mesh.alphaIndex</code> and custom sorting functions to resolve
+edge cases where bounding volume centers fail to represent the actual
+depth of large or irregular meshes.</p>
+<h3 id="limitations-and-advanced-solutions">Limitations and Advanced
+Solutions</h3>
+<p>Object-level sorting cannot solve every transparency issue. Common
+failure points include:</p>
+<ul>
+<li><strong>Intersecting Meshes:</strong> Two transparent meshes that
+pass through one another cannot be sorted correctly as whole objects;
+one will always render entirely in front of the other.</li>
+<li><strong>Self-Intersecting or Concave Geometry:</strong> A single
+complex mesh (like a glass bottle) contains back faces and front faces.
+Without mesh splitting or two-pass rendering (drawing back faces first,
+then front faces via culling), the internal surfaces will render
+incorrectly.</li>
+<li><strong>Cyclic Overlaps:</strong> When three objects overlap in a
+loop (A occludes B, B occludes C, C occludes A), no linear sorting order
+exists.</li>
+</ul>
+<p>To overcome these issues without costly CPU mesh splitting,
+developers use advanced techniques:</p>
+<ul>
+<li><strong>Alpha-to-Coverage:</strong> Used in conjunction with
+Multisample Anti-Aliasing (MSAA), this converts alpha values into
+screen-door dither patterns that write to the depth buffer, bypassing
+blend sorting entirely at the cost of slight visual noise.</li>
+<li><strong>Weighted Blended Order-Independent Transparency
+(WBOIT):</strong> A shader-based approximation that computes transparent
+surfaces without sorting by weighting fragments based on their depth and
+alpha, accumulating them in separate render targets before blending them
+into the final scene.</li>
+<li><strong>Fragment Linked Lists:</strong> With the transition to
+WebGPU, engines can implement compute- or raster-based per-pixel linked
+lists to sort fragments directly on the GPU, completely eliminating
+CPU-side sorting limitations.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/transparency-sorting-in-3-d-java-script-engines';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

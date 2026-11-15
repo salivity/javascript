@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Keyboards and Viewports in Mobile JS Games - javascript</title>
+    <meta name="description" content="In mobile JavaScript game development, on-screen virtual keyboards frequently disrupt rendering loops, user interface positioning, and touch event registration by dynamically altering browser viewports. When a player taps an input field—such as a chat bar">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/virtual-keyboards-and-viewports-in-mobile-js-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Virtual Keyboards and Viewports in Mobile JS Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/virtual-keyboards-and-viewports-in-mobile-js-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In mobile JavaScript game development, on-screen virtual keyboards frequently disrupt rendering loops, user interface positioning, and touch event registration by dynamically altering browser viewports. When a player taps an input field—such as a chat bar" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="virtual-keyboards-and-viewports-in-mobile-js-games">Virtual
+Keyboards and Viewports in Mobile JS Games</h1>
+<p>In mobile JavaScript game development, on-screen virtual keyboards
+frequently disrupt rendering loops, user interface positioning, and
+touch event registration by dynamically altering browser viewports. When
+a player taps an input field—such as a chat bar, player name prompt, or
+account login—the software keyboard slides into the display area. This
+article examines the distinction between layout and visual viewports
+during keyboard activation, the specific technical issues this causes
+for HTML5 and WebGL games, and practical strategies to prevent interface
+breaking.</p>
+<h2 id="layout-viewport-vs-visual-viewport">Layout Viewport vs. Visual
+Viewport</h2>
+<p>To understand how virtual keyboards impact games, developers must
+distinguish between the two mobile viewports:</p>
+<ol type="1">
+<li><strong>The Layout Viewport:</strong> The canvas upon which the
+browser draws CSS layouts. Historically, this corresponds to
+<code>window.innerWidth</code> and <code>window.innerHeight</code>.</li>
+<li><strong>The Visual Viewport:</strong> The portion of the screen
+currently visible to the user. This is represented by the
+<code>window.visualViewport</code> API.</li>
+</ol>
+<p>When a virtual keyboard appears, mobile browsers handle the screen
+occlusion using two distinct models:</p>
+<ul>
+<li><strong>Viewport Resizing:</strong> Some browsers resize the layout
+viewport to occupy only the space above the keyboard. This triggers
+standard CSS media queries, reflows, and <code>window.resize</code>
+events.</li>
+<li><strong>Overlay/Panned Mode:</strong> Other browsers keep the layout
+viewport intact and treat the keyboard as an overlay that shrinks only
+the <em>visual</em> viewport. In this mode, the browser often pans or
+scrolls the layout viewport upward so the active text field remains
+visible.</li>
+</ul>
+<h2 id="key-issues-caused-by-virtual-keyboards-in-games">Key Issues
+Caused by Virtual Keyboards in Games</h2>
+<h3 id="1-canvas-re-dimensioning-and-context-resets">1. Canvas
+Re-dimensioning and Context Resets</h3>
+<p>Most mobile JavaScript games scale their <code>&lt;canvas&gt;</code>
+dynamically to fill <code>window.innerWidth</code> and
+<code>window.innerHeight</code>. If the browser resizes the layout
+viewport upon opening the keyboard, the canvas dimensions change
+immediately. This can cause severe aspect ratio distortion,
+letterboxing, or expensive WebGL context buffer allocations that result
+in noticeable frame drops.</p>
+<h3 id="2-touch-coordinate-desynchronization">2. Touch Coordinate
+Desynchronization</h3>
+<p>Games typically map screen touches to in-game coordinates using
+<code>clientX</code>/<code>clientY</code> or
+<code>pageX</code>/<code>pageY</code> relative to
+<code>canvas.getBoundingClientRect()</code>. When a browser
+automatically pans the layout viewport upward to reveal a focused input,
+the canvas’s bounding rectangle shifts off-screen or out of alignment.
+If the coordinate transformation logic does not account for viewport
+scroll offsets (<code>visualViewport.offsetTop</code> and
+<code>visualViewport.offsetLeft</code>), touch inputs will miss their
+intended in-game targets.</p>
+<h3 id="3-unwanted-page-scrolling">3. Unwanted Page Scrolling</h3>
+<p>HTML5 games usually prevent default scrolling via CSS
+(<code>overflow: hidden</code>, <code>touch-action: none</code>).
+However, when a native <code>&lt;input&gt;</code> or
+<code>&lt;textarea&gt;</code> receives focus, the browser’s native focus
+management bypasses these CSS rules to center the input on the screen.
+This shifts the fixed-position canvas out of view, exposing white space
+below or above the game area.</p>
+<h2 id="technical-solutions-and-best-practices">Technical Solutions and
+Best Practices</h2>
+<h3 id="utilize-the-viewport-meta-interactive-widget-property">Utilize
+the Viewport Meta <code>interactive-widget</code> Property</h3>
+<p>Modern browsers support the <code>interactive-widget</code> key
+within the viewport <code>&lt;meta&gt;</code> tag. This attribute
+explicitly instructs the browser on how to treat the virtual
+keyboard:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode html"><code class="sourceCode html"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">meta</span><span class="ot"> name</span><span class="op">=</span><span class="st">&quot;viewport&quot;</span><span class="ot"> content</span><span class="op">=</span><span class="st">&quot;width=device-width, initial-scale=1.0, interactive-widget=overlays-content&quot;</span><span class="dt">&gt;</span></span></code></pre></div>
+<ul>
+<li><code>resizes-visual</code>: Only the visual viewport shrinks; the
+layout viewport remains unchanged.</li>
+<li><code>resizes-content</code>: The layout viewport shrinks,
+triggering a full CSS layout resize.</li>
+<li><code>overlays-content</code>: The keyboard overlays the content
+entirely without altering any viewport dimensions.</li>
+</ul>
+<p>Using <code>overlays-content</code> or <code>resizes-visual</code>
+prevents the main layout viewport from shrinking, stopping unwanted
+canvas resizing.</p>
+<h3 id="decouple-game-scaling-from-the-layout-viewport">Decouple Game
+Scaling from the Layout Viewport</h3>
+<p>Do not rely exclusively on the global <code>window.onresize</code>
+event to resize the canvas. Monitor the
+<code>window.visualViewport</code> API separately:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="bu">window</span><span class="op">.</span><span class="at">visualViewport</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">window</span><span class="op">.</span><span class="at">visualViewport</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;resize&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Determine if the keyboard opened by checking the height difference</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> isKeyboardOpen <span class="op">=</span> <span class="bu">window</span><span class="op">.</span><span class="at">visualViewport</span><span class="op">.</span><span class="at">height</span> <span class="op">&lt;</span> <span class="bu">window</span><span class="op">.</span><span class="at">innerHeight</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Adjust UI overlays instead of rebuilding the primary game canvas</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">adjustChatUI</span>(<span class="bu">window</span><span class="op">.</span><span class="at">visualViewport</span><span class="op">.</span><span class="at">height</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>By decoupling the game render target from the input UI, the game can
+keep the 3D scene or 2D world running at native device resolution while
+only translating UI elements upward to sit atop the keyboard.</p>
+<h3 id="use-the-virtualkeyboard-api">Use the VirtualKeyboard API</h3>
+<p>Chromium-based browsers provide the
+<code>navigator.virtualKeyboard</code> interface, granting programmatic
+control over the keyboard overlay behavior:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="st">&#39;virtualKeyboard&#39;</span> <span class="kw">in</span> <span class="bu">navigator</span>) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">navigator</span><span class="op">.</span><span class="at">virtualKeyboard</span><span class="op">.</span><span class="at">overlaysContent</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="bu">navigator</span><span class="op">.</span><span class="at">virtualKeyboard</span><span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;geometrychange&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> { x<span class="op">,</span> y<span class="op">,</span> width<span class="op">,</span> height } <span class="op">=</span> <span class="bu">event</span><span class="op">.</span><span class="at">target</span><span class="op">.</span><span class="at">boundingRect</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Reposition HTML/Canvas input fields using the exact keyboard dimensions</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Setting <code>overlaysContent = true</code> prevents the browser from
+docking the layout viewport or scrolling the page, giving the game
+complete authority over what elements shift to stay visible.</p>
+<h3 id="manage-hidden-inputs-safely">Manage Hidden Inputs Safely</h3>
+<p>When using an offscreen <code>&lt;input&gt;</code> element to capture
+user text for in-engine rendering, never position it using large
+negative coordinate values (e.g., <code>top: -9999px</code>). Doing so
+causes the browser to pan the screen thousands of pixels away when
+focused. Instead, position the input element directly under the user's
+touch location with zero opacity:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode css"><code class="sourceCode css"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">.hidden-game-input</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">position</span><span class="ch">:</span> <span class="dv">absolute</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">opacity</span><span class="ch">:</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">pointer-events</span><span class="ch">:</span> <span class="bu">auto</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">z-index</span><span class="ch">:</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">width</span><span class="ch">:</span> <span class="dv">1</span><span class="dt">px</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">height</span><span class="ch">:</span> <span class="dv">1</span><span class="dt">px</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Fixing the input coordinates directly where the user expects to type
+eliminates browser-induced scrolling anomalies while seamlessly
+triggering the software keyboard.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/virtual-keyboards-and-viewports-in-mobile-js-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

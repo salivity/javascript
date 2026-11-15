@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lag Compensation Hit Registration in JavaScript - javascript</title>
+    <meta name="description" content="Lag compensation ensures fair, authoritative hit registration in competitive multiplayer JavaScript games by bridging the perceptual gap caused by network latency between clients and the server. In high-stakes web-based games built on Node.js and browser">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/lag-compensation-hit-registration-in-java-script">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lag Compensation Hit Registration in JavaScript - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/lag-compensation-hit-registration-in-java-script" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Lag compensation ensures fair, authoritative hit registration in competitive multiplayer JavaScript games by bridging the perceptual gap caused by network latency between clients and the server. In high-stakes web-based games built on Node.js and browser" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lag-compensation-hit-registration-in-javascript">Lag
+Compensation Hit Registration in JavaScript</h1>
+<p>Lag compensation ensures fair, authoritative hit registration in
+competitive multiplayer JavaScript games by bridging the perceptual gap
+caused by network latency between clients and the server. In high-stakes
+web-based games built on Node.js and browser APIs, network delay
+inevitably causes a target’s true server-side position to drift away
+from where a shooter sees it on their screen. To resolve this
+discrepancy, modern netcode implements server-side rewinding, client
+prediction, and temporal buffer management. This article examines the
+mechanics of these lag compensation systems, their implementation inside
+JavaScript runtimes, and how developers prevent exploits while
+optimizing for the V8 engine.</p>
+<h3 id="the-latency-discrepancy-problem">The Latency Discrepancy
+Problem</h3>
+<p>In a client-server architecture, authoritative state resides
+exclusively on the server. When Player A fires at Player B, the command
+must travel over the network.</p>
+<p>Under a naive implementation, by the time the server processes Player
+A's "shoot" packet, Player B has already moved to a new position. If the
+server evaluates collision detection using its present state, the shot
+misses even though Player A aimed accurately on their screen. This
+creates a frustrating experience known as "dusting" or missed shots
+caused entirely by network latency.</p>
+<h3 id="the-mechanism-server-side-history-buffering">The Mechanism:
+Server-Side History Buffering</h3>
+<p>To solve this, competitive netcode adopts server-side rewind (often
+termed "favor-the-shooter" lag compensation). The server continuously
+stores a sliding history of entity transforms inside a ring buffer.</p>
+<ol type="1">
+<li><strong>State Buffering:</strong> On every fixed simulation tick
+(e.g., 60 Hz), the server records the positions, orientations, and
+bounding boxes of all hitboxes, indexing them with high-precision
+timestamps generated via <code>performance.now()</code>.</li>
+<li><strong>Packet Timestamping:</strong> When Player A shoots, the
+client sends an input packet containing the client-side tick or render
+timestamp at which the trigger was pulled.</li>
+<li><strong>World Rewind:</strong> Upon packet arrival, the server
+calculates Player A's latency (Round-Trip Time / 2 + interpolation
+delay). It looks up its historical buffer and linearly interpolates the
+hitboxes of all other players back to the exact millisecond Player A
+fired.</li>
+<li><strong>Authoritative Raycasting:</strong> The server performs the
+raycast or swept-sphere collision check against the reconstructed
+historical hitboxes.</li>
+<li><strong>State Restoration:</strong> The server applies damage if a
+hit is verified and immediately restores the game world to the present
+tick to continue the main simulation loop.</li>
+</ol>
+<h3 id="javascript-and-nodejs-implementation-constraints">JavaScript and
+Node.js Implementation Constraints</h3>
+<p>Executing deterministic lag compensation in JavaScript requires
+handling engine-specific hurdles, specifically garbage collection (GC)
+and network protocols.</p>
+<h4 id="circular-memory-buffers">Circular Memory Buffers</h4>
+<p>Constantly instantiating snapshot objects for dozens of players at 60
+Hz triggers the V8 garbage collector, leading to frame drops and tick
+latency spikes. Developers bypass this by pre-allocating fixed-size
+typed arrays inside circular buffers:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SnapshotBuffer {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(size<span class="op">,</span> entityCount) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">size</span> <span class="op">=</span> size<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Pre-allocated flat buffer: [time, entityId, x, y, z, ...]</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">buffer</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(size <span class="op">*</span> entityCount <span class="op">*</span> <span class="dv">5</span>)<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">head</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">insert</span>(tickTime<span class="op">,</span> entities) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Write directly to pre-allocated memory to avoid object allocation</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">interpolate</span>(targetTime) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Find surrounding snapshots and interpolate positions</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4
+id="networking-protocols-webrtc-datachannels-vs-websockets">Networking
+Protocols: WebRTC DataChannels vs. WebSockets</h4>
+<p>Competitive hit registration requires low jitter and minimal packet
+overhead. While WebSockets run on TCP, TCP's head-of-line blocking
+creates catastrophic delay spikes when packets drop. Competitive
+JavaScript games utilize WebRTC DataChannels configured to unreliable,
+unordered mode (UDP behavior). This ensures the most recent input
+packets arrive with zero transport-layer delays.</p>
+<h4 id="high-resolution-timing">High-Resolution Timing</h4>
+<p>JavaScript’s standard <code>Date.now()</code> is prone to operating
+system time adjustments and low resolution. High-performance netcode
+uses <code>performance.now()</code> in Node.js and the browser to track
+monotonic sub-millisecond timestamps, preventing clock skew from
+corrupting history lookups.</p>
+<h3 id="security-and-exploitation-mitigation">Security and Exploitation
+Mitigation</h3>
+<p>Rewind-based hit registration intrinsically trusts the client's
+reported firing time, introducing vulnerability to exploitation.
+Developers implement strict server-side validation rules:</p>
+<ul>
+<li><strong>Maximum Rewind Clamping:</strong> The server strictly caps
+the maximum rewind window (typically 150ms to 200ms). If a packet
+arrives from a high-ping player claiming an action from 400ms ago, the
+server rejects or clamps it. This prevents low-ping players from being
+shot deep behind solid cover.</li>
+<li><strong>Continuous Latency Tracking:</strong> The server measures
+each client’s ping continuously using ping/pong heartbeats. If a client
+submits a packet with a firing timestamp that deviates from the
+calculated round-trip average, the server discards the event.</li>
+<li><strong>Line-of-Sight and Obstacle Verification:</strong> Even
+within rewound states, static environment geometry is checked to ensure
+no impenetrable obstacles were present between the shooter's rewound
+position and the target's rewound position.</li>
+</ul>
+<p>Through fixed-memory snapshot buffering, deterministic interpolation,
+and WebRTC data channels, JavaScript can reliably deliver the
+low-latency hit registration required for competitive browser-based
+games.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/lag-compensation-hit-registration-in-java-script';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

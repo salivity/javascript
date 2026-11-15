@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identify Detached Entities Using JS Heap Snapshots - javascript</title>
+    <meta name="description" content="Profiling memory heap snapshots is a diagnostic technique in JavaScript game development used to detect and eliminate memory leaks caused by detached entities. When dynamic game objects—such as enemies, projectiles, or particles—are removed from a scene g">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/identify-detached-entities-using-js-heap-snapshots">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Identify Detached Entities Using JS Heap Snapshots - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/identify-detached-entities-using-js-heap-snapshots" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Profiling memory heap snapshots is a diagnostic technique in JavaScript game development used to detect and eliminate memory leaks caused by detached entities. When dynamic game objects—such as enemies, projectiles, or particles—are removed from a scene g" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="identify-detached-entities-using-js-heap-snapshots">Identify
+Detached Entities Using JS Heap Snapshots</h1>
+<p>Profiling memory heap snapshots is a diagnostic technique in
+JavaScript game development used to detect and eliminate memory leaks
+caused by detached entities. When dynamic game objects—such as enemies,
+projectiles, or particles—are removed from a scene graph, lingering
+references can prevent the JavaScript garbage collector from reclaiming
+their memory. By capturing baseline and post-cleanup heap snapshots
+through browser developer tools, developers can compare object counts,
+inspect the retaining paths from the garbage collection root, and
+isolate the exact references keeping obsolete entities in memory.</p>
+<h3 id="understanding-detached-entities-in-games">Understanding Detached
+Entities in Games</h3>
+<p>In JavaScript game programming, an entity is considered detached when
+it has been logically destroyed or removed from the active game loop,
+physics simulation, or display hierarchy, yet remains allocated in
+memory. This usually occurs with objects like sprites, Three.js meshes,
+or custom Entity-Component-System (ECS) instances. Even if an entity is
+removed from a parent container or scene array, the JavaScript runtime
+cannot free its memory if any other variable, closure, or data structure
+continues to hold a reference to it. Over time, these uncollected
+entities accumulate, inflating memory usage, degrading frame rates, and
+causing eventual browser tab crashes.</p>
+<h3 id="the-heap-profiling-workflow">The Heap Profiling Workflow</h3>
+<p>To expose retained detached entities, developers use the Memory
+profiler found in modern browser developer tools (such as Chrome
+DevTools):</p>
+<ol type="1">
+<li><strong>Take a Baseline Snapshot:</strong> Load the game into a
+steady state (e.g., the main level before spawning dynamic objects) and
+record Snapshot 1.</li>
+<li><strong>Execute the Gameplay Cycle:</strong> Trigger the creation
+and subsequent destruction of the entities in question, such as spawning
+a wave of enemies and destroying them.</li>
+<li><strong>Trigger Manual Garbage Collection:</strong> Click the
+"Collect Garbage" (trash can) icon in DevTools to ensure the engine
+flushes any legitimately unreachable memory.</li>
+<li><strong>Take a Follow-Up Snapshot:</strong> Record Snapshot 2
+immediately after the garbage collection step.</li>
+</ol>
+<h3 id="comparing-snapshots-to-isolate-leaks">Comparing Snapshots to
+Isolate Leaks</h3>
+<p>DevTools allows developers to switch the view mode of Snapshot 2 from
+"Summary" to "Comparison" against Snapshot 1. This filters the data to
+display the net delta of allocated objects between the two points in
+time.</p>
+<p>By sorting by the <code># Alloc</code> (number of allocations) or
+<code># Delta</code> column, developers can immediately spot constructor
+types that should have returned to zero net change but instead show
+positive balances. For example, if 50 <code>Enemy</code> objects were
+spawned and defeated, the <code># Delta</code> for the
+<code>Enemy</code> constructor should be <code>0</code>. A positive
+number confirms that detached entities are persisting.</p>
+<h3 id="reading-retainer-trees-and-retained-size">Reading Retainer Trees
+and Retained Size</h3>
+<p>Selecting a leaked entity within the heap snapshot reveals its
+Retainers panel. This view displays the chain of references (the
+retaining path) that connects the detached object back to a Garbage
+Collection (GC) root, such as the <code>window</code> object or an
+active execution context:</p>
+<ul>
+<li><strong>Shallow Size vs. Retained Size:</strong> The shallow size is
+the memory directly held by the entity itself, while the retained size
+is the total memory that would be freed if the entity and its isolated
+children were deleted. Detached entities often have small shallow sizes
+but massive retained sizes because they hold textures, geometry buffers,
+and nested component arrays.</li>
+<li><strong>Tracing the Culprit:</strong> Expanding the nodes in the
+Retainers panel reveals the exact variable, array, or closure pinning
+the entity. Common causes include unremoved event listeners, global
+tracking arrays, physics engine collision registries, or timer callbacks
+(<code>setInterval</code>/<code>requestAnimationFrame</code>) capturing
+the entity within their lexical scope.</li>
+</ul>
+<p>Once the retaining reference is identified, developers can resolve
+the leak by explicitly nullifying references, clearing arrays, or
+unregistering event listeners as part of the entity's destruction
+lifecycle.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/identify-detached-entities-using-js-heap-snapshots';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

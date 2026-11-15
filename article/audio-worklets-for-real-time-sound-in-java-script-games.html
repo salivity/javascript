@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Worklets for Real-Time Sound in JavaScript Games - javascript</title>
+    <meta name="description" content="Audio Worklets provide a powerful mechanism in the Web Audio API for generating low-latency, procedural sound effects and dynamic music directly within browser-based games. By offloading audio computation from the main UI thread to a dedicated rendering t">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/audio-worklets-for-real-time-sound-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Audio Worklets for Real-Time Sound in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/audio-worklets-for-real-time-sound-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Audio Worklets provide a powerful mechanism in the Web Audio API for generating low-latency, procedural sound effects and dynamic music directly within browser-based games. By offloading audio computation from the main UI thread to a dedicated rendering t" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="audio-worklets-for-real-time-sound-in-javascript-games">Audio
+Worklets for Real-Time Sound in JavaScript Games</h1>
+<p>Audio Worklets provide a powerful mechanism in the Web Audio API for
+generating low-latency, procedural sound effects and dynamic music
+directly within browser-based games. By offloading audio computation
+from the main UI thread to a dedicated rendering thread, developers can
+synthesize sound waves mathematically in real time without causing audio
+dropouts or suffering from performance hits caused by complex game
+physics, rendering, or garbage collection. This article explores the
+architecture of custom Audio Worklets, detailing how their dual-thread
+structure, real-time sample processing, and communication channels
+enable responsive sound synthesis for modern JavaScript game
+development.</p>
+<h3 id="the-dedicated-audio-rendering-thread">The Dedicated Audio
+Rendering Thread</h3>
+<p>In traditional browser execution, JavaScript runs on a single main
+thread alongside DOM manipulation, input handling, physics calculations,
+and canvas rendering. Legacy Web Audio approaches, such as the
+deprecated <code>ScriptProcessorNode</code>, attempted to generate
+procedural audio on this shared thread, which inevitably resulted in
+buffer underruns, popping, and noticeable latency whenever the game
+engine experienced a frame drop.</p>
+<p>The <code>AudioWorklet</code> architecture solves this by delegating
+audio rendering to a separate, high-priority background thread. This
+thread operates independently of the main browser event loop,
+guaranteeing deterministic execution cycles regardless of what happens
+on screen. For video games that require responsive audio cues—such as
+pitch changes based on engine velocity or dynamically generated laser
+sounds—this isolation ensures uninterrupted, glitch-free audio
+playback.</p>
+<h3 id="the-dual-class-architecture">The Dual-Class Architecture</h3>
+<p>Implementing a custom Audio Worklet requires defining two tightly
+coupled components:</p>
+<ol type="1">
+<li><strong><code>AudioWorkletProcessor</code></strong>: Executed
+entirely on the audio rendering thread. It contains the core synthesis
+algorithms and handles the raw sample manipulation within an isolated
+global scope (<code>AudioWorkletGlobalScope</code>).</li>
+<li><strong><code>AudioWorkletNode</code></strong>: Created on the main
+execution thread as part of the standard <code>AudioContext</code>
+graph. It represents the processor in the main thread and acts as the
+bridge for routing audio to destination nodes (such as speakers or gain
+nodes) and transmitting parameters from game logic.</li>
+</ol>
+<p>To initialize this system, the game loads the processor file via
+<code>audioContext.audioWorklet.addModule('processor.js')</code>. Once
+loaded, an instance of the custom <code>AudioWorkletNode</code> is
+instantiated and connected to the main audio graph.</p>
+<h3 id="the-real-time-processing-loop">The Real-Time Processing
+Loop</h3>
+<p>At the heart of every custom sound synthesizer is the processor's
+<code>process()</code> method. The browser's audio engine invokes this
+method periodically with a fixed quantum—typically 128 sample frames per
+channel.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SynthProcessor <span class="kw">extends</span> AudioWorkletProcessor {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span>()<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">phase</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="bu">process</span>(inputs<span class="op">,</span> outputs<span class="op">,</span> parameters) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> output <span class="op">=</span> outputs[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> channel <span class="op">=</span> output[<span class="dv">0</span>]<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> sampleRate <span class="op">=</span> <span class="dv">44100</span><span class="op">;</span> <span class="co">// Typically obtained from global context</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> frequency <span class="op">=</span> parameters<span class="op">.</span><span class="at">frequency</span> <span class="op">?</span> parameters<span class="op">.</span><span class="at">frequency</span>[<span class="dv">0</span>] <span class="op">:</span> <span class="dv">440</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> channel<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Direct sample calculation (e.g., Sine wave synthesis)</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      channel[i] <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">sin</span>(<span class="kw">this</span><span class="op">.</span><span class="at">phase</span>)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      <span class="kw">this</span><span class="op">.</span><span class="at">phase</span> <span class="op">+=</span> (<span class="dv">2</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="cn">PI</span> <span class="op">*</span> frequency) <span class="op">/</span> sampleRate<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span> <span class="co">// Keeps the processor alive</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">registerProcessor</span>(<span class="st">&#39;synth-processor&#39;</span><span class="op">,</span> SynthProcessor)<span class="op">;</span></span></code></pre></div>
+<p>Within this 128-sample loop, game developers have absolute control
+over every floating-point sample generated. Real-time mathematical
+operations can be applied to generate simple waveforms (sine, triangle,
+square, saw), frequency-modulated (FM) signals, white noise for
+explosions, or recursive digital filter algorithms for physical modeling
+synthesis.</p>
+<h3 id="communication-and-parameter-automation">Communication and
+Parameter Automation</h3>
+<p>Real-time game synthesis requires dynamic modulation based on player
+interactions. Because the main thread and the worklet processor reside
+in different execution contexts, they cannot share direct object
+references. Sound manipulation is handled through two methods:</p>
+<ul>
+<li><strong>AudioParams</strong>: Developers can register custom audio
+parameters using the <code>parameterDescriptors</code> static getter on
+the processor. These parameters can be scheduled on the main thread with
+sample-accurate precision using native Web Audio methods like
+<code>setValueAtTime()</code> or <code>linearRampToValueAtTime()</code>.
+The processor receives these parameters inside the
+<code>process()</code> function as typed arrays, allowing parameter
+changes to sync perfectly with individual audio samples.</li>
+<li><strong>MessagePort</strong>: For discrete events—such as triggering
+a jump sound, passing wavetable arrays, or toggling synthesis modes—the
+node and processor communicate via asynchronous messages using the
+built-in <code>port.postMessage()</code> and <code>port.onmessage</code>
+handlers.</li>
+</ul>
+<p>By synthesizing audio algorithmically at the sample level using Audio
+Worklets, JavaScript game developers eliminate reliance on static
+pre-recorded assets, significantly reduce game bundle sizes, and achieve
+ultra-responsive, dynamic acoustic environments that scale with
+gameplay.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/audio-worklets-for-real-time-sound-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

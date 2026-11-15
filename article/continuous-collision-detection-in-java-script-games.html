@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Collision Detection in JavaScript Games - javascript</title>
+    <meta name="description" content="Continuous collision detection (CCD) is an algorithmic physics technique used in game development to predict and resolve collisions by calculating an object&#39;s trajectory over time rather than checking for overlaps at static intervals. In fast-paced JavaSc">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/continuous-collision-detection-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Continuous Collision Detection in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/continuous-collision-detection-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Continuous collision detection (CCD) is an algorithmic physics technique used in game development to predict and resolve collisions by calculating an object&#39;s trajectory over time rather than checking for overlaps at static intervals. In fast-paced JavaSc" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="continuous-collision-detection-in-javascript-games">Continuous
+Collision Detection in JavaScript Games</h1>
+<p>Continuous collision detection (CCD) is an algorithmic physics
+technique used in game development to predict and resolve collisions by
+calculating an object's trajectory over time rather than checking for
+overlaps at static intervals. In fast-paced JavaScript games, high-speed
+objects like bullets or sprinting characters often move farther in a
+single frame than their own physical dimensions, causing them to
+completely pass through barriers undetected—a glitch known as tunneling.
+This article explains the mechanics of tunneling, how CCD algorithms
+solve it by treating movement as a continuous volume or ray, and how to
+effectively implement these concepts in JavaScript physics loops.</p>
+<h3 id="the-mechanics-of-tunneling">The Mechanics of Tunneling</h3>
+<p>Most standard 2D and 3D game engines use discrete collision
+detection. In a typical JavaScript game loop driven by
+<code>requestAnimationFrame</code>, the engine calculates physics
+updates in discrete time steps (often roughly 16.6 milliseconds at 60
+frames per second).</p>
+<p>In a discrete system, the engine updates an entity's position based
+on its velocity and then checks if its bounding box intersects with any
+obstacles:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Discrete update: Checks position only at fixed points in time</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>player<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> player<span class="op">.</span><span class="at">vx</span> <span class="op">*</span> deltaTime<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>player<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> player<span class="op">.</span><span class="at">vy</span> <span class="op">*</span> deltaTime<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">checkOverlap</span>(player<span class="op">,</span> wall)) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">resolveCollision</span>(player<span class="op">,</span> wall)<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>If an object moves at 1,000 pixels per second, it travels
+approximately 16.6 pixels per frame. If it encounters a wall that is
+only 10 pixels thick, the object can be in front of the wall in frame
+one and completely behind it in frame two. Because the object was never
+directly overlapping the wall at the exact moment a frame was processed,
+the discrete check fails, and the object tunnels through the solid
+obstacle.</p>
+<h3 id="what-is-continuous-collision-detection">What is Continuous
+Collision Detection?</h3>
+<p>Continuous collision detection prevents tunneling by analyzing the
+entire path an object travels between two consecutive time steps.
+Instead of asking, "Is the object intersecting an obstacle right now?",
+CCD asks, "Did the object's path intersect an obstacle between the
+previous frame and this frame?"</p>
+<p>By calculating the Time of Impact (TOI), CCD determines the precise
+point in time (from <span class="math inline">\(t = 0\)</span> to <span
+class="math inline">\(t = 1\)</span> within the current frame) where
+contact first occurs. The physics solver can then move the entity up to
+the point of contact, resolve the impact (such as bouncing or stopping),
+and simulate the remainder of the time step accordingly.</p>
+<h3 id="core-ccd-techniques-in-javascript">Core CCD Techniques in
+JavaScript</h3>
+<p>JavaScript developers generally implement CCD using one of two
+primary approaches depending on the size and shape of the moving
+entity.</p>
+<h4 id="1-raycasting-point-based-ccd">1. Raycasting (Point-Based
+CCD)</h4>
+<p>For small, fast-moving items such as bullets, lasers, or tiny debris,
+raycasting is the most efficient CCD method. Instead of treating the
+projectile as a full bounding box, the engine creates a directed line
+segment from the projectile's previous position <span
+class="math inline">\((x_1, y_1)\)</span> to its prospective new
+position <span class="math inline">\((x_2, y_2)\)</span>.</p>
+<p>The engine then runs a line-intersection algorithm against the edges
+of scene colliders. If the line intersects an edge:</p>
+<ul>
+<li>A collision is registered.</li>
+<li>The exact point of intersection is calculated.</li>
+<li>The projectile is positioned at the intersection point, and its
+impact callback is triggered.</li>
+</ul>
+<h4 id="2-swept-volumes-swept-aabb">2. Swept Volumes (Swept AABB)</h4>
+<p>For larger objects where dimensions cannot be reduced to a single
+point, engines use swept volume tests, most commonly Swept Axis-Aligned
+Bounding Boxes (Swept AABB).</p>
+<p>A Swept AABB expands the target's bounding box along its movement
+vector, forming an extruded polygon or bounding volume that covers all
+space occupied by the object during the frame. The algorithm calculates
+the distance to the obstacle on each axis and divides it by the velocity
+to determine the exact entry and exit times of the collision:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sweptAABB</span>(box<span class="op">,</span> velocity<span class="op">,</span> obstacle) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> xInvEntry<span class="op">,</span> yInvEntry<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> xInvExit<span class="op">,</span> yInvExit<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Find the distance between the objects on the near and far sides</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (velocity<span class="op">.</span><span class="at">x</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        xInvEntry <span class="op">=</span> obstacle<span class="op">.</span><span class="at">x</span> <span class="op">-</span> (box<span class="op">.</span><span class="at">x</span> <span class="op">+</span> box<span class="op">.</span><span class="at">width</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        xInvExit <span class="op">=</span> (obstacle<span class="op">.</span><span class="at">x</span> <span class="op">+</span> obstacle<span class="op">.</span><span class="at">width</span>) <span class="op">-</span> box<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        xInvEntry <span class="op">=</span> (obstacle<span class="op">.</span><span class="at">x</span> <span class="op">+</span> obstacle<span class="op">.</span><span class="at">width</span>) <span class="op">-</span> box<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        xInvExit <span class="op">=</span> obstacle<span class="op">.</span><span class="at">x</span> <span class="op">-</span> (box<span class="op">.</span><span class="at">x</span> <span class="op">+</span> box<span class="op">.</span><span class="at">width</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (velocity<span class="op">.</span><span class="at">y</span> <span class="op">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        yInvEntry <span class="op">=</span> obstacle<span class="op">.</span><span class="at">y</span> <span class="op">-</span> (box<span class="op">.</span><span class="at">y</span> <span class="op">+</span> box<span class="op">.</span><span class="at">height</span>)<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        yInvExit <span class="op">=</span> (obstacle<span class="op">.</span><span class="at">y</span> <span class="op">+</span> obstacle<span class="op">.</span><span class="at">height</span>) <span class="op">-</span> box<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        yInvEntry <span class="op">=</span> (obstacle<span class="op">.</span><span class="at">y</span> <span class="op">+</span> obstacle<span class="op">.</span><span class="at">height</span>) <span class="op">-</span> box<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        yInvExit <span class="op">=</span> obstacle<span class="op">.</span><span class="at">y</span> <span class="op">-</span> (box<span class="op">.</span><span class="at">y</span> <span class="op">+</span> box<span class="op">.</span><span class="at">height</span>)<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate time of collision on each axis (scaled from 0.0 to 1.0)</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> xEntry <span class="op">=</span> velocity<span class="op">.</span><span class="at">x</span> <span class="op">===</span> <span class="dv">0</span> <span class="op">?</span> <span class="op">-</span><span class="kw">Infinity</span> <span class="op">:</span> xInvEntry <span class="op">/</span> velocity<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> xExit <span class="op">=</span> velocity<span class="op">.</span><span class="at">x</span> <span class="op">===</span> <span class="dv">0</span> <span class="op">?</span> <span class="kw">Infinity</span> <span class="op">:</span> xInvExit <span class="op">/</span> velocity<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> yEntry <span class="op">=</span> velocity<span class="op">.</span><span class="at">y</span> <span class="op">===</span> <span class="dv">0</span> <span class="op">?</span> <span class="op">-</span><span class="kw">Infinity</span> <span class="op">:</span> yInvEntry <span class="op">/</span> velocity<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> yExit <span class="op">=</span> velocity<span class="op">.</span><span class="at">y</span> <span class="op">===</span> <span class="dv">0</span> <span class="op">?</span> <span class="kw">Infinity</span> <span class="op">:</span> yInvExit <span class="op">/</span> velocity<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> entryTime <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(xEntry<span class="op">,</span> yEntry)<span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> exitTime <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(xExit<span class="op">,</span> yExit)<span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If no collision occurred along the path</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (entryTime <span class="op">&gt;</span> exitTime <span class="op">||</span> (xEntry <span class="op">&lt;</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> yEntry <span class="op">&lt;</span> <span class="dv">0</span>) <span class="op">||</span> xEntry <span class="op">&gt;</span> <span class="dv">1</span> <span class="op">||</span> yEntry <span class="op">&gt;</span> <span class="dv">1</span>) {</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> { <span class="dt">hit</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span> <span class="dt">time</span><span class="op">:</span> <span class="fl">1.0</span> }<span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Collision occurred at entryTime fraction of the frame</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> { <span class="dt">hit</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">time</span><span class="op">:</span> entryTime }<span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="performance-optimization-in-javascript">Performance Optimization
+in JavaScript</h3>
+<p>Because JavaScript executes on a single main thread alongside
+rendering and garbage collection tasks, running CCD on every game entity
+can cause performance drops. Continuous calculations are computationally
+heavier than simple discrete overlapping checks.</p>
+<p>To balance precision and performance:</p>
+<ul>
+<li><strong>Selective CCD:</strong> Only flag fast-moving dynamic actors
+(projectiles, speeding vehicles) for CCD checks. Slower elements, like
+walking NPCs, should rely on standard discrete collision detection.</li>
+<li><strong>Broad-Phase Filtering:</strong> Use spatial partitioning
+structures—such as Quadtrees, Grids, or dynamic bounding volume
+hierarchies (BVH)—to discard distant objects before running swept volume
+equations.</li>
+<li><strong>Sub-Stepping as an Alternative:</strong> If implementing
+swept math is impractical, you can simulate sub-stepping. This breaks a
+single frame's physics step into multiple smaller discrete steps (e.g.,
+running four 4ms updates instead of one 16ms update). While it increases
+CPU workload, it shortens the distance traveled per step, mitigating
+tunneling without writing custom continuous solvers.</li>
+<li><strong>Physics Engines:</strong> For complex 2D and 3D games,
+leverage existing JavaScript engines with built-in CCD implementations,
+such as Rapier (via WebAssembly) or Matter.js, which offer optimized
+continuous solvers for high-velocity bodies.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/continuous-collision-detection-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

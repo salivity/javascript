@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hidden Class Transitions in JavaScript Game Engines - javascript</title>
+    <meta name="description" content="Hidden class transitions are the internal mechanisms JavaScript runtime engines (like V8) use to track and optimize dynamic object shapes in memory. In JavaScript game programming, where thousands of entities, particles, and physics calculations occur wit">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/hidden-class-transitions-in-java-script-game-engines">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Hidden Class Transitions in JavaScript Game Engines - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/hidden-class-transitions-in-java-script-game-engines" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Hidden class transitions are the internal mechanisms JavaScript runtime engines (like V8) use to track and optimize dynamic object shapes in memory. In JavaScript game programming, where thousands of entities, particles, and physics calculations occur wit" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="hidden-class-transitions-in-javascript-game-engines">Hidden
+Class Transitions in JavaScript Game Engines</h1>
+<p>Hidden class transitions are the internal mechanisms JavaScript
+runtime engines (like V8) use to track and optimize dynamic object
+shapes in memory. In JavaScript game programming, where thousands of
+entities, particles, and physics calculations occur within tight
+16.6-millisecond frame budgets, unmanaged hidden class transitions
+degrade engine optimizations like Inline Caching. This article explains
+what hidden classes are, how transitions occur, their direct
+consequences on execution speed, and how game developers can prevent
+performance drops.</p>
+<h3 id="understanding-hidden-classes-and-shapes">Understanding Hidden
+Classes and Shapes</h3>
+<p>JavaScript is dynamically typed, meaning properties can be added to,
+modified, or removed from objects at runtime. Traditional object
+property lookups in dynamic languages rely on slow hash-table lookups.
+To overcome this, modern JavaScript engines create internal models
+called <strong>hidden classes</strong> (termed "Shapes" in SpiderMonkey
+or "Maps" in V8).</p>
+<p>When an object is created, the engine assigns it a base hidden class
+that tracks property names and their direct memory offsets. This allows
+the engine to compile property lookups into fast, direct offset reads,
+comparable to accessing members of a C++ struct.</p>
+<h3 id="how-hidden-class-transitions-occur">How Hidden Class Transitions
+Occur</h3>
+<p>Hidden classes are immutable. Whenever a property is dynamically
+added to an object, the engine cannot simply modify the existing hidden
+class. Instead, it creates a new hidden class and creates a transition
+path from the old one to the new one.</p>
+<p>Consider the following pattern common in unoptimized game code:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">createEnemy</span>() {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {}<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> enemyA <span class="op">=</span> <span class="fu">createEnemy</span>()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>enemyA<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>enemyA<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> enemyB <span class="op">=</span> <span class="fu">createEnemy</span>()<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>enemyB<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="dv">20</span><span class="op">;</span> <span class="co">// Added in different order</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>enemyB<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span></code></pre></div>
+<p>Even though <code>enemyA</code> and <code>enemyB</code> end up with
+the same properties (<code>x</code> and <code>y</code>), they possess
+different hidden classes because the properties were assigned in a
+different sequence. The engine creates two distinct transition
+paths:</p>
+<ol type="1">
+<li><code>Empty -&gt; [x] -&gt; [x, y]</code></li>
+<li><code>Empty -&gt; [y] -&gt; [y, x]</code></li>
+</ol>
+<p>Deleting a property using the <code>delete</code> operator causes an
+even harsher transition, often forcing the engine to abandon hidden
+classes entirely and downgrade the object to a slow dictionary mode.</p>
+<h3 id="impact-on-inline-caching-and-execution-speed">Impact on Inline
+Caching and Execution Speed</h3>
+<p>Engines optimize repetitive operations (such as loop iterations over
+an array of entities) using <strong>Inline Caching (IC)</strong>. When a
+function accesses a property on an object, the engine caches the
+object's hidden class and memory offset.</p>
+<p>IC operates across three states:</p>
+<ol type="1">
+<li><strong>Monomorphic:</strong> The code repeatedly encounters objects
+with the exact same hidden class. Lookups execute at maximum native
+speed.</li>
+<li><strong>Polymorphic:</strong> The code encounters a small number
+(typically 2 to 4) of different hidden classes. The engine emits a
+branch check, slightly slowing execution.</li>
+<li><strong>Megamorphic:</strong> The code encounters five or more
+distinct hidden classes. The engine deoptimizes the code, stops caching
+offsets, and falls back to costly dictionary lookups.</li>
+</ol>
+<p>In a 60 FPS game, a rendering loop or physics step iterates through
+thousands of objects per frame. If entities have mismatched shapes, the
+hot path becomes megamorphic. The resulting CPU overhead causes
+micro-stutters, dropped frames, and increased garbage collection
+pressure.</p>
+<h3 id="best-practices-for-javascript-game-developers">Best Practices
+for JavaScript Game Developers</h3>
+<p>To ensure high performance and keep hot loops monomorphic:</p>
+<ul>
+<li><strong>Initialize all properties in constructors:</strong> Always
+define every property inside the constructor or factory function. Even
+if a value is not immediately known, initialize it to <code>null</code>,
+<code>undefined</code>, or a default numeric value (e.g.,
+<code>0</code>).</li>
+<li><strong>Maintain strict initialization order:</strong> Always assign
+properties in the exact same sequence across all instances of an object
+type.</li>
+<li><strong>Avoid the <code>delete</code> keyword:</strong> Do not
+remove properties dynamically. Instead, toggle a boolean flag (such as
+<code>isActive = false</code>) or reset the property to
+<code>null</code>.</li>
+<li><strong>Use Flat Data Structures (Data-Oriented Design):</strong>
+When managing large sets of data, such as particle systems, use
+TypedArrays (<code>Float32Array</code>) rather than arrays of
+polymorphic JavaScript objects. TypedArrays bypass hidden class tracking
+entirely and leverage contiguous memory blocks.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/hidden-class-transitions-in-java-script-game-engines';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

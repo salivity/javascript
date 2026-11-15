@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Sync in JavaScript: Interpolation vs Extrapolation - javascript</title>
+    <meta name="description" content="In multiplayer JavaScript game development, network latency and variable packet delivery times make it impossible to display remote entity states in real time purely from raw server snapshots. To create smooth motion, developers rely on two fundamentally">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/network-sync-in-java-script-interpolation-vs-extrapolation">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Network Sync in JavaScript: Interpolation vs Extrapolation - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/network-sync-in-java-script-interpolation-vs-extrapolation" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In multiplayer JavaScript game development, network latency and variable packet delivery times make it impossible to display remote entity states in real time purely from raw server snapshots. To create smooth motion, developers rely on two fundamentally" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="network-sync-in-javascript-interpolation-vs-extrapolation">Network
+Sync in JavaScript: Interpolation vs Extrapolation</h1>
+<p>In multiplayer JavaScript game development, network latency and
+variable packet delivery times make it impossible to display remote
+entity states in real time purely from raw server snapshots. To create
+smooth motion, developers rely on two fundamentally different
+synchronization techniques: interpolation, which renders entities by
+smoothly blending between past known states, and extrapolation, which
+predicts future states based on an entity's last known trajectory.
+Understanding how these two approaches handle time, data, and prediction
+errors is essential for building responsive, lag-resilient browser games
+using WebSockets or WebRTC.</p>
+<h2 id="the-core-concept-past-vs-future">The Core Concept: Past vs.
+Future</h2>
+<p>The primary difference between interpolation and extrapolation is the
+direction in which they look relative to the most recent data received
+from the server.</p>
+<ul>
+<li><strong>Interpolation (Looking Backward):</strong> The client keeps
+a historical buffer of server snapshots and renders the game object at a
+point in time <em>between</em> two known states (e.g., state <span
+class="math inline">\(A\)</span> and state <span
+class="math inline">\(B\)</span>). Because both points are already
+verified by the server, the client simply calculates the intermediate
+position using linear interpolation (<code>lerp</code>) or spherical
+interpolation (<code>slerp</code>).</li>
+<li><strong>Extrapolation (Looking Forward):</strong> When the client
+has not yet received a new state update from the server, it guesses
+where the entity should be right now or in the near future. Often
+referred to as "dead reckoning," extrapolation takes the last known
+position, velocity, and acceleration, projecting the entity forward
+using the elapsed time (<code>delta</code>).</li>
+</ul>
+<h2 id="how-interpolation-works-in-javascript">How Interpolation Works
+in JavaScript</h2>
+<p>Interpolation requires an intentional rendering delay (interpolation
+buffer), typically between 50ms and 100ms.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Basic linear interpolation (lerp)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">lerp</span>(start<span class="op">,</span> end<span class="op">,</span> t) {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> start <span class="op">+</span> (end <span class="op">-</span> start) <span class="op">*</span> t<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Updating position between past snapshots</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateInterpolatedEntity</span>(entity<span class="op">,</span> renderTime) {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> p0 <span class="op">=</span> entity<span class="op">.</span><span class="at">buffer</span>[<span class="dv">0</span>]<span class="op">;</span> <span class="co">// Older snapshot</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> p1 <span class="op">=</span> entity<span class="op">.</span><span class="at">buffer</span>[<span class="dv">1</span>]<span class="op">;</span> <span class="co">// Newer snapshot</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (p0 <span class="op">&amp;&amp;</span> p1) {</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> total <span class="op">=</span> p1<span class="op">.</span><span class="at">timestamp</span> <span class="op">-</span> p0<span class="op">.</span><span class="at">timestamp</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> current <span class="op">=</span> renderTime <span class="op">-</span> p0<span class="op">.</span><span class="at">timestamp</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> alpha <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(current <span class="op">/</span> total<span class="op">,</span> <span class="dv">0</span>)<span class="op">,</span> <span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    entity<span class="op">.</span><span class="at">x</span> <span class="op">=</span> <span class="fu">lerp</span>(p0<span class="op">.</span><span class="at">x</span><span class="op">,</span> p1<span class="op">.</span><span class="at">x</span><span class="op">,</span> alpha)<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    entity<span class="op">.</span><span class="at">y</span> <span class="op">=</span> <span class="fu">lerp</span>(p0<span class="op">.</span><span class="at">y</span><span class="op">,</span> p1<span class="op">.</span><span class="at">y</span><span class="op">,</span> alpha)<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="strengths-of-interpolation">Strengths of Interpolation</h3>
+<ul>
+<li><strong>Visual Smoothness:</strong> Movement is deterministic and
+fluid because the client moves strictly between confirmed points.</li>
+<li><strong>No Snapping:</strong> Since the client never guesses
+incorrect positions, there is no need for sudden visual
+corrections.</li>
+</ul>
+<h3 id="weaknesses-of-interpolation">Weaknesses of Interpolation</h3>
+<ul>
+<li><strong>Added Latency:</strong> Players are viewing remote entities
+slightly in the past. This makes hit registration and fast-paced
+competitive interactions harder to balance without server-side lag
+compensation.</li>
+</ul>
+<h2 id="how-extrapolation-works-in-javascript">How Extrapolation Works
+in JavaScript</h2>
+<p>Extrapolation runs in real time and does not add artificial render
+delays. It calculates a projected state using standard Newtonian
+equations.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Basic projectile/entity extrapolation</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">updateExtrapolatedEntity</span>(entity<span class="op">,</span> deltaTime) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Predict position based on last known velocity</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  entity<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> entity<span class="op">.</span><span class="at">vx</span> <span class="op">*</span> deltaTime<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  entity<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> entity<span class="op">.</span><span class="at">vy</span> <span class="op">*</span> deltaTime<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// When a new authoritative packet arrives:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">onServerUpdate</span>(entity<span class="op">,</span> serverPacket) {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// If the server position deviates heavily from extrapolation, reconcile</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> errorX <span class="op">=</span> serverPacket<span class="op">.</span><span class="at">x</span> <span class="op">-</span> entity<span class="op">.</span><span class="at">x</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> errorY <span class="op">=</span> serverPacket<span class="op">.</span><span class="at">y</span> <span class="op">-</span> entity<span class="op">.</span><span class="at">y</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Smoothly blend out the error rather than hard snapping</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  entity<span class="op">.</span><span class="at">x</span> <span class="op">+=</span> errorX <span class="op">*</span> <span class="fl">0.1</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  entity<span class="op">.</span><span class="at">y</span> <span class="op">+=</span> errorY <span class="op">*</span> <span class="fl">0.1</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  entity<span class="op">.</span><span class="at">vx</span> <span class="op">=</span> serverPacket<span class="op">.</span><span class="at">vx</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  entity<span class="op">.</span><span class="at">vy</span> <span class="op">=</span> serverPacket<span class="op">.</span><span class="at">vy</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="strengths-of-extrapolation">Strengths of Extrapolation</h3>
+<ul>
+<li><strong>Zero Artificial Delay:</strong> Entities are rendered as
+close to real-world time as possible.</li>
+<li><strong>Packet Loss Resilience:</strong> If a packet drops or
+arrives late, extrapolation keeps entities moving along their current
+path instead of freezing.</li>
+</ul>
+<h3 id="weaknesses-of-extrapolation">Weaknesses of Extrapolation</h3>
+<ul>
+<li><strong>Prediction Errors:</strong> If a player suddenly changes
+direction, stops, or jumps while a packet is in transit, the
+extrapolating client continues in the old direction.</li>
+<li><strong>Rubber-banding:</strong> When the authoritative packet
+finally arrives, the client must correct the visual mistake, which often
+results in visible warping or "rubber-banding."</li>
+</ul>
+<h2 id="direct-comparison">Direct Comparison</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Interpolation</th>
+<th style="text-align: left;">Extrapolation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Time Perspective</strong></td>
+<td style="text-align: left;">Renders the past</td>
+<td style="text-align: left;">Predicts the present/future</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Artificial Delay</strong></td>
+<td style="text-align: left;">Yes (e.g., 50–100ms buffer)</td>
+<td style="text-align: left;">None</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Accuracy</strong></td>
+<td style="text-align: left;">100% path accurate</td>
+<td style="text-align: left;">Guesswork based on physics</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Visual Artifacts</strong></td>
+<td style="text-align: left;">Entities may freeze if buffer empties</td>
+<td style="text-align: left;">Snapping/rubber-banding on wrong
+guesses</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Computational
+Overhead</strong></td>
+<td style="text-align: left;">Low (buffer searching + simple lerp)</td>
+<td style="text-align: left;">Medium (physics calculation + error
+smoothing)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-the-right-approach-for-web-games">Choosing the Right
+Approach for Web Games</h2>
+<p>In modern JavaScript game architectures, the two techniques are often
+combined rather than treated as mutually exclusive:</p>
+<ul>
+<li><strong>Use Interpolation for remote opponents and background
+entities</strong> in games where smooth rendering is more critical than
+frame-perfect responsiveness (e.g., MMORPGs, top-down strategy games, or
+slower action titles).</li>
+<li><strong>Use Extrapolation for high-speed, physics-bound
+objects</strong> such as vehicles, rockets, or grenades, where
+trajectories follow predictable mathematical arcs and latency needs to
+be masked completely.</li>
+<li><strong>Hybrid Approach:</strong> Many browser games use
+extrapolation as a fallback. The engine interpolates between states as
+long as the snapshot buffer is healthy; if network jitter causes the
+buffer to run dry, it seamlessly switches to extrapolation until new
+packets arrive, avoiding hard entity freezes.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/network-sync-in-java-script-interpolation-vs-extrapolation';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

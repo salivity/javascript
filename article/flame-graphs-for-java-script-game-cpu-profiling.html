@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flame Graphs for JavaScript Game CPU Profiling - javascript</title>
+    <meta name="description" content="Flame graphs visually aggregate JavaScript call stacks to reveal exactly where the CPU spends its time during execution, making them indispensable for debugging frame rate drops in web games. By mapping call stack depth to the vertical axis and execution">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/flame-graphs-for-java-script-game-cpu-profiling">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Flame Graphs for JavaScript Game CPU Profiling - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/flame-graphs-for-java-script-game-cpu-profiling" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Flame graphs visually aggregate JavaScript call stacks to reveal exactly where the CPU spends its time during execution, making them indispensable for debugging frame rate drops in web games. By mapping call stack depth to the vertical axis and execution" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="flame-graphs-for-javascript-game-cpu-profiling">Flame Graphs for
+JavaScript Game CPU Profiling</h1>
+<p>Flame graphs visually aggregate JavaScript call stacks to reveal
+exactly where the CPU spends its time during execution, making them
+indispensable for debugging frame rate drops in web games. By mapping
+call stack depth to the vertical axis and execution time to the
+horizontal axis, developers can immediately spot performance bottlenecks
+such as inefficient physics loops, excessive draw calls, and garbage
+collection pauses. This guide covers how flame graphs work, how to
+interpret their shape and dimensions, and how to use them to eliminate
+CPU spikes to maintain a smooth 60 or 120 frames per second.</p>
+<h2 id="understanding-the-anatomy-of-a-flame-graph">Understanding the
+Anatomy of a Flame Graph</h2>
+<p>In browser developer tools such as Chrome DevTools, the performance
+profiler records execution snapshots over time and visualizes them as an
+inverted flame graph (often called an icicle chart).</p>
+<ul>
+<li><strong>The X-Axis (Time and Duration):</strong> The horizontal axis
+represents time or total CPU sample percentage. The wider a function
+block appears, the longer that function spent executing on the CPU
+(including or excluding its children, depending on the view mode).</li>
+<li><strong>The Y-Axis (Stack Depth):</strong> The vertical axis
+represents the call stack. Functions at the top invoke the functions
+directly beneath them (or vice versa in traditional bottom-up flame
+graphs). Deep stacks indicate heavy nesting, recursion, or layered
+abstractions.</li>
+</ul>
+<h2 id="identifying-common-game-cpu-bottlenecks">Identifying Common Game
+CPU Bottlenecks</h2>
+<h3 id="1-the-plateau-high-self-time">1. The "Plateau" (High
+Self-Time)</h3>
+<p>A function that appears as a wide, flat rectangle with no other
+functions stacked beneath it has high "self-time." This means the CPU is
+spending excessive clock cycles inside that specific function's own body
+rather than delegating to subroutines. In JavaScript games, plateaus
+commonly point to unoptimized math operations, heavy array iterations,
+or brute-force collision checks that iterate through every entity pair
+without spatial partitioning.</p>
+<h3 id="2-the-tower-deep-call-stacks-and-over-abstraction">2. The
+"Tower" (Deep Call Stacks and Over-Abstraction)</h3>
+<p>Tall, narrow spikes represent deeply nested function calls or
+recursion. While deep stacks do not automatically degrade performance,
+excessive abstraction layers (such as chaining multiple wrapper
+functions, heavy functional programming primitives like
+<code>.map()</code> and <code>.filter()</code>, or complex state machine
+transitions) incur engine overhead and prevent JavaScript engines (V8,
+SpiderMonkey) from inlining functions.</p>
+<h3 id="3-repeated-micro-patterns-loop-overhead">3. Repeated
+Micro-Patterns (Loop Overhead)</h3>
+<p>If a flame graph displays hundreds of tiny, identical slivers packed
+closely together within a single 16.6ms frame budget, the game loop is
+repeatedly calling short functions inside an inner loop. Frequent
+property lookups, getter/setter invocations, and entity component system
+(ECS) queries that are not cache-friendly can produce this pattern.</p>
+<h3 id="4-garbage-collection-spikes">4. Garbage Collection Spikes</h3>
+<p>Garbage collection (GC) pauses appear in profilers as distinct,
+browser-owned execution blocks (such as <code>Minor GC</code> or
+<code>Major GC</code>). When a game instantiates short-lived objects
+inside the update loop—such as creating temporary vectors, collision
+result objects, or bullets—the browser periodically halts JavaScript
+execution to free memory. In a flame graph, this appears as an abrupt
+interruption in your regular game loop blocks, pushing frame execution
+beyond the 16.6ms threshold.</p>
+<h2 id="a-practical-optimization-workflow">A Practical Optimization
+Workflow</h2>
+<ol type="1">
+<li><strong>Record a Realistic Profile:</strong> Use the DevTools
+Performance panel to record a typical gameplay session, ensuring you
+capture moments where visible stutter or input latency occurs.</li>
+<li><strong>Locate Long Frames:</strong> Look at the frame rate strip at
+the top of the timeline. Zoom in directly on frames that breach the
+16.6ms line (for 60 FPS) or 8.3ms line (for 120 FPS).</li>
+<li><strong>Find the Widest Blocks:</strong> Within a dropped frame,
+scan down the stack to identify which subsystem—physics, rendering, AI,
+or event handling—occupies the bulk of the horizontal width.</li>
+<li><strong>Refactor the Code:</strong>
+<ul>
+<li>Replace broad collision detection blocks with broad-phase algorithms
+(e.g., Quadtrees or Spatial Hash Grids).</li>
+<li>Implement object pooling to eliminate GC blocks.</li>
+<li>Replace heavy array operations inside hot loops with typed arrays or
+standard <code>for</code> loops.</li>
+</ul></li>
+<li><strong>Re-Profile to Verify:</strong> Record a new trace under
+identical gameplay conditions. Successful optimizations will visibly
+narrow the target blocks, flattening the flame graph and returning frame
+times to their target budget.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/flame-graphs-for-java-script-game-cpu-profiling';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

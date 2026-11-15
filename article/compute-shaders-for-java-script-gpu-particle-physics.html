@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compute Shaders for JavaScript GPU Particle Physics - javascript</title>
+    <meta name="description" content="This article explores how modern JavaScript game developers utilize WebGPU compute shaders to simulate millions of physics-driven particles directly on the GPU. By leveraging the WebGPU API and the WebGPU Shading Language (WGSL), developers can offload ma">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/compute-shaders-for-java-script-gpu-particle-physics">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Compute Shaders for JavaScript GPU Particle Physics - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/compute-shaders-for-java-script-gpu-particle-physics" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how modern JavaScript game developers utilize WebGPU compute shaders to simulate millions of physics-driven particles directly on the GPU. By leveraging the WebGPU API and the WebGPU Shading Language (WGSL), developers can offload ma" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="compute-shaders-for-javascript-gpu-particle-physics">Compute
+Shaders for JavaScript GPU Particle Physics</h1>
+<p>This article explores how modern JavaScript game developers utilize
+WebGPU compute shaders to simulate millions of physics-driven particles
+directly on the GPU. By leveraging the WebGPU API and the WebGPU Shading
+Language (WGSL), developers can offload mathematical calculations—such
+as velocity integration, collision detection, and spatial
+partitioning—from the single-threaded JavaScript CPU environment to
+thousands of parallel GPU cores. You will learn the mechanics of storage
+buffers, compute workgroups, dispatch pipelines, and zero-copy rendering
+workflows that make high-performance browser simulations possible.</p>
+<h3 id="the-shift-from-cpu-to-gpu-simulation">The Shift from CPU to GPU
+Simulation</h3>
+<p>Traditional JavaScript particle systems run on the CPU within the
+main browser thread or via Web Workers. The CPU calculates position,
+velocity, and lifespan for each particle sequentially before streaming
+updated coordinates to the GPU via vertex buffers every frame. When
+particle counts exceed tens of thousands, memory transfer overhead
+across the PCIe bus and JavaScript execution limits cause frame rate
+drops.</p>
+<p>Compute shaders resolve this bottleneck by keeping simulation logic
+and particle data entirely on the GPU. Using the WebGPU API, JavaScript
+initializes compute pipelines that execute massively parallel programs
+written in WGSL. Because the data remains in VRAM, simulations scale
+from thousands to millions of interactive particles running at a stable
+60 or 120 frames per second.</p>
+<h3 id="memory-layout-with-gpu-storage-buffers">Memory Layout with GPU
+Storage Buffers</h3>
+<p>In a compute-driven architecture, particle attributes are stored in
+continuous blocks of GPU memory called storage buffers
+(<code>GPUBuffer</code> with usage flags
+<code>GPUBufferUsage.STORAGE</code>). JavaScript initializes these
+buffers once using typed arrays (typically
+<code>Float32Array</code>).</p>
+<p>Common particle attributes include:</p>
+<ul>
+<li><strong>Position and Lifespan:</strong> <code>vec3&lt;f32&gt;</code>
+for coordinates, <code>f32</code> for remaining life.</li>
+<li><strong>Velocity and Mass:</strong> <code>vec3&lt;f32&gt;</code> for
+directional speed, <code>f32</code> for weight/inertia.</li>
+<li><strong>Color or Flags:</strong> <code>vec4&lt;f32&gt;</code> for
+visual tint or packed integer bitfields for state management.</li>
+</ul>
+<p>To avoid memory alignment penalties and cache misses, data is
+arranged either as an Array of Structures (AoS) or a Structure of Arrays
+(SoA). A single struct combining position and velocity allows a compute
+thread to fetch all necessary simulation state for a particle in minimal
+memory transactions.</p>
+<h3 id="parallel-execution-workgroups-and-invocations">Parallel
+Execution: Workgroups and Invocations</h3>
+<p>When launching a compute shader, the GPU organizes execution into a
+hierarchy of threads:</p>
+<ol type="1">
+<li><strong>Invocations:</strong> Individual shader executions. In a
+particle system, one invocation typically updates one single
+particle.</li>
+<li><strong>Workgroups:</strong> Collections of invocations that execute
+concurrently on a single compute unit and share fast on-chip memory
+(<code>var&lt;workgroup&gt;</code>). Common workgroup sizes are 64, 128,
+or 256 invocations.</li>
+</ol>
+<p>In WGSL, the built-in variable
+<code>@builtin(global_invocation_id)</code> provides each thread with a
+unique 3D vector. The compute shader flattens this ID into a 1D
+index:</p>
+<pre class="wgsl"><code>@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) global_id : vec3&lt;u32&gt;) {
+    let index = global_id.x;
+    if (index &gt;= arrayLength(&amp;particles)) {
+        return;
+    }
+    
+    // Physics update logic
+}</code></pre>
+<p>In JavaScript, the execution is triggered using
+<code>passEncoder.dispatchWorkgroups(Math.ceil(particleCount / 64))</code>.</p>
+<h3 id="simulating-physics-integration-and-forces">Simulating Physics:
+Integration and Forces</h3>
+<p>During each compute pass, the shader reads the current state of a
+particle, calculates applied forces, and applies numerical
+integration:</p>
+<ul>
+<li><strong>Force Accumulation:</strong> The shader aggregates external
+vectors such as gravity, drag, wind, and curl noise fields.</li>
+<li><strong>Euler or Verlet Integration:</strong> The particle's
+velocity is updated by acceleration multiplied by delta time (<span
+class="math inline">\(v = v + a \cdot \Delta t\)</span>), and position
+is updated by velocity multiplied by delta time (<span
+class="math inline">\(p = p + v \cdot \Delta t\)</span>).</li>
+<li><strong>Boundary and Static Collisions:</strong> Particles are
+tested against collision primitives (bounding boxes, analytical spheres,
+or Signed Distance Fields). When a penetration is detected, the position
+is projected back to the surface and the velocity vector is inverted
+along the collision normal with an energy restitution coefficient.</li>
+</ul>
+<h3 id="particle-to-particle-interactions">Particle-to-Particle
+Interactions</h3>
+<p>While independent forces (gravity, wind) execute in parallel without
+cross-thread communication, particle-to-particle physics (such as
+flocking, fluid dynamics, or granular collisions) requires spatial
+awareness. Because scanning every particle creates an <span
+class="math inline">\(O(N^2)\)</span> workload, developers implement
+spatial partitioning directly on the GPU:</p>
+<ol type="1">
+<li><strong>Uniform Grids:</strong> The 3D world is subdivided into
+discrete cells. A compute pass assigns each particle a cell hash based
+on its position.</li>
+<li><strong>GPU Sorting:</strong> Algorithms such as parallel Bitonic
+Merge Sort sort particle indices by their cell hash entirely within
+compute shaders.</li>
+<li><strong>Neighbor Search:</strong> A separate compute shader reads
+sorted cell ranges to allow particles to query only adjacent grid cells
+for proximity checks, keeping performance near <span
+class="math inline">\(O(N)\)</span>.</li>
+</ol>
+<h3 id="zero-copy-rendering-direct-to-screen">Zero-Copy Rendering Direct
+to Screen</h3>
+<p>The primary architectural advantage of compute shaders in WebGPU is
+zero-copy rendering. In previous technologies like WebGL, reading
+compute results often required ping-pong framebuffers or reading data
+back to the CPU.</p>
+<p>In WebGPU, a single <code>GPUBuffer</code> can be flagged with both
+<code>GPUBufferUsage.STORAGE</code> and
+<code>GPUBufferUsage.VERTEX</code>. Once the compute pass finishes
+writing the updated physics coordinates:</p>
+<ol type="1">
+<li>The compute pass ends via <code>computePass.end()</code>.</li>
+<li>A render pass begins on the same command encoder via
+<code>commandEncoder.beginRenderPass()</code>.</li>
+<li>The render pass binds the exact same buffer as a vertex buffer or
+references it as a storage buffer inside the vertex shader.</li>
+<li>Instanced rendering draws billboarded quads, points, or meshes using
+the GPU-calculated positions without any CPU round-trips.</li>
+</ol>
+<p>Through this pipeline, JavaScript acts purely as an orchestrator,
+setting uniforms such as delta time and dispatch counts, while the GPU
+autonomously handles the entire physics and visualization lifecycle.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/compute-shaders-for-java-script-gpu-particle-physics';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

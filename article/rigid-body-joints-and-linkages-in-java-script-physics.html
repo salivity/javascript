@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rigid Body Joints and Linkages in JavaScript Physics - javascript</title>
+    <meta name="description" content="Constraint solvers are the computational engines behind realistic joints, hinges, and mechanical linkages in JavaScript physics engines. In modern web game development, these systems maintain connections between rigid bodies by continuously calculating an">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/rigid-body-joints-and-linkages-in-java-script-physics">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Rigid Body Joints and Linkages in JavaScript Physics - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/rigid-body-joints-and-linkages-in-java-script-physics" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Constraint solvers are the computational engines behind realistic joints, hinges, and mechanical linkages in JavaScript physics engines. In modern web game development, these systems maintain connections between rigid bodies by continuously calculating an" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="rigid-body-joints-and-linkages-in-javascript-physics">Rigid Body
+Joints and Linkages in JavaScript Physics</h1>
+<p>Constraint solvers are the computational engines behind realistic
+joints, hinges, and mechanical linkages in JavaScript physics engines.
+In modern web game development, these systems maintain connections
+between rigid bodies by continuously calculating and applying corrective
+forces to enforce mathematical rules. This article explains how
+constraint equations are defined, how iterative impulse-based solvers
+eliminate relative drift, and how JavaScript developers optimize these
+mathematical routines for high-performance browser execution.</p>
+<h2 id="the-core-concept-removing-degrees-of-freedom">The Core Concept:
+Removing Degrees of Freedom</h2>
+<p>In 2D physics, an unconstrained rigid body has three degrees of
+freedom: two translational axes (<span class="math inline">\(x,
+y\)</span>) and one rotational axis (<span
+class="math inline">\(\theta\)</span>). In 3D, a body has six degrees of
+freedom: three translational (<span class="math inline">\(x, y,
+z\)</span>) and three rotational (pitch, yaw, roll).</p>
+<p>Joints and linkages do not act as solid, impenetrable models;
+instead, they are mathematical limitations placed on these degrees of
+freedom. A distance joint restricts the distance between two anchor
+points to a fixed length, removing one translational degree of freedom.
+A revolute (hinge) joint binds anchor points together while allowing
+only free rotation around a single axis, removing all translational
+movement between the bodies.</p>
+<h2 id="mathematical-formulation-of-constraints">Mathematical
+Formulation of Constraints</h2>
+<p>A constraint solver treats joints as mathematical functions that
+equal zero when the constraint is fully satisfied:</p>
+<p><span class="math display">\[C(p_1, p_2) = 0\]</span></p>
+<p>Where <span class="math inline">\(p_1\)</span> and <span
+class="math inline">\(p_2\)</span> represent the positions and
+orientations of the connected bodies. For a basic distance constraint,
+the equation evaluates the difference between the current distance of
+two anchor points and the target resting distance:</p>
+<p><span class="math display">\[C = \|\mathbf{x}_2 - \mathbf{x}_1\| - L
+= 0\]</span></p>
+<p>Because physics simulations operate through numerical integration of
+velocity and acceleration, solvers differentiate the position constraint
+with respect to time. This yields the velocity constraint:</p>
+<p><span class="math display">\[\dot{C} = \mathbf{J} \mathbf{v} =
+0\]</span></p>
+<p>Here, <span class="math inline">\(\mathbf{J}\)</span> is the Jacobian
+matrix (the partial derivatives of the constraint with respect to the
+positions and orientations), and <span
+class="math inline">\(\mathbf{v}\)</span> represents the linear and
+angular velocities of the participating bodies. The solver's goal is to
+find corrective impulses along the constraint normals that counter any
+relative velocity violating <span class="math inline">\(\mathbf{J}
+\mathbf{v} = 0\)</span>.</p>
+<h2 id="the-solving-mechanism-sequential-impulses">The Solving
+Mechanism: Sequential Impulses</h2>
+<p>Most JavaScript physics engines (such as Matter.js, Cannon-es, and
+Planck.js) use an iterative impulse solver, specifically the Projected
+Gauss-Seidel (PGS) method, often referred to as Sequential Impulses.</p>
+<ol type="1">
+<li><strong>Warm Starting:</strong> At the beginning of a physics step,
+the solver applies a fraction of the impulses calculated in the previous
+frame. Because physical systems change incrementally between frames,
+warm starting significantly reduces the iterations needed for
+convergence.</li>
+<li><strong>Velocity Resolution:</strong> The solver loops over each
+joint multiple times per frame (typically 4 to 10 iterations). For each
+joint, it computes the relative velocity at the anchor points,
+determines how much that velocity violates the constraint, and
+calculates an instantaneous impulse vector (<span
+class="math inline">\(\lambda\)</span>) needed to cancel the error.</li>
+<li><strong>Applying Impulses:</strong> The impulse is applied
+immediately to the linear and angular velocities of both connected
+bodies, respecting their inverse masses and inertia tensors: <span
+class="math display">\[\Delta \mathbf{v}_1 = -M_1^{-1} \mathbf{J}^T
+\lambda\]</span> <span class="math display">\[\Delta \mathbf{v}_2 =
+M_2^{-1} \mathbf{J}^T \lambda\]</span></li>
+<li><strong>Limits and Clamping:</strong> For mechanical components such
+as sliders or limited hinges, the impulse is clamped to prevent forces
+from pulling or pushing beyond the mechanical range.</li>
+</ol>
+<h2 id="managing-joint-drift-and-instability">Managing Joint Drift and
+Instability</h2>
+<p>Because real-time engines use discrete integration methods like
+Semi-Implicit Euler, numerical integration errors accumulate over time.
+This causes "joint drift," where connected bodies visibly separate or
+sag under heavy loads.</p>
+<p>To counter drift, engines utilize stabilization techniques:</p>
+<ul>
+<li><strong>Baumgarte Stabilization:</strong> Adds a fraction of the
+position error directly into the velocity constraint equation. While
+computationally cheap, over-tuning Baumgarte stabilization introduces
+unwanted artificial energy, causing joints to oscillate or explode.</li>
+<li><strong>Split Impulses:</strong> Solves the velocity constraint
+normally, but applies position corrections as a separate,
+pseudo-velocity pass that adjusts body positions without adding dynamic
+kinetic energy.</li>
+<li><strong>Position-Based Dynamics (PBD):</strong> Skips the
+velocity-level calculation entirely for joints, directly projecting body
+positions to satisfy constraints before deriving velocities from the
+displacement.</li>
+</ul>
+<h2 id="javascript-performance-considerations">JavaScript Performance
+Considerations</h2>
+<p>Simulating dozens of interconnected joints in the browser introduces
+strict CPU overhead constraints. High-performance constraint solvers in
+JavaScript rely on specific architectural patterns:</p>
+<ul>
+<li><strong>Memory Locality and TypedArrays:</strong> Modern engines
+avoid allocating generic JavaScript objects <code>{ x, y, z }</code>
+during the solver step. Instead, they store body transforms, velocities,
+and Jacobian matrices in continuous <code>Float32Array</code> or
+<code>Float64Array</code> buffers, minimizing cache misses.</li>
+<li><strong>Zero Garbage Collection:</strong> The inner solving loops
+run hundreds of times per second. Instantiating new objects inside
+solver iterations triggers the browser's garbage collector, causing
+severe frame drops. Solvers reuse static scratch vectors and structural
+pools.</li>
+<li><strong>Fixed Timesteps:</strong> Variable delta times destabilize
+iterative constraint solvers. Solvers require an accumulator loop that
+feeds fixed-interval timesteps (e.g., exactly <span
+class="math inline">\(1/60\)</span>s) into the solver, interpolating
+rendered visual states between ticks.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/rigid-body-joints-and-linkages-in-java-script-physics';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

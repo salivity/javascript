@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC ICE Candidate Failures in JavaScript Games - javascript</title>
+    <meta name="description" content="WebRTC enables real-time, low-latency peer-to-peer communication directly within web browsers, making it a standard choice for multiplayer JavaScript game development. However, establishing this direct link requires Interactive Connectivity Establishment">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-rtc-ice-candidate-failures-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebRTC ICE Candidate Failures in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-rtc-ice-candidate-failures-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="WebRTC enables real-time, low-latency peer-to-peer communication directly within web browsers, making it a standard choice for multiplayer JavaScript game development. However, establishing this direct link requires Interactive Connectivity Establishment" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="webrtc-ice-candidate-failures-in-javascript-games">WebRTC ICE
+Candidate Failures in JavaScript Games</h1>
+<p>WebRTC enables real-time, low-latency peer-to-peer communication
+directly within web browsers, making it a standard choice for
+multiplayer JavaScript game development. However, establishing this
+direct link requires Interactive Connectivity Establishment (ICE)
+candidate gathering to discover reachable network routes between
+players. When ICE candidate gathering fails or stalls, the peer
+connection cannot finalize, leading to prolonged matchmaking screens,
+fallback to high-latency relay paths, or outright connection drops. This
+article examines the mechanics behind ICE candidate gathering failures,
+their specific impact on multiplayer game networking, and methods to
+handle them in JavaScript.</p>
+<h2 id="understanding-ice-gathering-in-browser-games">Understanding ICE
+Gathering in Browser Games</h2>
+<p>In a typical browser-based multiplayer game, clients communicate
+directly using the <code>RTCDataChannel</code> API over UDP. Before
+transmitting player inputs or physics updates, peers must discover their
+network paths via the ICE framework. The browser collects three primary
+types of candidates:</p>
+<ol type="1">
+<li><strong>Host candidates:</strong> Local IP addresses assigned
+directly to the device's network interfaces.</li>
+<li><strong>Server Reflexive (srflx) candidates:</strong> Public IP
+addresses discovered through STUN (Session Traversal Utilities for NAT)
+servers.</li>
+<li><strong>Relay candidates:</strong> Turnaround IP addresses
+provisioned by TURN (Traversal Using Relays around NAT) servers when
+direct peer-to-peer communication is blocked.</li>
+</ol>
+<p>This gathering process begins as soon as
+<code>RTCPeerConnection.setLocalDescription()</code> is invoked. The
+gathered candidates are transmitted to the remote peer via a signaling
+server (usually built with WebSockets) to negotiate the fastest direct
+route.</p>
+<h2 id="common-causes-of-gathering-failures">Common Causes of Gathering
+Failures</h2>
+<p>ICE gathering failures occur before or during the exchange of network
+paths. Common triggers include:</p>
+<ul>
+<li><strong>Unresponsive STUN/TURN Servers:</strong> If configured STUN
+servers fail to respond due to downtime, misconfiguration, or domain
+resolution errors, the browser waits until requests time out, stalling
+the process.</li>
+<li><strong>Symmetric NATs and Enterprise Firewalls:</strong>
+Restrictive corporate, university, or cellular firewalls often block UDP
+traffic or strictly permit traffic only through specific outbound
+ports.</li>
+<li><strong>Missing or Exhausted TURN Credentials:</strong> TURN relays
+require authentication. Expired tokens or missing TURN configurations
+cause relay candidate discovery to fail immediately.</li>
+<li><strong>Browser Privacy and mDNS Restrictions:</strong> Modern
+browsers obscure local IP addresses using mDNS (Multicast DNS) to
+prevent device fingerprinting. In local network development or LAN
+environments, resolution delays or lookup failures can stall candidate
+production.</li>
+</ul>
+<h2 id="consequences-for-connection-setup-in-games">Consequences for
+Connection Setup in Games</h2>
+<h3 id="matchmaking-freezes-and-connection-timeouts">Matchmaking Freezes
+and Connection Timeouts</h3>
+<p>Multiplayer games require deterministic state synchronization. When
+ICE candidate gathering fails or hangs, the
+<code>iceGatheringState</code> remains stuck on <code>gathering</code>,
+preventing the <code>RTCPeerConnection</code> from transitioning to the
+<code>connected</code> state. For players, this translates into endless
+loading screens or premature disconnect errors, severely damaging user
+experience.</p>
+<h3 id="suboptimal-routing-and-latency-spikes">Suboptimal Routing and
+Latency Spikes</h3>
+<p>If STUN candidate discovery fails but TURN succeeds, the connection
+defaults entirely to a relay server. While a connection is established,
+all game state packets route through an intermediary server. In
+fast-paced action, racing, or fighting games, the added round-trip time
+(RTT) introduces visible input lag, rubber-banding, and physics
+desynchronization.</p>
+<h3 id="partial-candidate-starvation">Partial Candidate Starvation</h3>
+<p>When developers do not implement Trickle ICE (sending candidates
+incrementally as they are found) and instead wait for full candidate
+gathering completion, a single failing STUN server delays the entire
+negotiation. The connection setup will block until the internal browser
+timeout expires, introducing an unnecessary delay of several seconds
+before players can join the match.</p>
+<h2 id="mitigating-failures-in-javascript">Mitigating Failures in
+JavaScript</h2>
+<p>To maintain responsiveness and prevent stalled connections,
+JavaScript game engines must proactively detect and manage ICE
+failures.</p>
+<h3 id="listen-for-candidate-errors">Listen for Candidate Errors</h3>
+<p>Modern WebRTC implementations provide the
+<code>icecandidateerror</code> event on <code>RTCPeerConnection</code>.
+This event reveals specific STUN/TURN failure codes (e.g., 401
+Unauthorized, 404 Not Found, or 701 Turn Server Unreachable):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>peerConnection<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;icecandidateerror&#39;</span><span class="op">,</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="vs">`ICE candidate error: </span><span class="sc">${</span><span class="bu">event</span><span class="op">.</span><span class="at">errorCode</span><span class="sc">}</span><span class="vs"> - </span><span class="sc">${</span><span class="bu">event</span><span class="op">.</span><span class="at">errorText</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="vs">`URL: </span><span class="sc">${</span><span class="bu">event</span><span class="op">.</span><span class="at">url</span><span class="sc">}</span><span class="vs">`</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h3 id="implement-aggressive-gathering-timeouts">Implement Aggressive
+Gathering Timeouts</h3>
+<p>Do not let the default browser timeouts dictate connection flow.
+Implement a gathering timeout that proceeds with whatever candidates
+have been discovered, or fail over immediately to an alternate
+lobby:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">waitForGatheringWithTimeout</span>(pc<span class="op">,</span> timeoutMs <span class="op">=</span> <span class="dv">5000</span>) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">new</span> <span class="bu">Promise</span>((resolve) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (pc<span class="op">.</span><span class="at">iceGatheringState</span> <span class="op">===</span> <span class="st">&#39;complete&#39;</span>) {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="fu">resolve</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> timer <span class="op">=</span> <span class="pp">setTimeout</span>(() <span class="kw">=&gt;</span> {</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">resolve</span>()<span class="op">;</span> <span class="co">// Proceed with candidates gathered so far</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span> timeoutMs)<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    pc<span class="op">.</span><span class="fu">addEventListener</span>(<span class="st">&#39;icegatheringstatechange&#39;</span><span class="op">,</span> () <span class="kw">=&gt;</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (pc<span class="op">.</span><span class="at">iceGatheringState</span> <span class="op">===</span> <span class="st">&#39;complete&#39;</span>) {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="pp">clearTimeout</span>(timer)<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">resolve</span>()<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    })<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="enforce-redundant-stun-and-turn-infrastructure">Enforce
+Redundant STUN and TURN Infrastructure</h3>
+<p>Never rely on a single public STUN server. Provide multiple STUN
+endpoints and at least one geo-distributed TURN server configured via
+the <code>iceServers</code> array:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> rtcConfig <span class="op">=</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">iceServers</span><span class="op">:</span> [</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">urls</span><span class="op">:</span> <span class="st">&#39;stun:stun1.l.google.com:19302&#39;</span> }<span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">urls</span><span class="op">:</span> <span class="st">&#39;stun:stun2.l.google.com:19302&#39;</span> }<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">urls</span><span class="op">:</span> <span class="st">&#39;turn:turn.examplegame.com:3478&#39;</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="dt">username</span><span class="op">:</span> <span class="st">&#39;gameClient&#39;</span><span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">credential</span><span class="op">:</span> <span class="st">&#39;temporaryAuthToken&#39;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">iceCandidatePoolSize</span><span class="op">:</span> <span class="dv">2</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> peerConnection <span class="op">=</span> <span class="kw">new</span> <span class="bu">RTCPeerConnection</span>(rtcConfig)<span class="op">;</span></span></code></pre></div>
+<h3 id="always-use-trickle-ice">Always Use Trickle ICE</h3>
+<p>Avoid waiting for full candidate collection before transmitting the
+Session Description Protocol (SDP) answer or offer. Send candidates
+across the signaling channel immediately via the
+<code>onicecandidate</code> callback. This allows the remote client to
+test potential routes in parallel, bypassing dead candidates without
+stalling the game start sequence.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/web-rtc-ice-candidate-failures-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

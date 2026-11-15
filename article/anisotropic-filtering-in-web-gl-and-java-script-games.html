@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anisotropic Filtering in WebGL and JavaScript Games - javascript</title>
+    <meta name="description" content="Anisotropic filtering is an advanced texture sampling technique that preserves sharpness and visual fidelity on 3D surfaces viewed at sharp, oblique angles. In JavaScript game programming—typically powered by WebGL or libraries like Three.js—rendering sur">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/anisotropic-filtering-in-web-gl-and-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Anisotropic Filtering in WebGL and JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/anisotropic-filtering-in-web-gl-and-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Anisotropic filtering is an advanced texture sampling technique that preserves sharpness and visual fidelity on 3D surfaces viewed at sharp, oblique angles. In JavaScript game programming—typically powered by WebGL or libraries like Three.js—rendering sur" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="anisotropic-filtering-in-webgl-and-javascript-games">Anisotropic
+Filtering in WebGL and JavaScript Games</h1>
+<p>Anisotropic filtering is an advanced texture sampling technique that
+preserves sharpness and visual fidelity on 3D surfaces viewed at sharp,
+oblique angles. In JavaScript game programming—typically powered by
+WebGL or libraries like Three.js—rendering surfaces such as floors,
+walls, and terrain often leads to severe blurring when relying solely on
+traditional isotropic filtering. By sampling textures directionally
+according to the angle of the camera, anisotropic filtering eliminates
+this blurriness, dramatically improving immersion without an
+overwhelming performance cost.</p>
+<h3 id="the-problem-standard-mipmapping-at-oblique-angles">The Problem:
+Standard Mipmapping at Oblique Angles</h3>
+<p>Standard texture mapping techniques use bilinear or trilinear
+filtering combined with mipmaps (pre-calculated, lower-resolution
+versions of a texture). These isotropic methods assume that a screen
+pixel maps roughly to a square area (texel footprint) on the texture
+surface.</p>
+<p>This assumption holds true when a surface directly faces the camera.
+However, when a surface recedes into the distance at an angle—such as a
+stone path, grass field, or ceiling—perspective projection squashes the
+pixel footprint into an elongated ellipse or trapezoid. Because
+isotropic filters only sample square regions, they are forced to use
+lower-resolution mipmaps to prevent shimmering and aliasing along the
+compressed axis. The consequence is heavy, muddy blur along the
+stretched axis.</p>
+<h3 id="how-anisotropic-filtering-solves-the-issue">How Anisotropic
+Filtering Solves the Issue</h3>
+<p>"Anisotropic" means directionally dependent. Unlike isotropic
+filtering, anisotropic filtering (AF) evaluates the ratio of distortion
+(the anisotropy) between the major and minor axes of the projected pixel
+footprint.</p>
+<p>Instead of selecting a single square mipmap sample, the GPU takes
+multiple samples along the axis of perspective distortion:</p>
+<ol type="1">
+<li><strong>Footprint Calculation:</strong> The rendering hardware
+determines the direction and degree to which the texel is squashed on
+screen.</li>
+<li><strong>Directional Sampling:</strong> The GPU gathers several
+samples along the line of greatest compression.</li>
+<li><strong>Blending:</strong> These samples are combined with
+appropriate weightings across adjacent mipmap levels to generate the
+final pixel color.</li>
+</ol>
+<p>By matching the sampling pattern to the actual shape of the pixel
+footprint, textures retain high-frequency details along the view
+direction while remaining smooth and anti-aliased across the compressed
+direction. Ground planes and walls remain crisp all the way to the
+horizon.</p>
+<h3 id="implementing-anisotropic-filtering-in-javascript">Implementing
+Anisotropic Filtering in JavaScript</h3>
+<p>JavaScript applications running in the browser interact with the GPU
+through WebGL. Because anisotropic filtering is an optional hardware
+feature, it is exposed via WebGL extensions.</p>
+<h4 id="raw-webgl-implementation">Raw WebGL Implementation</h4>
+<p>In native WebGL, developers must query and enable the
+<code>EXT_texture_filter_anisotropic</code> extension before configuring
+texture parameters:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Obtain the WebGL context</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> gl <span class="op">=</span> canvas<span class="op">.</span><span class="fu">getContext</span>(<span class="st">&#39;webgl2&#39;</span>) <span class="op">||</span> canvas<span class="op">.</span><span class="fu">getContext</span>(<span class="st">&#39;webgl&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Query and enable the anisotropic filtering extension</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ext <span class="op">=</span> gl<span class="op">.</span><span class="fu">getExtension</span>(<span class="st">&#39;EXT_texture_filter_anisotropic&#39;</span>) <span class="op">||</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>            gl<span class="op">.</span><span class="fu">getExtension</span>(<span class="st">&#39;WEBKIT_EXT_texture_filter_anisotropic&#39;</span>) <span class="op">||</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>            gl<span class="op">.</span><span class="fu">getExtension</span>(<span class="st">&#39;MOZ_EXT_texture_filter_anisotropic&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (ext) {</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Find the maximum supported anisotropy level (typically 8x or 16x)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> maxAnisotropy <span class="op">=</span> gl<span class="op">.</span><span class="fu">getParameter</span>(ext<span class="op">.</span><span class="at">MAX_TEXTURE_MAX_ANISOTROPY_EXT</span>)<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Bind texture and apply anisotropic filtering</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    gl<span class="op">.</span><span class="fu">bindTexture</span>(gl<span class="op">.</span><span class="at">TEXTURE_2D</span><span class="op">,</span> myTexture)<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    gl<span class="op">.</span><span class="fu">texParameterf</span>(gl<span class="op">.</span><span class="at">TEXTURE_2D</span><span class="op">,</span> ext<span class="op">.</span><span class="at">TEXTURE_MAX_ANISOTROPY_EXT</span><span class="op">,</span> maxAnisotropy)<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h4 id="threejs-implementation">Three.js Implementation</h4>
+<p>Higher-level frameworks like Three.js abstract the raw WebGL
+boilerplate, providing a direct property on texture instances:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="op">*</span> <span class="im">as</span> THREE <span class="im">from</span> <span class="st">&#39;three&#39;</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> renderer <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">WebGLRenderer</span>()<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> textureLoader <span class="op">=</span> <span class="kw">new</span> THREE<span class="op">.</span><span class="fu">TextureLoader</span>()<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> groundTexture <span class="op">=</span> textureLoader<span class="op">.</span><span class="fu">load</span>(<span class="st">&#39;textures/ground.jpg&#39;</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Query the GPU&#39;s maximum supported anisotropy</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> maxAnisotropy <span class="op">=</span> renderer<span class="op">.</span><span class="at">capabilities</span><span class="op">.</span><span class="fu">getMaxAnisotropy</span>()<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Assign the anisotropy level to the texture (e.g., 4, 8, or 16)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>groundTexture<span class="op">.</span><span class="at">anisotropy</span> <span class="op">=</span> maxAnisotropy<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>groundTexture<span class="op">.</span><span class="at">needsUpdate</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span></code></pre></div>
+<h3 id="performance-considerations-for-web-games">Performance
+Considerations for Web Games</h3>
+<p>Anisotropic filtering requires the GPU to fetch multiple texture
+samples per pixel (determined by the sample count, such as 2x, 4x, 8x,
+or 16x). On modern desktop GPUs, setting anisotropy to 8x or 16x
+typically incurs a negligible performance penalty.</p>
+<p>However, in mobile browser environments where memory bandwidth is
+restricted, high anisotropy levels can impact frame rates. A common
+practice in JavaScript game architecture is to expose this setting in an
+options menu or automatically cap the anisotropy level at 2x or 4x on
+mobile devices while allowing 8x or 16x on desktop hardware. Applied
+selectively to prominent surfaces like terrain, roads, and large
+architecture, anisotropic filtering delivers a significant leap in
+visual realism with minimal overhead.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/anisotropic-filtering-in-web-gl-and-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dangers of setInterval in JavaScript Game Loops - javascript</title>
+    <meta name="description" content="Using setInterval to drive a core game loop in JavaScript introduces significant performance and architectural risks. While it may appear to be a straightforward solution for triggering recurring logic and render passes, setInterval lacks synchronization">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/dangers-of-set-interval-in-java-script-game-loops">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dangers of setInterval in JavaScript Game Loops - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/dangers-of-set-interval-in-java-script-game-loops" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Using setInterval to drive a core game loop in JavaScript introduces significant performance and architectural risks. While it may appear to be a straightforward solution for triggering recurring logic and render passes, setInterval lacks synchronization" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="dangers-of-setinterval-in-javascript-game-loops">Dangers of
+setInterval in JavaScript Game Loops</h1>
+<p>Using <code>setInterval</code> to drive a core game loop in
+JavaScript introduces significant performance and architectural risks.
+While it may appear to be a straightforward solution for triggering
+recurring logic and render passes, <code>setInterval</code> lacks
+synchronization with the display hardware, drifts over time due to
+JavaScript's single-threaded nature, and behaves unpredictably when
+browser tabs lose focus. This article examines the technical flaws of
+relying on <code>setInterval</code> for real-time game development and
+outlines why modern browser APIs are required for stable
+performance.</p>
+<h3 id="inaccurate-timing-and-drift">Inaccurate Timing and Drift</h3>
+<p>JavaScript operates on a single-threaded event loop. Functions
+scheduled via <code>setInterval</code> are not executed at precise
+hardware-level intervals; instead, they are queued as macro-tasks once
+the timer expires. If the call stack is occupied by heavy calculations,
+physics steps, or garbage collection, the callback is forced to
+wait.</p>
+<p>This behavior causes significant timing drift. If an interval is set
+to trigger every 16.6 milliseconds (targeting 60 frames per second), the
+actual execution intervals will fluctuate wildly depending on CPU load.
+Over time, these delays accumulate, leading to stuttering, inconsistent
+game speeds, and broken physics simulations.</p>
+<h3 id="screen-tearing-and-lack-of-vsync-alignment">Screen Tearing and
+Lack of VSync Alignment</h3>
+<p>Displays refresh at fixed hardware frequencies—commonly 60Hz, 120Hz,
+or 144Hz. <code>setInterval</code> has no awareness of the monitor's
+vertical blanking interval (VSync).</p>
+<p>When a game renders via <code>setInterval</code>, the draw call can
+occur in the middle of a screen refresh cycle. This mismatch causes
+screen tearing, where the top half of the screen displays one frame
+while the bottom displays the next. Even if the interval runs at an
+exact math-based rate, running out of phase with the hardware display
+creates visible micro-stutters and jittery motion.</p>
+<h3 id="tab-inactivity-and-browser-throttling">Tab Inactivity and
+Browser Throttling</h3>
+<p>Modern web browsers optimize resource consumption by throttling
+inactive tabs. When a user switches to another tab or minimizes the
+browser, the browser aggressively reduces the frequency of
+<code>setInterval</code> timers, often clamping them to fire only once
+per second (1000ms) or stopping them entirely.</p>
+<p>If a game relies on <code>setInterval</code> to calculate fixed-step
+physics, returning to the tab can cause severe errors. Depending on how
+delta time is handled, the game might attempt to process hundreds of
+queued frames in a single instant—a condition known as the "spiral of
+death"—freezing the browser tab or causing physics objects to pass
+straight through collision barriers.</p>
+<h3 id="unnecessary-resource-consumption">Unnecessary Resource
+Consumption</h3>
+<p>Conversely, <code>setInterval</code> will attempt to continue running
+even when rendering is physically impossible or unnecessary, such as
+when the canvas is hidden behind another element or the window is
+minimized. This wastes CPU cycles, drains battery life on mobile
+devices, and generates unnecessary heat, degrading overall system
+performance.</p>
+<h3 id="the-modern-alternative-requestanimationframe">The Modern
+Alternative: requestAnimationFrame</h3>
+<p>To build a reliable game loop in JavaScript, developers should avoid
+<code>setInterval</code> and use <code>requestAnimationFrame</code>
+combined with delta timing.</p>
+<p>The <code>requestAnimationFrame</code> API is purpose-built for
+visual updates. It matches the refresh rate of the user's specific
+monitor, aligns execution with VSync to eliminate tearing, and
+automatically suspends execution when the tab is backgrounded. For
+deterministic physics, developers pair
+<code>requestAnimationFrame</code> with a fixed timestep accumulator,
+ensuring gameplay remains completely consistent regardless of
+fluctuating frame rates.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/dangers-of-set-interval-in-java-script-game-loops';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

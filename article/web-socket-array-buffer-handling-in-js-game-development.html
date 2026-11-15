@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket ArrayBuffer Handling in JS Game Development - javascript</title>
+    <meta name="description" content="In real-time JavaScript game development, high-frequency network communication demands minimal latency and low memory overhead. By default, the HTML5 WebSocket API delivers incoming binary messages as Blob objects, which incur asynchronous disk-or-memory">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/web-socket-array-buffer-handling-in-js-game-development">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WebSocket ArrayBuffer Handling in JS Game Development - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/web-socket-array-buffer-handling-in-js-game-development" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In real-time JavaScript game development, high-frequency network communication demands minimal latency and low memory overhead. By default, the HTML5 WebSocket API delivers incoming binary messages as Blob objects, which incur asynchronous disk-or-memory" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="websocket-arraybuffer-handling-in-js-game-development">WebSocket
+ArrayBuffer Handling in JS Game Development</h1>
+<p>In real-time JavaScript game development, high-frequency network
+communication demands minimal latency and low memory overhead. By
+default, the HTML5 WebSocket API delivers incoming binary messages as
+<code>Blob</code> objects, which incur asynchronous disk-or-memory
+overhead unsuitable for fast-paced game loops. Configuring the WebSocket
+connection’s <code>binaryType</code> property to
+<code>arraybuffer</code> provides direct, synchronous access to raw byte
+buffers in memory. This article explains how to configure this property,
+unpack and pack game state payloads efficiently using typed arrays and
+views, and avoid common garbage collection bottlenecks.</p>
+<h3 id="setting-the-binary-type">Setting the Binary Type</h3>
+<p>By default, a browser WebSocket instance sets
+<code>socket.binaryType = "blob"</code>. To process network packets
+synchronously in the main thread or inside a Web Worker, you must switch
+this property to <code>"arraybuffer"</code> immediately after
+instantiating the socket:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> socket <span class="op">=</span> <span class="kw">new</span> <span class="bu">WebSocket</span>(<span class="st">&quot;wss://game.example.com/ws&quot;</span>)<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>socket<span class="op">.</span><span class="at">binaryType</span> <span class="op">=</span> <span class="st">&quot;arraybuffer&quot;</span><span class="op">;</span></span></code></pre></div>
+<p>Once configured, any binary frame received by the client will arrive
+on the <code>onmessage</code> event listener as a standard JavaScript
+<code>ArrayBuffer</code> rather than a <code>Blob</code>.</p>
+<h3 id="receiving-and-parsing-arraybuffer-payloads">Receiving and
+Parsing ArrayBuffer Payloads</h3>
+<p>An <code>ArrayBuffer</code> represents a fixed-length raw binary data
+buffer. Because game loops require low latency, developers wrap the
+incoming buffer in a <code>TypedArray</code> (such as
+<code>Uint8Array</code> or <code>Float32Array</code>) or a
+<code>DataView</code> to read values without waiting for file-reader
+abstractions.</p>
+<p>Using <code>DataView</code> provides explicit control over byte
+offsets and endianness, which is essential when the game server uses a
+different architecture (e.g., C++ or Go backends usually serializing
+little-endian data):</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>socket<span class="op">.</span><span class="at">onmessage</span> <span class="op">=</span> (<span class="bu">event</span>) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="bu">event</span><span class="op">.</span><span class="at">data</span> <span class="kw">instanceof</span> <span class="bu">ArrayBuffer</span>) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> view <span class="op">=</span> <span class="kw">new</span> <span class="bu">DataView</span>(<span class="bu">event</span><span class="op">.</span><span class="at">data</span>)<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Read a 1-byte packet opcode</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> packetId <span class="op">=</span> view<span class="op">.</span><span class="fu">getUint8</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Read subsequent game state data (e.g., entity coordinates)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (packetId <span class="op">===</span> <span class="dv">1</span>) { <span class="co">// 1 = Entity Position Update</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> entityId <span class="op">=</span> view<span class="op">.</span><span class="fu">getUint16</span>(<span class="dv">1</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span> <span class="co">// true = little-endian</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> posX <span class="op">=</span> view<span class="op">.</span><span class="fu">getFloat32</span>(<span class="dv">3</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> posY <span class="op">=</span> view<span class="op">.</span><span class="fu">getFloat32</span>(<span class="dv">7</span><span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">updateEntity</span>(entityId<span class="op">,</span> posX<span class="op">,</span> posY)<span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<h3 id="sending-arraybuffer-payloads-to-the-server">Sending ArrayBuffer
+Payloads to the Server</h3>
+<p>Client-side inputs—such as player movement vectors, attack commands,
+and camera angles—can be packed into small, fixed-size binary buffers.
+This keeps upstream bandwidth significantly lower than JSON or string
+payloads:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Allocate a buffer for: 1-byte opcode + 4-byte float X + 4-byte float Y</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> buffer <span class="op">=</span> <span class="kw">new</span> <span class="bu">ArrayBuffer</span>(<span class="dv">9</span>)<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> view <span class="op">=</span> <span class="kw">new</span> <span class="bu">DataView</span>(buffer)<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>view<span class="op">.</span><span class="fu">setUint8</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">2</span>)<span class="op">;</span>           <span class="co">// Opcode: Player Input</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>view<span class="op">.</span><span class="fu">setFloat32</span>(<span class="dv">1</span><span class="op">,</span> inputX<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>view<span class="op">.</span><span class="fu">setFloat32</span>(<span class="dv">5</span><span class="op">,</span> inputY<span class="op">,</span> <span class="kw">true</span>)<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>socket<span class="op">.</span><span class="fu">send</span>(buffer)<span class="op">;</span></span></code></pre></div>
+<p>You can also pass <code>TypedArray</code> instances (like
+<code>Uint8Array</code>) directly to <code>socket.send()</code>. The
+underlying WebSocket implementation automatically transmits the bytes
+underlying that view.</p>
+<h3 id="performance-and-memory-optimization">Performance and Memory
+Optimization</h3>
+<p>Handling dozens of WebSocket binary messages per second introduces
+potential performance issues if memory allocation is not strictly
+controlled:</p>
+<ul>
+<li><strong>Eliminating Garbage Collection Pauses:</strong> Creating new
+<code>ArrayBuffer</code> and <code>DataView</code> instances every frame
+creates transient objects that trigger JavaScript Garbage Collection
+(GC) pauses, causing frame drops. To prevent this, pre-allocate working
+buffers for outgoing messages and reuse them across frames.</li>
+<li><strong>Direct TypedArray Views:</strong> If a payload consists of
+homogeneous data (for example, a flat stream of 32-bit floats
+representing particle coordinates), wrap the buffer directly in a
+<code>Float32Array</code> instead of querying fields one by one with
+<code>DataView</code>. This maps the raw data directly to memory with
+virtually zero parsing cost.</li>
+<li><strong>Offloading to Web Workers:</strong> For CPU-intensive packet
+decompression or state reconciliation, the WebSocket connection can be
+initialized directly inside a Web Worker. Incoming
+<code>ArrayBuffer</code> instances can be transferred between threads
+using transferable objects without cloning the data.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/web-socket-array-buffer-handling-in-js-game-development';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Game Options State Persistence - javascript</title>
+    <meta name="description" content="This article explores options menu state persistence in JavaScript game development, examining how developers preserve user preferences—such as audio levels, keybindings, and graphical fidelity—across distinct browser sessions. You will learn about the pr">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/java-script-game-options-state-persistence">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="JavaScript Game Options State Persistence - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/java-script-game-options-state-persistence" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores options menu state persistence in JavaScript game development, examining how developers preserve user preferences—such as audio levels, keybindings, and graphical fidelity—across distinct browser sessions. You will learn about the pr" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="javascript-game-options-state-persistence">JavaScript Game
+Options State Persistence</h1>
+<p>This article explores options menu state persistence in JavaScript
+game development, examining how developers preserve user
+preferences—such as audio levels, keybindings, and graphical
+fidelity—across distinct browser sessions. You will learn about the
+primary browser storage APIs used for this purpose, implementation
+patterns for saving and loading settings, and strategies to handle
+schema updates and storage failures seamlessly.</p>
+<h3 id="understanding-options-menu-state-persistence">Understanding
+Options Menu State Persistence</h3>
+<p>In JavaScript web games, options menu state persistence refers to
+saving a player’s configured settings locally on their device so that
+those preferences remain active when they reload the page or return at a
+later date. Without persistence, a player must reconfigure essential
+parameters—such as muting background music, remapping keys, or toggling
+fullscreen—every time the game loads. Maintaining these preferences
+creates a smoother user experience and aligns browser-based titles with
+the expectations of native games.</p>
+<h3 id="core-browser-storage-mechanisms">Core Browser Storage
+Mechanisms</h3>
+<p>JavaScript provides two primary client-side APIs suitable for saving
+options menu data:</p>
+<ol type="1">
+<li><p><strong>LocalStorage</strong>: The most common solution for
+configuration data. <code>localStorage</code> provides a synchronous,
+key-value store that persists until cleared by the user or browser.
+Because settings payloads are typically small (under a few kilobytes),
+the 5MB storage limit and synchronous execution of
+<code>localStorage</code> do not impact game performance when read
+during initialization or written upon menu closing.</p></li>
+<li><p><strong>IndexedDB</strong>: An asynchronous, transactional
+database system. While often considered overkill for basic configuration
+toggles, <code>IndexedDB</code> becomes valuable if your game bundles
+options persistence directly into larger save-game states, cloud-sync
+queues, or custom asset caches.</p></li>
+</ol>
+<h3 id="standard-implementation-pattern">Standard Implementation
+Pattern</h3>
+<p>A resilient configuration system uses a default settings object as a
+baseline, serializing data to and from JSON format.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> DEFAULT_SETTINGS <span class="op">=</span> {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">masterVolume</span><span class="op">:</span> <span class="fl">0.8</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">sfxVolume</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">fullscreen</span><span class="op">:</span> <span class="kw">false</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">keyBindings</span><span class="op">:</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">jump</span><span class="op">:</span> <span class="st">&quot;Space&quot;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">attack</span><span class="op">:</span> <span class="st">&quot;KeyZ&quot;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">version</span><span class="op">:</span> <span class="dv">1</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SettingsManager {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>(storageKey <span class="op">=</span> <span class="st">&quot;game_settings&quot;</span>) {</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">storageKey</span> <span class="op">=</span> storageKey<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">settings</span> <span class="op">=</span> <span class="kw">this</span><span class="op">.</span><span class="fu">loadSettings</span>()<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">loadSettings</span>() {</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> savedData <span class="op">=</span> localStorage<span class="op">.</span><span class="fu">getItem</span>(<span class="kw">this</span><span class="op">.</span><span class="at">storageKey</span>)<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>savedData) <span class="cf">return</span> { <span class="op">...</span>DEFAULT_SETTINGS }<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> parsed <span class="op">=</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">parse</span>(savedData)<span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Merge saved settings with defaults to guarantee all keys exist</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> { <span class="op">...</span>DEFAULT_SETTINGS<span class="op">,</span> <span class="op">...</span>parsed }<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">catch</span> (error) {</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">warn</span>(<span class="st">&quot;Storage access failed, using defaults:&quot;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> { <span class="op">...</span>DEFAULT_SETTINGS }<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">saveSettings</span>(newSettings) {</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">settings</span> <span class="op">=</span> { <span class="op">...</span><span class="kw">this</span><span class="op">.</span><span class="at">settings</span><span class="op">,</span> <span class="op">...</span>newSettings }<span class="op">;</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> {</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>      localStorage<span class="op">.</span><span class="fu">setItem</span>(<span class="kw">this</span><span class="op">.</span><span class="at">storageKey</span><span class="op">,</span> <span class="bu">JSON</span><span class="op">.</span><span class="fu">stringify</span>(<span class="kw">this</span><span class="op">.</span><span class="at">settings</span>))<span class="op">;</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">catch</span> (error) {</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>      <span class="bu">console</span><span class="op">.</span><span class="fu">error</span>(<span class="st">&quot;Failed to save settings to localStorage:&quot;</span><span class="op">,</span> error)<span class="op">;</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="best-practices-for-robust-persistence">Best Practices for Robust
+Persistence</h3>
+<ul>
+<li><strong>Merge with Defaults</strong>: Never assume stored data is
+complete. If you update your game and add a new setting (e.g., an
+accessibility toggle), existing players will not have that key in their
+stored JSON. Merging loaded data over your defaults guarantees that
+undefined properties do not cause runtime errors.</li>
+<li><strong>Schema Versioning</strong>: Include a <code>version</code>
+integer in your stored object. When introducing structural changes—such
+as renaming keybinding identifiers—use this version flag to migrate
+outdated formats to the current schema before applying them.</li>
+<li><strong>Graceful Degradation</strong>: Browser environments
+frequently block access to <code>localStorage</code> (such as inside
+privacy-focused browsers, cross-origin iframes, or restricted private
+browsing modes). Wrap all storage operations in <code>try...catch</code>
+blocks to prevent unhandled exceptions from halting game execution,
+falling back to an in-memory object for the current session.</li>
+<li><strong>Debounce Writes</strong>: Avoid writing to storage on
+continuous events like volume slider adjustments. Instead, apply the
+change immediately in-memory and write to <code>localStorage</code> only
+when the user releases the slider or exits the settings screen.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/java-script-game-options-state-persistence';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

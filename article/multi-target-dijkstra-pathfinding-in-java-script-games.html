@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Target Dijkstra Pathfinding in JavaScript Games - javascript</title>
+    <meta name="description" content="Dijkstra’s algorithm is a fundamental pathfinding technique in grid-based game development, particularly when an entity must evaluate multiple potential destinations at once. This article explains how Dijkstra&#39;s algorithm efficiently locates one or more t">
+    <link rel="canonical" href="https://salivity.github.io/javascript/article/multi-target-dijkstra-pathfinding-in-java-script-games">
+    <link rel="search" type="application/opensearchdescription+xml" title="javascript" href="/javascript/opensearch.xml">
+    <link rel="icon" href="/javascript/favicon.ico">
+    <link rel="stylesheet" href="/javascript/css/style.css">
+    <link media="print" rel="stylesheet" href="/javascript/css/print.css">
+    <script src="/javascript/js/fuse.min.js"></script>
+    <script src="/javascript/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Multi-Target Dijkstra Pathfinding in JavaScript Games - javascript" />
+    <meta property="og:url" content="https://salivity.github.io/javascript/article/multi-target-dijkstra-pathfinding-in-java-script-games" />
+    <meta property="og:image" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/javascript/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Dijkstra’s algorithm is a fundamental pathfinding technique in grid-based game development, particularly when an entity must evaluate multiple potential destinations at once. This article explains how Dijkstra&#39;s algorithm efficiently locates one or more t" />
+    <link rel="manifest" href="/javascript/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/javascript/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>javascript</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/javascript/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="multi-target-dijkstra-pathfinding-in-javascript-games">Multi-Target
+Dijkstra Pathfinding in JavaScript Games</h1>
+<p>Dijkstra’s algorithm is a fundamental pathfinding technique in
+grid-based game development, particularly when an entity must evaluate
+multiple potential destinations at once. This article explains how
+Dijkstra's algorithm efficiently locates one or more targets on a 2D
+grid using JavaScript. You will learn the mechanics of multi-target
+search, how to implement an early-exit strategy for finding the closest
+destination, and how to reconstruct complete paths from the resulting
+data.</p>
+<h2 id="the-advantage-of-dijkstra-for-multiple-targets">The Advantage of
+Dijkstra for Multiple Targets</h2>
+<p>While algorithms like A* rely on heuristics directed toward a single
+target, standard Dijkstra's algorithm explores outward uniformly
+according to movement cost. This property makes Dijkstra exceptionally
+well-suited for multi-target scenarios, such as finding the closest
+health pack, identifying all reachable resource nodes within a movement
+budget, or calculating routes for tower defense creeps.</p>
+<p>Because Dijkstra’s algorithm always expands the node with the lowest
+cumulative cost first, the first target it removes from the open set
+(priority queue) is guaranteed to be the closest reachable target in
+terms of movement cost.</p>
+<h2 id="representing-the-grid-and-targets">Representing the Grid and
+Targets</h2>
+<p>In a 2D JavaScript game, a grid is typically represented as a
+two-dimensional array or a flat 1D array indexed by coordinates
+<code>(x, y)</code>. Each cell contains traversal costs, such as
+<code>1</code> for open grass, <code>3</code> for mud, and
+<code>Infinity</code> for unwalkable obstacles like walls.</p>
+<p>To search for multiple targets, define the target destinations as a
+<code>Set</code> containing serialized coordinate strings (e.g.,
+<code>'x,y'</code>). Using a <code>Set</code> allows <span
+class="math inline">\(O(1)\)</span> constant-time lookups when checking
+whether a newly explored node is one of the desired targets.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> targets <span class="op">=</span> <span class="kw">new</span> <span class="bu">Set</span>([<span class="st">&#39;12,5&#39;</span><span class="op">,</span> <span class="st">&#39;8,14&#39;</span><span class="op">,</span> <span class="st">&#39;20,20&#39;</span>])<span class="op">;</span></span></code></pre></div>
+<h2 id="the-search-loop-mechanics">The Search Loop Mechanics</h2>
+<p>The algorithm maintains three core data structures:</p>
+<ol type="1">
+<li><strong>Distances Map:</strong> Tracks the minimum cost to reach
+each node from the starting position. The starting node has a distance
+of <code>0</code>, and all other nodes default to
+<code>Infinity</code>.</li>
+<li><strong>Previous Node Map:</strong> Stores the parent node for each
+visited coordinate to allow backward path reconstruction.</li>
+<li><strong>Priority Queue:</strong> Stores active frontier nodes
+ordered by their accumulated distance from the origin.</li>
+</ol>
+<h3 id="stopping-conditions-nearest-vs-all-targets">Stopping Conditions:
+Nearest vs. All Targets</h3>
+<p>Depending on your game mechanics, you will implement one of two exit
+strategies:</p>
+<ul>
+<li><strong>Nearest Target (Early Exit):</strong> Stop the algorithm
+immediately when the first node dequeued from the priority queue exists
+inside the target set. This minimizes computation.</li>
+<li><strong>All Targets (Exhaustive Search):</strong> Continue running
+the loop until either the target set is empty (every target has been
+visited) or the priority queue is exhausted (unreachable targets).</li>
+</ul>
+<h3 id="javascript-implementation">JavaScript Implementation</h3>
+<p>Below is a complete implementation of Dijkstra’s algorithm finding
+the nearest target among a set of candidates on a 2D cost grid.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PriorityQueue {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">constructor</span>() {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">elements</span> <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">enqueue</span>(item<span class="op">,</span> priority) {</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">elements</span><span class="op">.</span><span class="fu">push</span>({ item<span class="op">,</span> priority })<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">this</span><span class="op">.</span><span class="at">elements</span><span class="op">.</span><span class="fu">sort</span>((a<span class="op">,</span> b) <span class="kw">=&gt;</span> a<span class="op">.</span><span class="at">priority</span> <span class="op">-</span> b<span class="op">.</span><span class="at">priority</span>)<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dequeue</span>() {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="at">elements</span><span class="op">.</span><span class="fu">shift</span>()<span class="op">.</span><span class="at">item</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">isEmpty</span>() {</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">this</span><span class="op">.</span><span class="at">elements</span><span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">findNearestTarget</span>(grid<span class="op">,</span> start<span class="op">,</span> targetSet) {</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> width <span class="op">=</span> grid[<span class="dv">0</span>]<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> height <span class="op">=</span> grid<span class="op">.</span><span class="at">length</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> distances <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> previous <span class="op">=</span> <span class="kw">new</span> <span class="bu">Map</span>()<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> frontier <span class="op">=</span> <span class="kw">new</span> <span class="fu">PriorityQueue</span>()<span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> startKey <span class="op">=</span> <span class="vs">`</span><span class="sc">${</span>start<span class="op">.</span><span class="at">x</span><span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>start<span class="op">.</span><span class="at">y</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  distances<span class="op">.</span><span class="fu">set</span>(startKey<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  frontier<span class="op">.</span><span class="fu">enqueue</span>(start<span class="op">,</span> <span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> directions <span class="op">=</span> [</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span> }<span class="op">,</span> <span class="co">// North</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }<span class="op">,</span>  <span class="co">// East</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">1</span> }<span class="op">,</span>  <span class="co">// South</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    { <span class="dt">x</span><span class="op">:</span> <span class="op">-</span><span class="dv">1</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="dv">0</span> }  <span class="co">// West</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (<span class="op">!</span>frontier<span class="op">.</span><span class="fu">isEmpty</span>()) {</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> current <span class="op">=</span> frontier<span class="op">.</span><span class="fu">dequeue</span>()<span class="op">;</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentKey <span class="op">=</span> <span class="vs">`</span><span class="sc">${</span>current<span class="op">.</span><span class="at">x</span><span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>current<span class="op">.</span><span class="at">y</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Target reached: Because this was popped from the priority queue,</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>    <span class="co">// it is guaranteed to have the lowest total cost.</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (targetSet<span class="op">.</span><span class="fu">has</span>(currentKey)) {</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="fu">reconstructPath</span>(previous<span class="op">,</span> current)<span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> currentCost <span class="op">=</span> distances<span class="op">.</span><span class="fu">get</span>(currentKey)<span class="op">;</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (<span class="kw">const</span> dir <span class="kw">of</span> directions) {</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> neighbor <span class="op">=</span> { <span class="dt">x</span><span class="op">:</span> current<span class="op">.</span><span class="at">x</span> <span class="op">+</span> dir<span class="op">.</span><span class="at">x</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> current<span class="op">.</span><span class="at">y</span> <span class="op">+</span> dir<span class="op">.</span><span class="at">y</span> }<span class="op">;</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Boundary and obstacle validation</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        neighbor<span class="op">.</span><span class="at">x</span> <span class="op">&lt;</span> <span class="dv">0</span> <span class="op">||</span> neighbor<span class="op">.</span><span class="at">x</span> <span class="op">&gt;=</span> width <span class="op">||</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>        neighbor<span class="op">.</span><span class="at">y</span> <span class="op">&lt;</span> <span class="dv">0</span> <span class="op">||</span> neighbor<span class="op">.</span><span class="at">y</span> <span class="op">&gt;=</span> height</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>      ) {</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> tileCost <span class="op">=</span> grid[neighbor<span class="op">.</span><span class="at">y</span>][neighbor<span class="op">.</span><span class="at">x</span>]<span class="op">;</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (tileCost <span class="op">===</span> <span class="kw">Infinity</span>) <span class="cf">continue</span><span class="op">;</span> <span class="co">// Unwalkable</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> newCost <span class="op">=</span> currentCost <span class="op">+</span> tileCost<span class="op">;</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> neighborKey <span class="op">=</span> <span class="vs">`</span><span class="sc">${</span>neighbor<span class="op">.</span><span class="at">x</span><span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>neighbor<span class="op">.</span><span class="at">y</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="op">!</span>distances<span class="op">.</span><span class="fu">has</span>(neighborKey) <span class="op">||</span> newCost <span class="op">&lt;</span> distances<span class="op">.</span><span class="fu">get</span>(neighborKey)) {</span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>        distances<span class="op">.</span><span class="fu">set</span>(neighborKey<span class="op">,</span> newCost)<span class="op">;</span></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>        previous<span class="op">.</span><span class="fu">set</span>(neighborKey<span class="op">,</span> current)<span class="op">;</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>        frontier<span class="op">.</span><span class="fu">enqueue</span>(neighbor<span class="op">,</span> newCost)<span class="op">;</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">null</span><span class="op">;</span> <span class="co">// No reachable target found</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="reconstructing-the-final-path">Reconstructing the Final
+Path</h2>
+<p>Once a target coordinate is reached, the path is formed by
+backtracking through the <code>previous</code> map from the target to
+the start node, then reversing the array.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">reconstructPath</span>(previous<span class="op">,</span> targetNode) {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> path <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> current <span class="op">=</span> targetNode<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (current) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    path<span class="op">.</span><span class="fu">push</span>(current)<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> key <span class="op">=</span> <span class="vs">`</span><span class="sc">${</span>current<span class="op">.</span><span class="at">x</span><span class="sc">}</span><span class="vs">,</span><span class="sc">${</span>current<span class="op">.</span><span class="at">y</span><span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    current <span class="op">=</span> previous<span class="op">.</span><span class="fu">get</span>(key) <span class="op">||</span> <span class="kw">null</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> path<span class="op">.</span><span class="fu">reverse</span>()<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h2 id="performance-optimization-in-games">Performance Optimization in
+Games</h2>
+<p>When processing pathfinding on large game maps or with frequent
+updates, standard array sorting for the priority queue can impact frame
+rates.</p>
+<ol type="1">
+<li><strong>Binary Min-Heap:</strong> Replace the array-based sorting
+queue with a binary heap implementation to reduce insertion overhead
+from <span class="math inline">\(O(N \log N)\)</span> to <span
+class="math inline">\(O(\log N)\)</span>.</li>
+<li><strong>Reverse Search for Many Actors:</strong> If multiple game
+units share the same target (such as many enemies converging on one
+base), reverse the logic: run Dijkstra <em>once</em> starting at the
+target and moving outward. The resulting distance map allows all units
+anywhere on the map to navigate down the gradient toward the target with
+no additional pathfinding cost.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/javascript/article/multi-target-dijkstra-pathfinding-in-java-script-games';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/javascript/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/javascript/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
